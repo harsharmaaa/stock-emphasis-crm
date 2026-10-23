@@ -129,6 +129,67 @@ export async function requireManagerSession(options?: {
   };
 }
 
+export interface AuthenticatedEmployeeUser {
+  id: string;
+  name: string;
+  email: string;
+  role: Role;
+  teamId: string | null;
+  managerId: string | null;
+}
+
+/**
+ * Server-side security guard for Employee Server Components and Server Actions.
+ * Validates that an active session exists, the account is active in the database,
+ * and belongs to an EMPLOYEE (or ADMIN/MANAGER for staff oversight).
+ */
+export async function requireEmployeeSession(options?: {
+  redirect?: boolean;
+}): Promise<AuthenticatedEmployeeUser> {
+  await connection();
+  const session = await auth();
+
+  const shouldRedirect = options?.redirect ?? true;
+
+  if (!session?.user?.id || !session?.user?.email) {
+    if (!shouldRedirect) {
+      throw new Error("Unauthorized: Active session required.");
+    }
+    redirect("/login");
+  }
+
+  const { id, name, email } = session.user;
+
+  // Real-time database verification: ensure user exists and is active
+  const dbUser = await prisma.user.findUnique({
+    where: { id },
+    select: { id: true, role: true, isActive: true, teamId: true, managerId: true },
+  });
+
+  if (!dbUser || !dbUser.isActive) {
+    if (!shouldRedirect) {
+      throw new Error("Forbidden: Account is inactive or does not exist.");
+    }
+    redirect("/login");
+  }
+
+  if (dbUser.role !== "EMPLOYEE" && dbUser.role !== "ADMIN" && dbUser.role !== "MANAGER") {
+    if (!shouldRedirect) {
+      throw new Error("Forbidden: Employee workspace access required.");
+    }
+    redirect("/login");
+  }
+
+  return {
+    id,
+    name: name ?? "Warehouse Employee",
+    email,
+    role: dbUser.role,
+    teamId: dbUser.teamId,
+    managerId: dbUser.managerId,
+  };
+}
+
 /**
  * Validates safety rules for modifying user status or role:
  * 1. An Admin cannot deactivate their own account.
