@@ -65,6 +65,70 @@ export async function requireAdminSession(options?: {
   };
 }
 
+export interface AuthenticatedManagerUser {
+  id: string;
+  name: string;
+  email: string;
+  role: Role;
+}
+
+/**
+ * Server-side security guard for Manager Server Components and Server Actions.
+ * Validates that an active session exists, the account is active in the database,
+ * and belongs to a MANAGER (or ADMIN for management oversight).
+ */
+export async function requireManagerSession(options?: {
+  redirect?: boolean;
+}): Promise<AuthenticatedManagerUser> {
+  await connection();
+  const session = await auth();
+
+  const shouldRedirect = options?.redirect ?? true;
+
+  if (!session?.user?.id || !session?.user?.email) {
+    if (!shouldRedirect) {
+      throw new Error("Unauthorized: Active session required.");
+    }
+    redirect("/login");
+  }
+
+  const { id, name, email, role } = session.user;
+
+  if (role !== "MANAGER" && role !== "ADMIN") {
+    if (!shouldRedirect) {
+      throw new Error("Forbidden: Manager privileges required.");
+    }
+    redirect("/employee");
+  }
+
+  // Real-time database verification: ensure user exists, is active, and is MANAGER (or ADMIN)
+  const dbUser = await prisma.user.findUnique({
+    where: { id },
+    select: { id: true, role: true, isActive: true },
+  });
+
+  if (!dbUser || !dbUser.isActive) {
+    if (!shouldRedirect) {
+      throw new Error("Forbidden: Account is inactive or does not exist.");
+    }
+    redirect("/login");
+  }
+
+  if (dbUser.role !== "MANAGER" && dbUser.role !== "ADMIN") {
+    if (!shouldRedirect) {
+      throw new Error("Forbidden: Manager privileges required.");
+    }
+    redirect(dbUser.role === "EMPLOYEE" ? "/employee" : "/login");
+  }
+
+  return {
+    id,
+    name: name ?? "Operations Manager",
+    email,
+    role: dbUser.role,
+  };
+}
+
 /**
  * Validates safety rules for modifying user status or role:
  * 1. An Admin cannot deactivate their own account.

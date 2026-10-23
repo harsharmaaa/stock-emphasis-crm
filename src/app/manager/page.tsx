@@ -1,337 +1,401 @@
-import { auth } from "@/auth";
-import { redirect } from "next/navigation";
-import { connection } from "next/server";
-import { prisma } from "@/src/lib/prisma";
-import { SignOutButton } from "@/src/components/shared/sign-out-button";
+import { getManagerOverviewAction } from "@/src/features/manager/actions";
+import Link from "next/link";
 import {
-  Briefcase,
   Layers,
   Users,
-  Boxes,
-  CheckCircle2,
-  ShieldCheck,
+  Briefcase,
   Megaphone,
+  ArrowRight,
+  CheckCircle2,
+  AlertCircle,
+  History,
+  Sparkles,
 } from "lucide-react";
 
 export const instant = false;
 
 export const metadata = {
-  title: "Manager Operations Portal | Stock Emphasis CRM",
-  description: "Operations supervision, team monitoring, and subordinate employee management.",
+  title: "Manager Overview | Stock Emphasis CRM",
+  description: "Operational supervision, team leadership metrics, and staff allocations.",
 };
 
-export default async function ManagerPage() {
-  await connection();
-  const session = await auth();
+export default async function ManagerOverviewPage() {
+  const result = await getManagerOverviewAction();
+  const data = result.data;
 
-  if (!session?.user) {
-    redirect("/login");
+  if (!data) {
+    return (
+      <div className="p-8 text-center bg-rose-500/10 border border-rose-500/20 rounded-2xl text-rose-300">
+        <AlertCircle className="size-8 mx-auto mb-2 text-rose-400" />
+        <h3 className="font-bold">Failed to load operations metrics</h3>
+        <p className="text-xs text-rose-400 mt-1">{result.error}</p>
+      </div>
+    );
   }
 
-  const { user } = session;
+  const {
+    managerName,
+    totalTeamsLed,
+    totalSubordinates,
+    activeSubordinates,
+    inactiveSubordinates,
+    teams,
+    directReports,
+    recentActivities,
+    announcementBanner,
+  } = data;
 
-  if (user.role !== "MANAGER") {
-    redirect(user.role === "ADMIN" ? "/admin" : "/employee");
-  }
-
-  // Real-time database verification: ensure manager account is active
-  const dbUser = await prisma.user.findUnique({
-    where: { id: user.id },
-    select: { id: true, role: true, isActive: true },
-  });
-
-  if (!dbUser || !dbUser.isActive) {
-    redirect("/login");
-  }
-
-  if (dbUser.role !== "MANAGER") {
-    redirect(dbUser.role === "ADMIN" ? "/admin" : "/employee");
-  }
-
-  // Query real-time data for this manager
-  const [ledTeams, directReports, announcementSetting] = await Promise.all([
-    prisma.team.findMany({
-      where: { leaderId: user.id },
-      include: {
-        members: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-            isActive: true,
-            role: true,
-          },
-          orderBy: { name: "asc" },
-        },
-      },
-      orderBy: { name: "asc" },
-    }),
-    prisma.user.findMany({
-      where: { managerId: user.id },
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        isActive: true,
-        role: true,
-        team: { select: { id: true, name: true } },
-      },
-      orderBy: { name: "asc" },
-    }),
-    prisma.systemSetting.findUnique({
-      where: { key: "ANNOUNCEMENT_BANNER" },
-      select: { value: true },
-    }),
-  ]);
-
-  const totalSupervised = directReports.length;
-  const activeReportsCount = directReports.filter((d) => d.isActive).length;
+  const activeRate =
+    totalSubordinates > 0
+      ? Math.round((activeSubordinates / totalSubordinates) * 100)
+      : 0;
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col">
-      {/* Header Bar */}
-      <header className="sticky top-0 z-20 h-16 border-b border-slate-800 bg-slate-900/80 backdrop-blur-xl px-4 sm:px-8 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div className="flex items-center justify-center size-9 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 text-white shadow-md shadow-blue-500/20">
-            <Boxes className="size-5" />
-          </div>
-          <div>
-            <span className="text-[10px] font-bold uppercase tracking-widest text-blue-400">
-              Stock Emphasis CRM
-            </span>
-            <h1 className="text-sm font-bold text-white">Operations Management Portal</h1>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-3">
-          <div className="hidden sm:flex items-center gap-2 px-3 py-1 rounded-full bg-blue-500/10 text-blue-300 border border-blue-500/20 text-xs font-medium">
-            <Briefcase className="size-3.5 text-blue-400" />
-            <span>Manager: {user.name}</span>
-          </div>
-
-          <SignOutButton className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-slate-200 bg-slate-800 hover:bg-slate-750 border border-slate-700/80 rounded-xl transition-all shadow-xs" />
-        </div>
-      </header>
-
-      {/* Main Content Body */}
-      <main className="flex-1 p-4 sm:p-6 lg:p-8 max-w-6xl w-full mx-auto space-y-6">
-        {/* Announcement Banner if configured */}
-        {announcementSetting?.value && (
-          <div className="p-4 rounded-2xl bg-blue-500/10 border border-blue-500/20 flex items-start gap-3 text-xs text-blue-300 backdrop-blur-md">
-            <Megaphone className="size-4 text-blue-400 shrink-0 mt-0.5" />
-            <div>
-              <strong className="font-semibold text-blue-200 block mb-0.5">
-                System Announcement
-              </strong>
-              <span>{announcementSetting.value}</span>
-            </div>
-          </div>
-        )}
-
-        {/* Welcome Banner */}
-        <div className="p-6 sm:p-8 rounded-2xl bg-gradient-to-r from-slate-900 via-blue-950/40 to-slate-900 border border-blue-500/20 shadow-xl flex flex-col md:flex-row md:items-center justify-between gap-4">
+    <div className="space-y-8">
+      {/* Welcome & Announcement Banner */}
+      <div className="space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-6 rounded-3xl bg-gradient-to-r from-blue-950/40 via-indigo-950/30 to-slate-900 border border-blue-500/20 shadow-xl backdrop-blur-md">
           <div className="space-y-1">
-            <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-blue-500/20 text-blue-300 text-xs font-semibold border border-blue-500/30">
-              <ShieldCheck className="size-3.5 text-blue-400" />
-              <span>Operations Supervisor</span>
-            </div>
-            <h2 className="text-2xl font-extrabold text-white tracking-tight">
-              Welcome, {user.name}
-            </h2>
+            <span className="text-[11px] font-bold tracking-widest uppercase text-blue-400 flex items-center gap-1.5">
+              <Sparkles className="size-3.5" />
+              <span>Operations Command</span>
+            </span>
+            <h1 className="text-xl sm:text-2xl font-black text-white tracking-tight">
+              Welcome back, {managerName}
+            </h1>
             <p className="text-xs text-slate-400 max-w-xl">
-              Live oversight of assigned warehouse departments, staff allocation, and reporting subordinates.
+              Supervising {totalTeamsLed} {totalTeamsLed === 1 ? "team" : "teams"} and{" "}
+              {totalSubordinates} direct reporting {totalSubordinates === 1 ? "employee" : "employees"} across active warehouse operations.
             </p>
           </div>
 
-          <div className="flex items-center gap-3 font-mono text-xs text-slate-400 bg-slate-950/60 px-4 py-2.5 rounded-xl border border-slate-800">
-            <span>ID: {user.id}</span>
-            <span>•</span>
-            <span className="text-blue-400 font-bold">MANAGER</span>
-          </div>
-        </div>
-
-        {/* KPI Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <div className="p-5 rounded-2xl bg-slate-900/60 border border-slate-800 backdrop-blur-md shadow-lg flex items-center justify-between">
-            <div>
-              <span className="text-xs font-medium text-slate-400 uppercase tracking-wider block mb-1">
-                Teams Led
-              </span>
-              <span className="text-3xl font-black text-white">{ledTeams.length}</span>
-            </div>
-            <div className="p-3 rounded-xl bg-blue-500/10 text-blue-400 border border-blue-500/20">
-              <Layers className="size-6" />
-            </div>
-          </div>
-
-          <div className="p-5 rounded-2xl bg-slate-900/60 border border-slate-800 backdrop-blur-md shadow-lg flex items-center justify-between">
-            <div>
-              <span className="text-xs font-medium text-slate-400 uppercase tracking-wider block mb-1">
-                Direct Reports
-              </span>
-              <span className="text-3xl font-black text-white">{totalSupervised}</span>
-            </div>
-            <div className="p-3 rounded-xl bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
-              <Users className="size-6" />
-            </div>
-          </div>
-
-          <div className="p-5 rounded-2xl bg-slate-900/60 border border-slate-800 backdrop-blur-md shadow-lg flex items-center justify-between">
-            <div>
-              <span className="text-xs font-medium text-slate-400 uppercase tracking-wider block mb-1">
-                Active Staff
-              </span>
-              <span className="text-3xl font-black text-emerald-400">
-                {activeReportsCount}
-              </span>
-            </div>
-            <div className="p-3 rounded-xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-              <CheckCircle2 className="size-6" />
-            </div>
-          </div>
-        </div>
-
-        {/* Teams Led Section */}
-        <div className="space-y-4">
-          <h3 className="text-base font-bold text-white flex items-center gap-2">
-            <Layers className="size-4.5 text-blue-400" />
-            <span>Assigned Teams & Departments</span>
-          </h3>
-
-          {ledTeams.length === 0 ? (
-            <div className="p-8 rounded-2xl bg-slate-900/40 border border-slate-800 text-center text-slate-400 text-xs">
-              <Layers className="size-8 mx-auto text-slate-600 mb-2" />
-              <p className="font-medium text-slate-300">
-                You are not currently designated as the Lead for any department.
-              </p>
-              <p className="text-slate-500 mt-1">
-                An Administrator can assign you to lead a team in the Admin Teams console.
-              </p>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {ledTeams.map((team) => (
-                <div
-                  key={team.id}
-                  className="p-5 rounded-2xl bg-slate-900/60 border border-slate-800 backdrop-blur-md shadow-lg flex flex-col justify-between"
-                >
-                  <div>
-                    <div className="flex items-center justify-between mb-2">
-                      <h4 className="text-base font-bold text-white">{team.name}</h4>
-                      <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-blue-500/10 text-blue-300 border border-blue-500/20">
-                        {team.members.length} {team.members.length === 1 ? "Staff Member" : "Staff Members"}
-                      </span>
-                    </div>
-
-                    {team.description && (
-                      <p className="text-xs text-slate-400 mb-3">{team.description}</p>
-                    )}
-
-                    <div className="mt-3">
-                      <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 block mb-1.5">
-                        Team Roster
-                      </span>
-                      {team.members.length === 0 ? (
-                        <p className="text-xs text-slate-500 italic">
-                          No employees allocated to this department yet.
-                        </p>
-                      ) : (
-                        <div className="space-y-1 max-h-32 overflow-y-auto">
-                          {team.members.map((m) => (
-                            <div
-                              key={m.id}
-                              className="flex items-center justify-between p-2 rounded-lg bg-slate-950/60 border border-slate-800/80 text-xs"
-                            >
-                              <span className="font-medium text-slate-200">{m.name}</span>
-                              <span
-                                className={`size-1.5 rounded-full ${
-                                  m.isActive ? "bg-emerald-400" : "bg-rose-500"
-                                }`}
-                              />
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-
-        {/* Direct Subordinates Table */}
-        <div className="rounded-2xl bg-slate-900/60 border border-slate-800 backdrop-blur-md shadow-xl overflow-hidden">
-          <div className="p-4 sm:p-5 border-b border-slate-800/80 bg-slate-950/40 flex items-center justify-between">
-            <h3 className="text-sm font-bold text-white flex items-center gap-2">
+          <div className="flex items-center gap-3 self-start sm:self-auto shrink-0">
+            <Link
+              href="/manager/teams"
+              className="inline-flex items-center gap-2 px-3.5 py-2 text-xs font-semibold rounded-xl bg-blue-600 hover:bg-blue-500 text-white transition-all shadow-md shadow-blue-500/20"
+            >
+              <Layers className="size-4" />
+              <span>View Teams</span>
+            </Link>
+            <Link
+              href="/manager/employees"
+              className="inline-flex items-center gap-2 px-3.5 py-2 text-xs font-semibold rounded-xl bg-slate-800 hover:bg-slate-750 text-slate-200 border border-slate-700/80 transition-all"
+            >
               <Users className="size-4 text-blue-400" />
-              <span>Direct Subordinates</span>
-            </h3>
-            <span className="text-xs font-mono text-slate-400">
-              {directReports.length} {directReports.length === 1 ? "Employee" : "Employees"}
+              <span>Staff Roster</span>
+            </Link>
+          </div>
+        </div>
+
+        {announcementBanner && (
+          <div className="p-4 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 flex items-start gap-3 text-xs text-indigo-300 backdrop-blur-md shadow-xs">
+            <Megaphone className="size-4 text-indigo-400 shrink-0 mt-0.5" />
+            <div className="flex-1">
+              <strong className="font-semibold block text-indigo-200 text-xs">
+                Organization Announcement
+              </strong>
+              <p className="mt-0.5 text-indigo-300/90 leading-relaxed font-sans">
+                {announcementBanner}
+              </p>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* KPI Cards Grid */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {/* Teams Led */}
+        <div className="p-5 rounded-2xl bg-slate-900/60 border border-slate-800 backdrop-blur-md shadow-lg flex items-center justify-between">
+          <div>
+            <span className="text-xs font-medium text-slate-400">Teams Led</span>
+            <div className="text-2xl font-black text-white mt-1">
+              {totalTeamsLed}
+            </div>
+            <span className="text-[10px] text-blue-400 font-medium">
+              Lead Supervisor
             </span>
           </div>
-
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse text-xs">
-              <thead>
-                <tr className="border-b border-slate-800/80 bg-slate-950/20 text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                  <th className="py-3 px-4 sm:px-6">Name</th>
-                  <th className="py-3 px-4">Email</th>
-                  <th className="py-3 px-4">Department / Team</th>
-                  <th className="py-3 px-4 text-right sm:px-6">Account Status</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-800/60">
-                {directReports.length === 0 ? (
-                  <tr>
-                    <td colSpan={4} className="py-8 text-center text-slate-500">
-                      No employees are currently assigned to report to you.
-                    </td>
-                  </tr>
-                ) : (
-                  directReports.map((dr) => (
-                    <tr key={dr.id} className="hover:bg-slate-800/20 transition-colors">
-                      <td className="py-3 px-4 sm:px-6 font-semibold text-slate-200">
-                        {dr.name}
-                      </td>
-                      <td className="py-3 px-4 font-mono text-slate-400">
-                        {dr.email}
-                      </td>
-                      <td className="py-3 px-4">
-                        {dr.team ? (
-                          <span className="inline-flex items-center gap-1 text-slate-300">
-                            <Layers className="size-3 text-indigo-400" />
-                            <span>{dr.team.name}</span>
-                          </span>
-                        ) : (
-                          <span className="text-slate-500 italic">Unassigned</span>
-                        )}
-                      </td>
-                      <td className="py-3 px-4 text-right sm:px-6">
-                        <span
-                          className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-medium ${
-                            dr.isActive
-                              ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
-                              : "bg-rose-500/10 text-rose-400 border border-rose-500/20"
-                          }`}
-                        >
-                          <span
-                            className={`size-1.5 rounded-full ${
-                              dr.isActive ? "bg-emerald-400" : "bg-rose-400"
-                            }`}
-                          />
-                          <span>{dr.isActive ? "Active" : "Inactive"}</span>
-                        </span>
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
+          <div className="p-3 rounded-2xl bg-blue-500/10 text-blue-400 border border-blue-500/20">
+            <Layers className="size-6" />
           </div>
         </div>
-      </main>
+
+        {/* Supervised Employees */}
+        <div className="p-5 rounded-2xl bg-slate-900/60 border border-slate-800 backdrop-blur-md shadow-lg flex items-center justify-between">
+          <div>
+            <span className="text-xs font-medium text-slate-400">Direct Staff</span>
+            <div className="text-2xl font-black text-white mt-1">
+              {totalSubordinates}
+            </div>
+            <span className="text-[10px] text-indigo-400 font-medium">
+              Subordinate hierarchy
+            </span>
+          </div>
+          <div className="p-3 rounded-2xl bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
+            <Users className="size-6" />
+          </div>
+        </div>
+
+        {/* Active Ratio */}
+        <div className="p-5 rounded-2xl bg-slate-900/60 border border-slate-800 backdrop-blur-md shadow-lg flex items-center justify-between">
+          <div>
+            <span className="text-xs font-medium text-slate-400">Staff Active Rate</span>
+            <div className="text-2xl font-black text-emerald-400 mt-1">
+              {activeRate}%
+            </div>
+            <span className="text-[10px] text-emerald-400/80 font-medium">
+              {activeSubordinates} of {totalSubordinates} active
+            </span>
+          </div>
+          <div className="p-3 rounded-2xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+            <CheckCircle2 className="size-6" />
+          </div>
+        </div>
+
+        {/* Inactive Subordinates */}
+        <div className="p-5 rounded-2xl bg-slate-900/60 border border-slate-800 backdrop-blur-md shadow-lg flex items-center justify-between">
+          <div>
+            <span className="text-xs font-medium text-slate-400">Suspended / Inactive</span>
+            <div className="text-2xl font-black text-slate-300 mt-1">
+              {inactiveSubordinates}
+            </div>
+            <span className="text-[10px] text-slate-500 font-medium">
+              Requires attention
+            </span>
+          </div>
+          <div className="p-3 rounded-2xl bg-slate-800 text-slate-400 border border-slate-700/80">
+            <Briefcase className="size-6" />
+          </div>
+        </div>
+      </div>
+
+      {/* Main Two-Column Content Grid */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        {/* Left Column (2 spans): Led Teams & Subordinate Staff */}
+        <div className="lg:col-span-2 space-y-6">
+          {/* Teams Led Section */}
+          <div className="rounded-2xl bg-slate-900/60 border border-slate-800 backdrop-blur-md shadow-xl overflow-hidden">
+            <div className="p-4 sm:p-5 border-b border-slate-800/80 bg-slate-950/40 flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className="p-1.5 rounded-lg bg-blue-500/10 text-blue-400 border border-blue-500/20">
+                  <Layers className="size-4" />
+                </div>
+                <div>
+                  <h2 className="text-sm font-bold text-white">Teams Led</h2>
+                  <p className="text-[11px] text-slate-400">
+                    Departments under your supervision
+                  </p>
+                </div>
+              </div>
+
+              <Link
+                href="/manager/teams"
+                className="text-xs font-semibold text-blue-400 hover:text-blue-300 flex items-center gap-1 transition-colors"
+              >
+                <span>View all</span>
+                <ArrowRight className="size-3.5" />
+              </Link>
+            </div>
+
+            {teams.length === 0 ? (
+              <div className="py-12 text-center text-slate-500 text-xs">
+                No department teams currently assigned to you.
+              </div>
+            ) : (
+              <div className="divide-y divide-slate-800/60">
+                {teams.map((t) => (
+                  <div
+                    key={t.id}
+                    className="p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:bg-slate-800/20 transition-colors"
+                  >
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2">
+                        <h3 className="text-sm font-bold text-slate-200">
+                          {t.name}
+                        </h3>
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-blue-500/10 text-blue-300 border border-blue-500/20">
+                          Active Unit
+                        </span>
+                      </div>
+                      {t.description && (
+                        <p className="text-xs text-slate-400 line-clamp-1">
+                          {t.description}
+                        </p>
+                      )}
+                    </div>
+
+                    <div className="flex items-center gap-4 shrink-0">
+                      <div className="text-right">
+                        <span className="text-xs font-bold text-white block">
+                          {t.membersCount} {t.membersCount === 1 ? "Employee" : "Employees"}
+                        </span>
+                        <span className="text-[10px] text-slate-400">
+                          {t.activeMembersCount} active staff
+                        </span>
+                      </div>
+
+                      <Link
+                        href="/manager/teams"
+                        className="p-2 rounded-xl bg-slate-800 text-slate-300 hover:text-white hover:bg-slate-750 transition-colors"
+                        title="Inspect team"
+                      >
+                        <ArrowRight className="size-4" />
+                      </Link>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Direct Subordinates Table Preview */}
+          <div className="rounded-2xl bg-slate-900/60 border border-slate-800 backdrop-blur-md shadow-xl overflow-hidden">
+            <div className="p-4 sm:p-5 border-b border-slate-800/80 bg-slate-950/40 flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className="p-1.5 rounded-lg bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
+                  <Users className="size-4" />
+                </div>
+                <div>
+                  <h2 className="text-sm font-bold text-white">Direct Subordinates</h2>
+                  <p className="text-[11px] text-slate-400">
+                    Employees directly reporting to you
+                  </p>
+                </div>
+              </div>
+
+              <Link
+                href="/manager/employees"
+                className="text-xs font-semibold text-blue-400 hover:text-blue-300 flex items-center gap-1 transition-colors"
+              >
+                <span>Manage staff</span>
+                <ArrowRight className="size-3.5" />
+              </Link>
+            </div>
+
+            {directReports.length === 0 ? (
+              <div className="py-12 text-center text-slate-500 text-xs">
+                No direct reporting employees assigned.
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse text-xs">
+                  <thead>
+                    <tr className="border-b border-slate-800 text-[10px] font-bold uppercase tracking-wider text-slate-500 bg-slate-950/20">
+                      <th className="py-2.5 px-4">Name</th>
+                      <th className="py-2.5 px-4">Contact</th>
+                      <th className="py-2.5 px-4">Department</th>
+                      <th className="py-2.5 px-4 text-right">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-800/60">
+                    {directReports.slice(0, 5).map((dr) => (
+                      <tr
+                        key={dr.id}
+                        className="hover:bg-slate-800/20 transition-colors"
+                      >
+                        <td className="py-3 px-4 font-semibold text-slate-200">
+                          {dr.name}
+                        </td>
+                        <td className="py-3 px-4 font-mono text-slate-400 text-[11px]">
+                          {dr.email}
+                        </td>
+                        <td className="py-3 px-4">
+                          {dr.team ? (
+                            <span className="text-slate-300">{dr.team.name}</span>
+                          ) : (
+                            <span className="text-slate-500 italic">Unassigned</span>
+                          )}
+                        </td>
+                        <td className="py-3 px-4 text-right">
+                          <span
+                            className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium ${
+                              dr.isActive
+                                ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
+                                : "bg-rose-500/10 text-rose-400 border border-rose-500/20"
+                            }`}
+                          >
+                            <span
+                              className={`size-1.5 rounded-full ${
+                                dr.isActive ? "bg-emerald-400" : "bg-rose-400"
+                              }`}
+                            />
+                            <span>{dr.isActive ? "Active" : "Inactive"}</span>
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Right Column (1 span): Scoped Activity Stream & Quick Launch */}
+        <div className="space-y-6">
+          {/* Operations Activity Stream */}
+          <div className="rounded-2xl bg-slate-900/60 border border-slate-800 backdrop-blur-md shadow-xl overflow-hidden">
+            <div className="p-4 sm:p-5 border-b border-slate-800/80 bg-slate-950/40 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <History className="size-4 text-blue-400" />
+                <h2 className="text-sm font-bold text-white">Recent Operations</h2>
+              </div>
+
+              <Link
+                href="/manager/activity"
+                className="text-xs font-semibold text-blue-400 hover:text-blue-300 flex items-center gap-1 transition-colors"
+              >
+                <span>Stream</span>
+                <ArrowRight className="size-3" />
+              </Link>
+            </div>
+
+            {recentActivities.length === 0 ? (
+              <div className="py-12 text-center text-slate-500 text-xs">
+                No recent activity in your units.
+              </div>
+            ) : (
+              <div className="divide-y divide-slate-800/60">
+                {recentActivities.map((act) => (
+                  <div key={act.id} className="p-3.5 space-y-1 hover:bg-slate-800/20 transition-colors">
+                    <div className="flex items-center justify-between text-[10px]">
+                      <span className="font-bold text-blue-400 uppercase tracking-wider">
+                        {act.action}
+                      </span>
+                      <span className="text-slate-500 font-mono">
+                        {new Date(act.createdAt).toLocaleDateString(undefined, {
+                          month: "short",
+                          day: "numeric",
+                        })}
+                      </span>
+                    </div>
+                    {act.details && (
+                      <p className="text-xs text-slate-300 line-clamp-2 leading-relaxed">
+                        {act.details}
+                      </p>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Quick Operations Guide Card */}
+          <div className="p-5 rounded-2xl bg-gradient-to-br from-slate-900 via-blue-950/20 to-slate-900 border border-blue-500/20 shadow-xl space-y-3 text-xs">
+            <div className="flex items-center gap-2 text-blue-400 font-bold uppercase tracking-wider text-[10px]">
+              <Briefcase className="size-4" />
+              <span>Manager Responsibilities</span>
+            </div>
+            <p className="text-slate-400 leading-relaxed">
+              As an Operations Manager, you can monitor staff readiness, supervise team allocation rosters, and review audit trails for your departments.
+            </p>
+            <div className="pt-2 border-t border-slate-800/80 flex items-center justify-between text-[11px] text-slate-400 font-mono">
+              <span>Authority: Supervisory</span>
+              <span className="text-emerald-400">Authenticated</span>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
