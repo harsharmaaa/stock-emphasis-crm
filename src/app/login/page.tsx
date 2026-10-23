@@ -1,5 +1,6 @@
 import { auth } from "@/auth";
 import { redirect } from "next/navigation";
+import { connection } from "next/server";
 import { LoginForm } from "./login-form";
 import {
   Boxes,
@@ -18,6 +19,7 @@ export const metadata = {
 };
 
 export default async function LoginPage() {
+  await connection();
   const session = await auth();
 
   // If user is already authenticated, redirect to their role-specific dashboard
