@@ -65,23 +65,23 @@ export function EmployeeNav({
   };
 
   const navContent = (
-    <div className="flex h-full flex-col justify-between bg-slate-900/95 dark:bg-slate-950/95 backdrop-blur-xl border-r border-slate-800 text-slate-100">
+    <div className="flex h-full flex-col justify-between bg-white/75 dark:bg-[#080d19]/80 backdrop-blur-2xl border-r border-slate-200/70 dark:border-white/[0.08] text-slate-800 dark:text-slate-100 transition-colors duration-200">
       <div>
         {/* Brand Header */}
-        <div className="flex items-center justify-between px-6 py-5 border-b border-slate-800/80">
+        <div className="flex items-center justify-between px-6 py-5 border-b border-slate-200/70 dark:border-white/[0.08]">
           <Link
             href="/employee"
             className="flex items-center gap-3 group focus:outline-none"
             onClick={onClose}
           >
-            <div className="flex items-center justify-center size-9 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-700 text-white shadow-lg shadow-emerald-500/20 group-hover:scale-105 transition-transform">
+            <div className="flex items-center justify-center size-9 rounded-xl bg-gradient-to-br from-cyan-500 via-teal-600 to-indigo-600 text-white shadow-md shadow-cyan-500/20 group-hover:scale-105 transition-transform">
               <Boxes className="size-5" />
             </div>
             <div>
-              <span className="text-[10px] font-bold uppercase tracking-widest text-emerald-400">
+              <span className="text-[10px] font-bold uppercase tracking-widest text-cyan-600 dark:text-cyan-400">
                 Stock Emphasis
               </span>
-              <h2 className="text-sm font-extrabold text-white tracking-tight flex items-center gap-1.5">
+              <h2 className="text-sm font-extrabold text-slate-900 dark:text-white tracking-tight flex items-center gap-1.5">
                 Staff Workspace
               </h2>
             </div>
@@ -90,7 +90,7 @@ export function EmployeeNav({
           {/* Close button for mobile */}
           <button
             onClick={onClose}
-            className="lg:hidden p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+            className="lg:hidden p-1.5 rounded-lg text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
             aria-label="Close menu"
           >
             <X className="size-5" />
@@ -115,25 +115,25 @@ export function EmployeeNav({
                 key={item.href}
                 href={item.href}
                 onClick={onClose}
-                className={`flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-semibold transition-all group ${
+                className={`flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all group ${
                   active
-                    ? "bg-emerald-600/15 text-emerald-300 border border-emerald-500/30 shadow-xs shadow-emerald-500/10"
-                    : "text-slate-400 hover:text-slate-200 hover:bg-slate-800/60 border border-transparent"
+                    ? "bg-cyan-500/15 dark:bg-cyan-500/20 text-cyan-700 dark:text-cyan-200 border border-cyan-500/30 dark:border-cyan-400/40 shadow-xs"
+                    : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 hover:bg-slate-100/70 dark:hover:bg-white/[0.06] border border-transparent"
                 }`}
               >
                 <div className="flex items-center gap-3">
                   <Icon
                     className={`size-4 transition-colors ${
                       active
-                        ? "text-emerald-400"
-                        : "text-slate-400 group-hover:text-slate-200"
+                        ? "text-cyan-600 dark:text-cyan-400"
+                        : "text-slate-500 dark:text-slate-400 group-hover:text-slate-800 dark:group-hover:text-slate-200"
                     }`}
                   />
                   <span>{item.title}</span>
                 </div>
 
                 {item.badge && (
-                  <span className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                  <span className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-cyan-500/20 text-cyan-700 dark:text-cyan-300 border border-cyan-500/30">
                     {item.badge}
                   </span>
                 )}
@@ -144,16 +144,16 @@ export function EmployeeNav({
       </div>
 
       {/* Footer User Info */}
-      <div className="p-4 border-t border-slate-800/80 bg-slate-950/40">
-        <div className="flex items-center gap-3 p-2 rounded-xl bg-slate-900/60 border border-slate-800">
-          <div className="size-8 rounded-lg bg-gradient-to-br from-emerald-500/20 to-teal-500/20 border border-emerald-500/30 text-emerald-300 flex items-center justify-center font-bold text-xs">
+      <div className="p-4 border-t border-slate-200/70 dark:border-white/[0.08] bg-slate-50/60 dark:bg-white/[0.02]">
+        <div className="flex items-center gap-3 p-2.5 rounded-xl bg-white/70 dark:bg-white/[0.04] border border-slate-200/80 dark:border-white/[0.08] shadow-2xs">
+          <div className="size-8 rounded-lg bg-gradient-to-br from-cyan-500/20 to-teal-500/20 border border-cyan-500/30 text-cyan-700 dark:text-cyan-300 flex items-center justify-center font-bold text-xs">
             {employeeName.slice(0, 2).toUpperCase()}
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-xs font-semibold text-slate-200 truncate">
+            <p className="text-xs font-semibold text-slate-800 dark:text-slate-200 truncate">
               {employeeName}
             </p>
-            <p className="text-[10px] text-slate-400 truncate font-mono">
+            <p className="text-[10px] text-slate-500 dark:text-slate-400 truncate font-mono">
               {employeeEmail}
             </p>
           </div>
@@ -164,7 +164,7 @@ export function EmployeeNav({
         </div>
 
         <div className="mt-3 flex items-center justify-between text-[10px] text-slate-400 px-1">
-          <span className="flex items-center gap-1 text-emerald-400">
+          <span className="flex items-center gap-1 text-cyan-600 dark:text-cyan-400">
             <Sparkles className="size-3" />
             <span>Staff Portal</span>
           </span>
@@ -184,7 +184,7 @@ export function EmployeeNav({
       {/* Mobile Drawer Backdrop */}
       {isOpen && (
         <div
-          className="fixed inset-0 z-40 bg-black/60 backdrop-blur-xs lg:hidden transition-opacity"
+          className="fixed inset-0 z-40 bg-slate-950/60 backdrop-blur-sm lg:hidden transition-opacity"
           onClick={onClose}
         />
       )}

@@ -16,7 +16,11 @@ export default async function AdminLayout({
   const admin = await requireAdminSession();
 
   return (
-    <AdminShell adminName={admin.name} adminEmail={admin.email}>
+    <AdminShell
+      adminName={admin.name}
+      adminEmail={admin.email}
+      adminRole={admin.role}
+    >
       {children}
     </AdminShell>
   );

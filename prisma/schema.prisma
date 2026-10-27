@@ -38,6 +38,10 @@ model User {
   // Audit activity relations
   actionsPerformed ActivityLog[] @relation("ActorActivities")
   actionsReceived  ActivityLog[] @relation("TargetUserActivities")
+
+  // Lead relations
+  assignedLeads    Lead[]        @relation("AssignedLeads")
+  createdLeads     Lead[]        @relation("CreatedLeads")
 }
 
 model Team {
@@ -51,6 +55,9 @@ model Team {
 
   // Team Members (Employees)
   members     User[]   @relation("TeamMembers")
+
+  // Team leads
+  leads       Lead[]
 
   // Team audit logs
   activities  ActivityLog[]
@@ -93,4 +100,52 @@ model SystemSetting {
   category    String   @default("GENERAL")
   description String?
   updatedAt   DateTime @updatedAt
+}
+
+model Lead {
+  id              String    @id @default(cuid())
+  name            String
+  mobile          String    @unique
+  email           String?
+  district        String?
+  alternateMobile String?
+  dob             DateTime?
+  aadhar          String?
+  fatherName      String?
+  state           String?
+  city            String?
+  pan             String?
+  gstin           String?
+  occupation      String?
+  segment         String?
+  investment      String?
+  profile         String?
+  leadResponse    String?
+  leadSource      String?   @default("DIRECT")
+  description     String?
+  experience      String?
+  status          String    @default("UNFOLLOWED")
+  callbackDate    DateTime?
+
+  // Allotment / Assignment
+  allotToId       String?
+  allotTo         User?     @relation("AssignedLeads", fields: [allotToId], references: [id], onDelete: SetNull)
+
+  // Associated Team
+  teamId          String?
+  team            Team?     @relation(fields: [teamId], references: [id], onDelete: SetNull)
+
+  // Audit
+  createdById     String?
+  createdBy       User?     @relation("CreatedLeads", fields: [createdById], references: [id], onDelete: SetNull)
+
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@index([mobile])
+  @@index([status])
+  @@index([allotToId])
+  @@index([teamId])
+  @@index([callbackDate])
+  @@index([createdAt])
 }

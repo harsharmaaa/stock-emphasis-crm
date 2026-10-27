@@ -278,7 +278,7 @@ export function UserManagementClient({
               setCreateSuccess(null);
               setIsCreateModalOpen(true);
             }}
-            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-semibold text-white bg-purple-600 hover:bg-purple-500 shadow-lg shadow-purple-600/30 transition-all hover:scale-[1.02] active:scale-[0.98]"
+            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-semibold text-white bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 shadow-md shadow-violet-500/25 transition-all hover:scale-[1.02] active:scale-[0.98] cursor-pointer"
           >
             <UserPlus className="size-4" />
             <span>Create New User</span>
@@ -287,7 +287,7 @@ export function UserManagementClient({
       </div>
 
       {/* Filter and Search Bar */}
-      <div className="p-4 rounded-2xl bg-slate-900/60 border border-slate-800 backdrop-blur-md shadow-lg flex flex-col md:flex-row gap-3 items-center justify-between">
+      <div className="p-4 rounded-2xl bg-white/75 dark:bg-[#0c1322]/70 border border-slate-200/80 dark:border-white/[0.08] backdrop-blur-xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-[0_8px_30px_rgb(0,0,0,0.25)] flex flex-col md:flex-row gap-3 items-center justify-between">
         {/* Search Input */}
         <form onSubmit={handleSearchSubmit} className="relative w-full md:w-80">
           <Search className="size-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
@@ -296,13 +296,13 @@ export function UserManagementClient({
             placeholder="Search by name or email..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-9 pr-4 py-2 rounded-xl bg-slate-950/80 border border-slate-800 text-xs text-slate-200 placeholder:text-slate-400 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 transition-all"
+            className="w-full pl-9 pr-4 py-2 rounded-xl bg-slate-50/70 dark:bg-white/[0.04] border border-slate-200/90 dark:border-white/[0.08] text-xs text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-violet-500 focus:border-violet-500 transition-all"
           />
         </form>
 
         {/* Dropdown Filters */}
         <div className="flex flex-wrap items-center gap-2.5 w-full md:w-auto">
-          <div className="flex items-center gap-1.5 text-xs text-slate-400">
+          <div className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400">
             <Filter className="size-3.5" />
             <span>Filters:</span>
           </div>
@@ -311,7 +311,7 @@ export function UserManagementClient({
           <select
             value={roleFilter}
             onChange={(e) => handleRoleChange(e.target.value as "ALL" | Role)}
-            className="px-3 py-2 rounded-xl bg-slate-950/80 border border-slate-800 text-xs text-slate-200 focus:outline-none focus:border-purple-500 transition-all"
+            className="px-3 py-2 rounded-xl bg-slate-50/70 dark:bg-white/[0.04] border border-slate-200/90 dark:border-white/[0.08] text-xs text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-violet-500 focus:border-violet-500 transition-all"
           >
             <option value="ALL">All Roles</option>
             <option value="ADMIN">Admin Only</option>
@@ -325,7 +325,7 @@ export function UserManagementClient({
             onChange={(e) =>
               handleStatusChange(e.target.value as "ALL" | "ACTIVE" | "INACTIVE")
             }
-            className="px-3 py-2 rounded-xl bg-slate-950/80 border border-slate-800 text-xs text-slate-200 focus:outline-none focus:border-purple-500 transition-all"
+            className="px-3 py-2 rounded-xl bg-slate-50/70 dark:bg-white/[0.04] border border-slate-200/90 dark:border-white/[0.08] text-xs text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-violet-500 focus:border-violet-500 transition-all"
           >
             <option value="ALL">All Status</option>
             <option value="ACTIVE">Active Only</option>
@@ -335,11 +335,11 @@ export function UserManagementClient({
       </div>
 
       {/* Users Table Card */}
-      <div className="rounded-2xl bg-slate-900/60 border border-slate-800 backdrop-blur-md shadow-xl overflow-hidden">
+      <div className="rounded-2xl bg-white/75 dark:bg-[#0c1322]/70 border border-slate-200/80 dark:border-white/[0.08] backdrop-blur-xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-[0_8px_30px_rgb(0,0,0,0.25)] overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead>
-              <tr className="border-b border-slate-800/80 bg-slate-950/40 text-[11px] font-bold uppercase tracking-wider text-slate-400">
+              <tr className="border-b border-slate-200/80 dark:border-white/[0.08] bg-slate-50/60 dark:bg-white/[0.03] text-[11px] font-bold uppercase tracking-wider text-slate-600 dark:text-slate-400">
                 <th className="py-3.5 px-4 sm:px-6">User / Identity</th>
                 <th className="py-3.5 px-4">Role</th>
                 <th className="py-3.5 px-4">Status</th>
@@ -347,11 +347,11 @@ export function UserManagementClient({
                 <th className="py-3.5 px-4 sm:px-6 text-right">Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-800/60 text-xs">
+            <tbody className="divide-y divide-slate-200/70 dark:divide-white/[0.05] text-xs">
               {isPending && users.length === 0 ? (
                 <tr>
                   <td colSpan={5} className="py-12 text-center text-slate-400">
-                    <Loader2 className="size-6 animate-spin mx-auto text-purple-400 mb-2" />
+                    <Loader2 className="size-6 animate-spin mx-auto text-violet-500 mb-2" />
                     <span>Loading directory records...</span>
                   </td>
                 </tr>
@@ -359,7 +359,7 @@ export function UserManagementClient({
                 <tr>
                   <td colSpan={5} className="py-12 text-center text-slate-400">
                     <Users className="size-8 mx-auto text-slate-400 mb-2" />
-                    <p className="font-medium text-slate-300">No matching users found.</p>
+                    <p className="font-medium text-slate-700 dark:text-slate-300">No matching users found.</p>
                     <p className="text-[11px] text-slate-400 mt-1">
                       Try adjusting your search terms or filters.
                     </p>
@@ -372,10 +372,10 @@ export function UserManagementClient({
 
                   const roleBadgeClass =
                     u.role === "ADMIN"
-                      ? "bg-purple-500/15 text-purple-300 border-purple-500/30"
+                      ? "bg-violet-500/15 text-violet-700 dark:text-violet-300 border-violet-500/30"
                       : u.role === "MANAGER"
-                      ? "bg-blue-500/15 text-blue-300 border-blue-500/30"
-                      : "bg-emerald-500/15 text-emerald-300 border-emerald-500/30";
+                      ? "bg-blue-500/15 text-blue-700 dark:text-blue-300 border-blue-500/30"
+                      : "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30";
 
                   const RoleIcon =
                     u.role === "ADMIN"
@@ -387,26 +387,26 @@ export function UserManagementClient({
                   return (
                     <tr
                       key={u.id}
-                      className="hover:bg-slate-800/30 transition-colors group"
+                      className="hover:bg-slate-100/60 dark:hover:bg-white/[0.03] transition-colors group"
                     >
                       {/* Name & Email */}
                       <td className="py-3.5 px-4 sm:px-6">
                         <div className="flex items-center gap-3">
-                          <div className="flex items-center justify-center size-9 rounded-xl bg-slate-800 text-slate-200 font-bold text-xs border border-slate-700/80 shrink-0">
+                          <div className="flex items-center justify-center size-9 rounded-xl bg-gradient-to-br from-violet-500/10 to-indigo-500/10 text-violet-700 dark:text-violet-300 font-bold text-xs border border-violet-500/20 shrink-0">
                             {u.name.slice(0, 2).toUpperCase()}
                           </div>
                           <div className="min-w-0">
                             <div className="flex items-center gap-2">
-                              <span className="font-semibold text-white truncate">
+                              <span className="font-semibold text-slate-900 dark:text-white truncate">
                                 {u.name}
                               </span>
                               {isSelf && (
-                                <span className="px-1.5 py-0.2 rounded text-[10px] font-bold bg-purple-500/20 text-purple-300 border border-purple-500/30">
+                                <span className="px-1.5 py-0.2 rounded text-[10px] font-bold bg-violet-500/20 text-violet-600 dark:text-violet-300 border border-violet-500/30">
                                   YOU
                                 </span>
                               )}
                             </div>
-                            <span className="font-mono text-slate-400 text-[11px] truncate block">
+                            <span className="font-mono text-slate-500 dark:text-slate-400 text-[11px] truncate block">
                               {u.email}
                             </span>
                           </div>
@@ -426,12 +426,12 @@ export function UserManagementClient({
                       {/* Status */}
                       <td className="py-3.5 px-4">
                         {u.isActive ? (
-                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
                             <span className="size-1.5 rounded-full bg-emerald-400 animate-pulse" />
                             Active
                           </span>
                         ) : (
-                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium bg-rose-500/10 text-rose-400 border border-rose-500/20">
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20">
                             <span className="size-1.5 rounded-full bg-rose-400" />
                             Deactivated
                           </span>
@@ -439,7 +439,7 @@ export function UserManagementClient({
                       </td>
 
                       {/* Created At */}
-                      <td className="py-3.5 px-4 hidden md:table-cell text-slate-400 font-mono text-[11px]">
+                      <td className="py-3.5 px-4 hidden md:table-cell text-slate-500 dark:text-slate-400 font-mono text-[11px]">
                         {new Date(u.createdAt).toLocaleDateString(undefined, {
                           year: "numeric",
                           month: "short",
@@ -531,37 +531,37 @@ export function UserManagementClient({
 
       {/* CREATE USER MODAL */}
       {isCreateModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-xs animate-in fade-in duration-200">
-          <div className="w-full max-w-md rounded-2xl bg-slate-900 border border-slate-800 shadow-2xl p-6 sm:p-7 relative text-slate-100">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="w-full max-w-md rounded-2xl bg-white/95 dark:bg-[#0c1220]/95 border border-slate-200/90 dark:border-white/[0.12] backdrop-blur-2xl shadow-2xl p-6 sm:p-7 relative text-slate-900 dark:text-slate-100">
             <button
               onClick={() => setIsCreateModalOpen(false)}
-              className="absolute right-4 top-4 p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+              className="absolute right-4 top-4 p-1.5 rounded-lg text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/[0.06] transition-colors"
             >
               <X className="size-5" />
             </button>
 
             <div className="flex items-center gap-2.5 mb-5">
-              <div className="p-2 rounded-xl bg-purple-500/10 text-purple-400 border border-purple-500/20">
+              <div className="p-2 rounded-xl bg-violet-500/10 text-violet-600 dark:text-violet-400 border border-violet-500/20">
                 <UserPlus className="size-5" />
               </div>
               <div>
-                <h2 className="text-lg font-bold text-white">Create New Account</h2>
-                <p className="text-xs text-slate-400">
+                <h2 className="text-lg font-bold text-slate-900 dark:text-white">Create New Account</h2>
+                <p className="text-xs text-slate-500 dark:text-slate-400">
                   Provision an operator account with a temporary password
                 </p>
               </div>
             </div>
 
             {createError && (
-              <div className="mb-4 flex items-start gap-2.5 p-3 rounded-xl bg-rose-950/30 border border-rose-500/30 text-rose-300 text-xs">
-                <AlertCircle className="size-4 shrink-0 text-rose-400 mt-0.5" />
+              <div className="mb-4 flex items-start gap-2.5 p-3 rounded-xl bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-500/30 text-rose-700 dark:text-rose-300 text-xs">
+                <AlertCircle className="size-4 shrink-0 text-rose-500 dark:text-rose-400 mt-0.5" />
                 <span>{createError}</span>
               </div>
             )}
 
             {createSuccess && (
-              <div className="mb-4 flex items-start gap-2.5 p-3 rounded-xl bg-emerald-950/30 border border-emerald-500/30 text-emerald-300 text-xs">
-                <CheckCircle2 className="size-4 shrink-0 text-emerald-400 mt-0.5" />
+              <div className="mb-4 flex items-start gap-2.5 p-3 rounded-xl bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-500/30 text-emerald-700 dark:text-emerald-300 text-xs">
+                <CheckCircle2 className="size-4 shrink-0 text-emerald-500 dark:text-emerald-400 mt-0.5" />
                 <span>{createSuccess}</span>
               </div>
             )}
@@ -569,7 +569,7 @@ export function UserManagementClient({
             <form onSubmit={handleCreateSubmit} className="space-y-4">
               {/* Full Name */}
               <div>
-                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-300 mb-1">
+                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1">
                   Full Name
                 </label>
                 <input
@@ -578,13 +578,13 @@ export function UserManagementClient({
                   placeholder="e.g. Alex Mercer"
                   value={createName}
                   onChange={(e) => setCreateName(e.target.value)}
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950/80 border border-slate-800 text-sm text-white focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 transition-all"
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50/80 dark:bg-white/[0.04] border border-slate-200/90 dark:border-white/[0.08] text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-violet-500 focus:border-violet-500 transition-all"
                 />
               </div>
 
               {/* Email */}
               <div>
-                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-300 mb-1">
+                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1">
                   Business Email
                 </label>
                 <input
@@ -593,19 +593,19 @@ export function UserManagementClient({
                   placeholder="alex.mercer@stockemphasis.com"
                   value={createEmail}
                   onChange={(e) => setCreateEmail(e.target.value)}
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950/80 border border-slate-800 text-sm text-white focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 transition-all"
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50/80 dark:bg-white/[0.04] border border-slate-200/90 dark:border-white/[0.08] text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-violet-500 focus:border-violet-500 transition-all"
                 />
               </div>
 
               {/* Role Selection */}
               <div>
-                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-300 mb-1">
+                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1">
                   Assigned Role
                 </label>
                 <select
                   value={createRole}
                   onChange={(e) => setCreateRole(e.target.value as Role)}
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950/80 border border-slate-800 text-sm text-white focus:outline-none focus:border-purple-500 transition-all"
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50/80 dark:bg-white/[0.04] border border-slate-200/90 dark:border-white/[0.08] text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-violet-500 focus:border-violet-500 transition-all"
                 >
                   <option value="EMPLOYEE">EMPLOYEE (Warehouse & Stock Ops)</option>
                   <option value="MANAGER">MANAGER (Operations Supervisor)</option>
@@ -616,10 +616,10 @@ export function UserManagementClient({
               {/* Temporary Password */}
               <div>
                 <div className="flex items-center justify-between mb-1">
-                  <label className="block text-xs font-semibold uppercase tracking-wider text-slate-300">
+                  <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300">
                     Initial Password
                   </label>
-                  <span className="text-[11px] text-slate-400">Min. 6 chars</span>
+                  <span className="text-[11px] text-slate-500 dark:text-slate-400">Min. 6 chars</span>
                 </div>
                 <div className="relative">
                   <input
@@ -629,12 +629,12 @@ export function UserManagementClient({
                     placeholder="Enter temporary password"
                     value={createPassword}
                     onChange={(e) => setCreatePassword(e.target.value)}
-                    className="w-full pl-3.5 pr-10 py-2.5 rounded-xl bg-slate-950/80 border border-slate-800 text-sm text-white focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 transition-all"
+                    className="w-full pl-3.5 pr-10 py-2.5 rounded-xl bg-slate-50/80 dark:bg-white/[0.04] border border-slate-200/90 dark:border-white/[0.08] text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-violet-500 focus:border-violet-500 transition-all"
                   />
                   <button
                     type="button"
                     onClick={() => setShowCreatePassword((prev) => !prev)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-200 transition-colors"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors"
                   >
                     {showCreatePassword ? (
                       <EyeOff className="size-4" />
@@ -650,14 +650,14 @@ export function UserManagementClient({
                   type="button"
                   onClick={() => setIsCreateModalOpen(false)}
                   disabled={isSubmittingCreate}
-                  className="px-4 py-2.5 rounded-xl text-xs font-semibold text-slate-300 hover:bg-slate-800 transition-colors"
+                  className="px-4 py-2.5 rounded-xl text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/[0.06] transition-colors"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={isSubmittingCreate}
-                  className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-semibold text-white bg-purple-600 hover:bg-purple-500 shadow-md transition-all disabled:opacity-50"
+                  className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-semibold text-white bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 shadow-md shadow-violet-500/20 transition-all disabled:opacity-50 cursor-pointer"
                 >
                   {isSubmittingCreate ? (
                     <>
@@ -676,30 +676,30 @@ export function UserManagementClient({
 
       {/* EDIT USER MODAL */}
       {editingUser && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-xs animate-in fade-in duration-200">
-          <div className="w-full max-w-md rounded-2xl bg-slate-900 border border-slate-800 shadow-2xl p-6 sm:p-7 relative text-slate-100">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="w-full max-w-md rounded-2xl bg-white/95 dark:bg-[#0c1220]/95 border border-slate-200/90 dark:border-white/[0.12] backdrop-blur-2xl shadow-2xl p-6 sm:p-7 relative text-slate-900 dark:text-slate-100">
             <button
               onClick={() => setEditingUser(null)}
-              className="absolute right-4 top-4 p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+              className="absolute right-4 top-4 p-1.5 rounded-lg text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/[0.06] transition-colors"
             >
               <X className="size-5" />
             </button>
 
             <div className="flex items-center gap-2.5 mb-5">
-              <div className="p-2 rounded-xl bg-purple-500/10 text-purple-400 border border-purple-500/20">
+              <div className="p-2 rounded-xl bg-violet-500/10 text-violet-600 dark:text-violet-400 border border-violet-500/20">
                 <Edit2 className="size-5" />
               </div>
               <div>
-                <h2 className="text-lg font-bold text-white">Edit User Profile</h2>
-                <p className="text-xs text-slate-400">
+                <h2 className="text-lg font-bold text-slate-900 dark:text-white">Edit User Profile</h2>
+                <p className="text-xs text-slate-500 dark:text-slate-400">
                   Update role permissions or reset credentials
                 </p>
               </div>
             </div>
 
             {editError && (
-              <div className="mb-4 flex items-start gap-2.5 p-3 rounded-xl bg-rose-950/30 border border-rose-500/30 text-rose-300 text-xs">
-                <AlertCircle className="size-4 shrink-0 text-rose-400 mt-0.5" />
+              <div className="mb-4 flex items-start gap-2.5 p-3 rounded-xl bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-500/30 text-rose-700 dark:text-rose-300 text-xs">
+                <AlertCircle className="size-4 shrink-0 text-rose-500 dark:text-rose-400 mt-0.5" />
                 <span>{editError}</span>
               </div>
             )}
@@ -707,7 +707,7 @@ export function UserManagementClient({
             <form onSubmit={handleEditSubmit} className="space-y-4">
               {/* Full Name */}
               <div>
-                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-300 mb-1">
+                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1">
                   Full Name
                 </label>
                 <input
@@ -715,13 +715,13 @@ export function UserManagementClient({
                   required
                   value={editName}
                   onChange={(e) => setEditName(e.target.value)}
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950/80 border border-slate-800 text-sm text-white focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 transition-all"
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50/80 dark:bg-white/[0.04] border border-slate-200/90 dark:border-white/[0.08] text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-violet-500 focus:border-violet-500 transition-all"
                 />
               </div>
 
               {/* Email */}
               <div>
-                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-300 mb-1">
+                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1">
                   Business Email
                 </label>
                 <input
@@ -729,18 +729,18 @@ export function UserManagementClient({
                   required
                   value={editEmail}
                   onChange={(e) => setEditEmail(e.target.value)}
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950/80 border border-slate-800 text-sm text-white focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 transition-all"
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50/80 dark:bg-white/[0.04] border border-slate-200/90 dark:border-white/[0.08] text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-violet-500 focus:border-violet-500 transition-all"
                 />
               </div>
 
               {/* Role Selection */}
               <div>
                 <div className="flex items-center justify-between mb-1">
-                  <label className="block text-xs font-semibold uppercase tracking-wider text-slate-300">
+                  <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300">
                     Role Privilege
                   </label>
                   {editingUser.id === currentAdminId && (
-                    <span className="text-[10px] text-purple-400 font-medium">
+                    <span className="text-[10px] text-violet-600 dark:text-violet-400 font-medium">
                       Cannot demote yourself
                     </span>
                   )}
@@ -749,7 +749,7 @@ export function UserManagementClient({
                   value={editRole}
                   disabled={editingUser.id === currentAdminId}
                   onChange={(e) => setEditRole(e.target.value as Role)}
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950/80 border border-slate-800 text-sm text-white focus:outline-none focus:border-purple-500 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50/80 dark:bg-white/[0.04] border border-slate-200/90 dark:border-white/[0.08] text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-violet-500 focus:border-violet-500 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <option value="EMPLOYEE">EMPLOYEE</option>
                   <option value="MANAGER">MANAGER</option>
@@ -760,11 +760,11 @@ export function UserManagementClient({
               {/* Password Reset (Optional) */}
               <div>
                 <div className="flex items-center justify-between mb-1">
-                  <label className="block text-xs font-semibold uppercase tracking-wider text-slate-300 flex items-center gap-1.5">
+                  <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
                     <Lock className="size-3.5 text-slate-400" />
                     <span>Reset Password</span>
                   </label>
-                  <span className="text-[11px] text-slate-400">Leave blank to keep current</span>
+                  <span className="text-[11px] text-slate-500 dark:text-slate-400">Leave blank to keep current</span>
                 </div>
                 <div className="relative">
                   <input
@@ -772,12 +772,12 @@ export function UserManagementClient({
                     placeholder="Enter new password (optional)"
                     value={editPassword}
                     onChange={(e) => setEditPassword(e.target.value)}
-                    className="w-full pl-3.5 pr-10 py-2.5 rounded-xl bg-slate-950/80 border border-slate-800 text-sm text-white focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 transition-all"
+                    className="w-full pl-3.5 pr-10 py-2.5 rounded-xl bg-slate-50/80 dark:bg-white/[0.04] border border-slate-200/90 dark:border-white/[0.08] text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-violet-500 focus:border-violet-500 transition-all"
                   />
                   <button
                     type="button"
                     onClick={() => setShowEditPassword((prev) => !prev)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-200 transition-colors"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors"
                   >
                     {showEditPassword ? (
                       <EyeOff className="size-4" />
@@ -793,14 +793,14 @@ export function UserManagementClient({
                   type="button"
                   onClick={() => setEditingUser(null)}
                   disabled={isSubmittingEdit}
-                  className="px-4 py-2.5 rounded-xl text-xs font-semibold text-slate-300 hover:bg-slate-800 transition-colors"
+                  className="px-4 py-2.5 rounded-xl text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/[0.06] transition-colors"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={isSubmittingEdit}
-                  className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-semibold text-white bg-purple-600 hover:bg-purple-500 shadow-md transition-all disabled:opacity-50"
+                  className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-semibold text-white bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 shadow-md shadow-violet-500/20 transition-all disabled:opacity-50 cursor-pointer"
                 >
                   {isSubmittingEdit ? (
                     <>
