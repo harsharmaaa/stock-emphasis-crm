@@ -270,16 +270,22 @@ export function handleActionError(
   err: unknown,
   defaultMessage: string
 ): { success: false; error: string } {
-  // Never swallow Next.js redirect or not-found exceptions
+  // Never swallow Next.js internal control-flow exceptions (redirects, not-found, prerender postponement)
   if (
     typeof err === "object" &&
     err !== null &&
     "digest" in err &&
-    typeof (err as { digest?: unknown }).digest === "string" &&
-    ((err as { digest: string }).digest.startsWith("NEXT_REDIRECT") ||
-      (err as { digest: string }).digest.startsWith("NEXT_NOT_FOUND"))
+    typeof (err as { digest?: unknown }).digest === "string"
   ) {
-    throw err;
+    const digest = (err as { digest: string }).digest;
+    if (
+      digest.startsWith("NEXT_") ||
+      digest === "HANGING_PROMISE_REJECTION" ||
+      digest === "CLIENT_HOOK_DYNAMIC" ||
+      digest.startsWith("DYNAMIC_SERVER_USAGE")
+    ) {
+      throw err;
+    }
   }
 
   // Preserve intentional authorization / permission error messages

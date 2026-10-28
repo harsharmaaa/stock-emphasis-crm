@@ -10,13 +10,14 @@ import {
   LEAD_SOURCE_OPTIONS,
   LEAD_PROFILE_OPTIONS,
   LEAD_EXPERIENCE_OPTIONS,
+  mapStatusToLifecycleKey,
 } from "@/src/lib/utils";
 import { revalidatePath } from "next/cache";
 import { type Role } from "@prisma/client";
 
 // Safe accessor for Lead model delegate across IDE TypeScript servers
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const leadModel = (prisma as any).lead;
+
+const leadModel = prisma.lead;
 
 export type {
   LeadResponseOption,
@@ -288,6 +289,7 @@ export interface LeadListItem {
   status: string;
   leadResponse: string | null;
   leadSource: string | null;
+  description: string | null;
   callbackDate: string | null;
   allotTo: {
     id: string;
@@ -365,13 +367,13 @@ export async function getLeadsAction(params: GetLeadsParams = {}): Promise<{
       AND: [
         search
           ? {
-              OR: [
-                { name: { contains: search, mode: "insensitive" } },
-                { mobile: { contains: search } },
-                { email: { contains: search, mode: "insensitive" } },
-                { city: { contains: search, mode: "insensitive" } },
-              ],
-            }
+            OR: [
+              { name: { contains: search, mode: "insensitive" } },
+              { mobile: { contains: search } },
+              { email: { contains: search, mode: "insensitive" } },
+              { city: { contains: search, mode: "insensitive" } },
+            ],
+          }
           : {},
         statusFilter ? { status: statusFilter } : {},
       ],
@@ -392,6 +394,7 @@ export async function getLeadsAction(params: GetLeadsParams = {}): Promise<{
           status: true,
           leadResponse: true,
           leadSource: true,
+          description: true,
           callbackDate: true,
           allotTo: {
             select: {
@@ -411,6 +414,7 @@ export async function getLeadsAction(params: GetLeadsParams = {}): Promise<{
 
     const leads: LeadListItem[] = (rawLeads as Array<LeadListItem & { callbackDate: Date | null; createdAt: Date }>).map((l) => ({
       ...l,
+      description: l.description || null,
       callbackDate: l.callbackDate ? l.callbackDate.toISOString() : null,
       createdAt: l.createdAt.toISOString(),
     }));
@@ -473,12 +477,12 @@ export async function getLeadByIdAction(leadId: string): Promise<{
         updatedAt: lead.updatedAt.toISOString(),
         allotTo: lead.allotTo
           ? {
-              id: lead.allotTo.id,
-              name: lead.allotTo.name,
-              email: lead.allotTo.email,
-              role: lead.allotTo.role,
-              teamName: lead.allotTo.team?.name || null,
-            }
+            id: lead.allotTo.id,
+            name: lead.allotTo.name,
+            email: lead.allotTo.email,
+            role: lead.allotTo.role,
+            teamName: lead.allotTo.team?.name || null,
+          }
           : null,
       },
     };
@@ -489,6 +493,21 @@ export async function getLeadByIdAction(leadId: string): Promise<{
 
 export interface UpdateLeadDetailsInput {
   leadId: string;
+  name?: string;
+  mobile?: string;
+  email?: string;
+  alternateMobile?: string;
+  district?: string;
+  dob?: string | null;
+  aadhar?: string;
+  fatherName?: string;
+  state?: string;
+  city?: string;
+  pan?: string;
+  gstin?: string;
+  occupation?: string;
+  segment?: string;
+  investment?: string;
   leadResponse?: string;
   leadSource?: string;
   profile?: string;
@@ -617,6 +636,44 @@ export async function updateLeadDetailsAction(
       }
     }
 
+    // Update basic contact info if supplied
+    if (input.name !== undefined && input.name.trim().length >= 2) {
+      updateData.name = input.name.trim();
+    }
+    if (input.mobile !== undefined && input.mobile.trim().length >= 10) {
+      updateData.mobile = normalizePhoneNumber(input.mobile.trim());
+    }
+    if (input.email !== undefined) {
+      updateData.email = input.email?.trim().toLowerCase() || null;
+    }
+    if (input.alternateMobile !== undefined) {
+      updateData.alternateMobile = input.alternateMobile ? normalizePhoneNumber(input.alternateMobile) : null;
+    }
+
+    // Update address if supplied
+    if (input.state !== undefined) updateData.state = input.state?.trim() || null;
+    if (input.city !== undefined) updateData.city = input.city?.trim() || null;
+    if (input.district !== undefined) updateData.district = input.district?.trim() || null;
+
+    // Update other details if supplied
+    if (input.fatherName !== undefined) updateData.fatherName = input.fatherName?.trim() || null;
+    if (input.dob !== undefined) {
+      if (input.dob) {
+        const d = new Date(input.dob);
+        updateData.dob = !isNaN(d.getTime()) ? d : null;
+      } else {
+        updateData.dob = null;
+      }
+    }
+    if (input.aadhar !== undefined) updateData.aadhar = input.aadhar?.trim() || null;
+    if (input.pan !== undefined) updateData.pan = input.pan?.trim().toUpperCase() || null;
+    if (input.gstin !== undefined) updateData.gstin = input.gstin?.trim().toUpperCase() || null;
+    if (input.occupation !== undefined) updateData.occupation = input.occupation?.trim() || null;
+
+    // Update investment & segment if supplied
+    if (input.investment !== undefined) updateData.investment = input.investment?.trim() || null;
+    if (input.segment !== undefined) updateData.segment = input.segment?.trim() || null;
+
     await leadModel.update({
       where: { id: leadId },
       data: updateData,
@@ -635,6 +692,7 @@ export async function updateLeadDetailsAction(
     });
 
     revalidatePath("/admin/leads");
+    revalidatePath("/admin/search");
     revalidatePath("/admin");
 
     return { success: true };
@@ -728,5 +786,172 @@ export async function searchLeadsGlobalAction(
   } catch (err) {
     const errorRes = handleActionError(err, "Failed to perform global search for leads.");
     return { ...errorRes, leads: [] };
+  }
+}
+
+
+export interface LifecycleSearchLead extends LeadDetailItem {
+  ownerName: string;
+  ownerRole: string;
+  createdByName?: string | null;
+  createdByRole?: string | null;
+}
+
+export interface SearchLifecycleResult {
+  success: boolean;
+  query: string;
+  leads: LifecycleSearchLead[];
+  statusCounts: Record<string, number>;
+  activeStatusKey: string;
+  error?: string;
+}
+
+/**
+ * Searches leads by query (name, phone, email) or targetLeadId,
+ * aggregates counts across all 8 lifecycle headers, and identifies the active status header.
+ */
+export async function searchLeadsWithLifecycleAction(
+  query: string,
+  requestedStatus?: string,
+  targetLeadId?: string
+): Promise<SearchLifecycleResult> {
+  try {
+    await requireAdminSession({ redirect: false });
+
+    const trimmed = query?.trim() || "";
+    const normalizedDigits = normalizePhoneNumber(trimmed);
+
+    let where: Record<string, unknown> = {};
+
+    if (targetLeadId && targetLeadId.trim()) {
+      where = { id: targetLeadId.trim() };
+    } else if (trimmed.length > 0) {
+      const orConditions: Array<Record<string, unknown>> = [
+        { name: { contains: trimmed, mode: "insensitive" } },
+        { email: { contains: trimmed, mode: "insensitive" } },
+        { city: { contains: trimmed, mode: "insensitive" } },
+      ];
+
+      if (normalizedDigits.length >= 2) {
+        orConditions.push({ mobile: { contains: normalizedDigits } });
+      } else {
+        orConditions.push({ mobile: { contains: trimmed } });
+      }
+
+      where = { OR: orConditions };
+    }
+
+    const rawMatches = await prisma.lead.findMany({
+      where,
+      include: {
+        allotTo: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            role: true,
+            team: {
+              select: { name: true },
+            },
+          },
+        },
+      },
+      orderBy: { createdAt: "desc" },
+      take: 100,
+    });
+
+    const statusCounts: Record<string, number> = {
+      UNREAD: 0,
+      READ: 0,
+      FOLLOW_UP: 0,
+      TRIAL: 0,
+      CLIENT: 0,
+      DISPOSED: 0,
+      DELETED: 0,
+      AVAILABLE: 0,
+    };
+
+    const leads: LifecycleSearchLead[] = rawMatches.map((l) => {
+      const lifecycleKey = mapStatusToLifecycleKey(l.status);
+      statusCounts[lifecycleKey] = (statusCounts[lifecycleKey] || 0) + 1;
+
+      return {
+        id: l.id,
+        name: l.name,
+        mobile: l.mobile,
+        email: l.email || null,
+        district: l.district || null,
+        alternateMobile: l.alternateMobile || null,
+        dob: l.dob ? l.dob.toISOString() : null,
+        aadhar: l.aadhar || null,
+        fatherName: l.fatherName || null,
+        state: l.state || null,
+        city: l.city || null,
+        pan: l.pan || null,
+        gstin: l.gstin || null,
+        occupation: l.occupation || null,
+        segment: l.segment || null,
+        investment: l.investment || null,
+        profile: l.profile || null,
+        leadResponse: l.leadResponse || null,
+        leadSource: l.leadSource || null,
+        description: l.description || null,
+        experience: l.experience || null,
+        status: l.status,
+        callbackDate: l.callbackDate ? l.callbackDate.toISOString() : null,
+        allotToId: l.allotToId || null,
+        allotTo: l.allotTo
+          ? {
+              id: l.allotTo.id,
+              name: l.allotTo.name,
+              email: l.allotTo.email,
+              role: l.allotTo.role,
+              teamName: l.allotTo.team?.name || null,
+            }
+          : null,
+        teamId: l.teamId || null,
+        createdAt: l.createdAt.toISOString(),
+        updatedAt: l.updatedAt.toISOString(),
+        ownerName: l.allotTo?.name || "Admin",
+        ownerRole: l.allotTo?.role || "ADMIN",
+      };
+    });
+
+    // Determine active status header
+    let activeKey = "";
+    if (requestedStatus && requestedStatus.toUpperCase() in statusCounts) {
+      activeKey = requestedStatus.toUpperCase();
+    } else if (leads.length > 0) {
+      // Automatically select the status of the first matched lead!
+      activeKey = mapStatusToLifecycleKey(leads[0].status);
+    } else {
+      activeKey = "READ";
+    }
+
+    return {
+      success: true,
+      query: trimmed,
+      leads,
+      statusCounts,
+      activeStatusKey: activeKey,
+    };
+  } catch (err) {
+    const errRes = handleActionError(err, "Failed to search leads across lifecycle headers.");
+    return {
+      ...errRes,
+      query,
+      leads: [],
+      statusCounts: {
+        UNREAD: 0,
+        READ: 0,
+        FOLLOW_UP: 0,
+        TRIAL: 0,
+        CLIENT: 0,
+        DISPOSED: 0,
+        DELETED: 0,
+        AVAILABLE: 0,
+      },
+      activeStatusKey: "READ",
+    };
   }
 }

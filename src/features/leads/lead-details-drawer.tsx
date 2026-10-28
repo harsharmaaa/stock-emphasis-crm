@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useTransition } from "react";
+import Link from "next/link";
 import {
   getLeadByIdAction,
   updateLeadDetailsAction,
@@ -14,6 +15,7 @@ import {
   LEAD_EXPERIENCE_OPTIONS,
 } from "@/src/lib/utils";
 import {
+  Pencil,
   X,
   Phone,
   CreditCard,
@@ -263,6 +265,17 @@ export function LeadDetailsDrawer({
           </div>
 
           <div className="flex items-center gap-2">
+            {leadId && (
+              <Link
+                href={`/admin/search?leadId=${leadId}`}
+                onClick={handleCloseDrawer}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-xl border border-emerald-500/40 bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/50 dark:hover:bg-emerald-900/60 text-emerald-700 dark:text-emerald-300 transition-all shadow-xs"
+                title="Open in Full Legacy Edit View (KYC, Address, Agreements)"
+              >
+                <Pencil className="size-3.5 text-emerald-600 dark:text-emerald-400" />
+                <span>Full Edit View ↗</span>
+              </Link>
+            )}
             {lead && (
               <button
                 type="button"
@@ -361,6 +374,32 @@ export function LeadDetailsDrawer({
                 <div className="p-3.5 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 text-rose-800 dark:text-rose-200 text-xs flex items-center gap-2 animate-in fade-in">
                   <AlertCircle className="size-4 text-rose-600 shrink-0" />
                   <span>{saveError}</span>
+                </div>
+              )}
+
+              {/* Full Edit View Bridge Banner */}
+              {leadId && (
+                <div className="p-3.5 rounded-2xl bg-gradient-to-r from-emerald-50/90 to-teal-50/90 dark:from-emerald-950/30 dark:to-teal-950/30 border border-emerald-200 dark:border-emerald-800/40 flex items-center justify-between gap-3 shadow-xs">
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <div className="p-2 rounded-xl bg-emerald-100 dark:bg-emerald-900/50 text-emerald-700 dark:text-emerald-300 shrink-0">
+                      <Pencil className="size-4" />
+                    </div>
+                    <div className="min-w-0">
+                      <div className="text-xs font-bold text-slate-800 dark:text-slate-100 truncate">
+                        Need Full KYC & Master Editing?
+                      </div>
+                      <div className="text-[11px] text-slate-500 dark:text-slate-400 truncate">
+                        Open Legacy Console for Address, PAN/Aadhar, Investment & Agreements
+                      </div>
+                    </div>
+                  </div>
+                  <Link
+                    href={`/admin/search?leadId=${leadId}`}
+                    onClick={handleCloseDrawer}
+                    className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs transition-colors shrink-0 shadow-xs"
+                  >
+                    <span>Full Edit View ↗</span>
+                  </Link>
                 </div>
               )}
 
