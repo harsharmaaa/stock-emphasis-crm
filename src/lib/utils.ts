@@ -108,3 +108,31 @@ export const LEAD_EXPERIENCE_OPTIONS = [
 ] as const;
 
 export type LeadExperienceOption = (typeof LEAD_EXPERIENCE_OPTIONS)[number];
+
+/**
+ * 8 Lifecycle status headers supported by the search mapping and CRM workflow.
+ */
+export const LIFECYCLE_TABS = [
+  { key: "UNREAD", label: "Unread" },
+  { key: "READ", label: "Read" },
+  { key: "FOLLOW_UP", label: "Followups" },
+  { key: "TRIAL", label: "Trials" },
+  { key: "CLIENT", label: "Clients" },
+  { key: "DISPOSED", label: "Disposed" },
+  { key: "DELETED", label: "Deleted" },
+  { key: "AVAILABLE", label: "Available" },
+] as const;
+
+export type LifecycleTabKey = (typeof LIFECYCLE_TABS)[number]["key"];
+
+export function mapStatusToLifecycleKey(status?: string | null): LifecycleTabKey {
+  const upper = (status || "").toUpperCase().trim();
+  if (upper === "UNREAD") return "UNREAD";
+  if (upper === "READ") return "READ";
+  if (upper === "FOLLOW_UP" || upper === "FOLLOWUPS" || upper === "FOLLOW-UP" || upper === "FOLLOW-UPS") return "FOLLOW_UP";
+  if (upper === "TRIAL" || upper === "TRIALS") return "TRIAL";
+  if (upper === "CLIENT" || upper === "CLIENTS") return "CLIENT";
+  if (upper === "DISPOSED") return "DISPOSED";
+  if (upper === "DELETED") return "DELETED";
+  return "AVAILABLE"; // UNFOLLOWED, AVAILABLE, etc.
+}

@@ -7,9 +7,11 @@ import {
   type LeadListItem,
   type AllotmentUserOption,
   getLeadsAction,
+  updateLeadDetailsAction,
 } from "./actions";
 import { normalizeStatusFilter } from "@/src/lib/utils";
 import { LeadDetailsDrawer } from "./lead-details-drawer";
+import { LeadCallUpdateModal } from "./lead-call-update-modal";
 import {
   Inbox,
   UserPlus,
@@ -21,12 +23,20 @@ import {
   ChevronRight,
   TrendingUp,
   Loader2,
-  ExternalLink,
   Clock,
   User,
   Calendar,
   Tag,
   Hash,
+  Pencil,
+  Plus,
+  Eye,
+  SlidersHorizontal,
+  CircleOff,
+  MessageCircle,
+  X,
+  AlertTriangle,
+  Headphones,
 } from "lucide-react";
 
 interface LeadsListClientProps {
@@ -84,6 +94,11 @@ export function LeadsListClient({
   const [selectedLeadId, setSelectedLeadId] = useState<string | null>(
     initialLeadId || null
   );
+  // Action bar state
+  const [timelineModalLead, setTimelineModalLead] = useState<LeadListItem | null>(null);
+  const [callUpdateModalLead, setCallUpdateModalLead] = useState<LeadListItem | null>(null);
+  const [confirmDisposeLead, setConfirmDisposeLead] = useState<LeadListItem | null>(null);
+  const [isDisposingId, setIsDisposingId] = useState<string | null>(null);
   const [isDrawerOpen, setIsDrawerOpen] = useState<boolean>(!!initialLeadId);
 
   // Sync with searchParams on mount or popstate
@@ -174,6 +189,29 @@ export function LeadsListClient({
     setIsDrawerOpen(false);
     setSelectedLeadId(null);
     updateUrl(currentPage, searchQuery, statusFilter, null);
+  };
+
+  const handleDisposeLead = async (leadToDispose: LeadListItem) => {
+    setIsDisposingId(leadToDispose.id);
+    try {
+      const res = await updateLeadDetailsAction({
+        leadId: leadToDispose.id,
+        status: "DISPOSED",
+      });
+      if (res.success) {
+        setLeads((prev) =>
+          prev.map((l) => (l.id === leadToDispose.id ? { ...l, status: "DISPOSED" } : l))
+        );
+        fetchLeads(currentPage, searchQuery, statusFilter);
+      } else {
+        alert(res.error || "Failed to mark lead as disposed");
+      }
+    } catch {
+      alert("An unexpected error occurred while disposing lead.");
+    } finally {
+      setIsDisposingId(null);
+      setConfirmDisposeLead(null);
+    }
   };
 
   const handleLeadUpdated = () => {
@@ -399,17 +437,178 @@ export function LeadsListClient({
                         )}
                       </div>
 
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleOpenLeadDrawer(lead.id);
-                        }}
-                        className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-semibold rounded-lg bg-slate-100/90 dark:bg-white/[0.06] text-slate-700 dark:text-slate-200 hover:bg-violet-100 hover:text-violet-700 dark:hover:bg-violet-950/60 dark:hover:text-violet-300 border border-slate-250 dark:border-white/[0.08] transition-colors shrink-0"
-                      >
-                        <ExternalLink className="size-3" />
-                        <span>View / Update</span>
-                      </button>
+                      {/* Comprehensive Action Bar (Left to Right: Action, Edit, Call, Dispose, Timeline, WhatsApp) */}
+                      <div className="flex items-center gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
+                        {/* 1. Action Icon (Hover Popup with 3 rows: Trial, Payment, Invoice) */}
+                        <div className="relative group/actions inline-block">
+                          <div className="relative group/tip flex items-center justify-center">
+                            <button
+                              type="button"
+                              title="Actions"
+                              aria-label="Actions"
+                              className="size-7 rounded-lg flex items-center justify-center bg-slate-100/90 hover:bg-purple-100/80 text-slate-600 hover:text-purple-700 dark:bg-white/[0.06] dark:hover:bg-purple-950/50 dark:text-slate-300 dark:hover:text-purple-300 border border-slate-200/90 dark:border-white/[0.08] transition-colors shadow-2xs"
+                            >
+                              <SlidersHorizontal className="size-3.5" />
+                            </button>
+                            <span className="absolute -top-7 hidden group-hover/tip:block text-[10px] font-medium bg-slate-900 text-white px-1.5 py-0.5 rounded shadow pointer-events-none whitespace-nowrap z-50">
+                              Actions
+                            </span>
+                          </div>
+
+                          {/* Hover Popup: 3 Rows with [Add Icon] [View Icon] */}
+                          <div className="absolute right-0 top-full mt-1.5 hidden group-hover/actions:block w-44 rounded-xl bg-white dark:bg-[#0c1220] border border-slate-200/90 dark:border-white/[0.12] shadow-2xl p-2 z-50 animate-in fade-in zoom-in-95 duration-100 space-y-1">
+                            {/* Trial Row */}
+                            <div className="flex items-center justify-between px-2 py-1.5 rounded-lg hover:bg-slate-50 dark:hover:bg-white/[0.04] transition-colors text-xs">
+                              <span className="font-semibold text-slate-700 dark:text-slate-300">Trial</span>
+                              <div className="flex items-center gap-1">
+                                <button type="button" title="Add Trial" className="p-1 rounded-md hover:bg-emerald-50 dark:hover:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 transition-colors">
+                                  <Plus className="size-3" />
+                                </button>
+                                <button type="button" title="View Trial" className="p-1 rounded-md hover:bg-blue-50 dark:hover:bg-blue-950/40 text-blue-600 dark:text-blue-400 transition-colors">
+                                  <Eye className="size-3" />
+                                </button>
+                              </div>
+                            </div>
+
+                            {/* Payment Row */}
+                            <div className="flex items-center justify-between px-2 py-1.5 rounded-lg hover:bg-slate-50 dark:hover:bg-white/[0.04] transition-colors text-xs">
+                              <span className="font-semibold text-slate-700 dark:text-slate-300">Payment</span>
+                              <div className="flex items-center gap-1">
+                                <button type="button" title="Add Payment" className="p-1 rounded-md hover:bg-emerald-50 dark:hover:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 transition-colors">
+                                  <Plus className="size-3" />
+                                </button>
+                                <button type="button" title="View Payment" className="p-1 rounded-md hover:bg-blue-50 dark:hover:bg-blue-950/40 text-blue-600 dark:text-blue-400 transition-colors">
+                                  <Eye className="size-3" />
+                                </button>
+                              </div>
+                            </div>
+
+                            {/* Invoice Row */}
+                            <div className="flex items-center justify-between px-2 py-1.5 rounded-lg hover:bg-slate-50 dark:hover:bg-white/[0.04] transition-colors text-xs">
+                              <span className="font-semibold text-slate-700 dark:text-slate-300">Invoice</span>
+                              <div className="flex items-center gap-1">
+                                <button type="button" title="Add Invoice" className="p-1 rounded-md hover:bg-emerald-50 dark:hover:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 transition-colors">
+                                  <Plus className="size-3" />
+                                </button>
+                                <button type="button" title="View Invoice" className="p-1 rounded-md hover:bg-blue-50 dark:hover:bg-blue-950/40 text-blue-600 dark:text-blue-400 transition-colors">
+                                  <Eye className="size-3" />
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* 1.5. Add Update Icon (Call Response Logger) */}
+                        <div className="relative group/tip flex items-center justify-center">
+                          <button
+                            type="button"
+                            onClick={() => setCallUpdateModalLead(lead)}
+                            title="Add Update"
+                            aria-label="Add Update"
+                            className="size-7 rounded-lg flex items-center justify-center bg-slate-100/90 hover:bg-indigo-100/80 text-slate-600 hover:text-indigo-700 dark:bg-white/[0.06] dark:hover:bg-indigo-950/50 dark:text-slate-300 dark:hover:text-indigo-300 border border-slate-200/90 dark:border-white/[0.08] transition-colors shadow-2xs"
+                          >
+                            <Headphones className="size-3.5" />
+                          </button>
+                          <span className="absolute -top-7 hidden group-hover/tip:block text-[10px] font-medium bg-slate-900 text-white px-1.5 py-0.5 rounded shadow pointer-events-none whitespace-nowrap z-50">
+                            Add Update
+                          </span>
+                        </div>
+
+                        {/* 2. Edit Icon (Triggers working Edit Form logic) */}
+                        <div className="relative group/tip flex items-center justify-center">
+                          <button
+                            type="button"
+                            onClick={() => handleOpenLeadDrawer(lead.id)}
+                            title="Edit"
+                            aria-label="Edit lead"
+                            className="size-7 rounded-lg flex items-center justify-center bg-slate-100/90 hover:bg-emerald-100/80 text-slate-600 hover:text-emerald-700 dark:bg-white/[0.06] dark:hover:bg-emerald-950/50 dark:text-slate-300 dark:hover:text-emerald-300 border border-slate-200/90 dark:border-white/[0.08] transition-colors shadow-2xs"
+                          >
+                            <Pencil className="size-3.5" />
+                          </button>
+                          <span className="absolute -top-7 hidden group-hover/tip:block text-[10px] font-medium bg-slate-900 text-white px-1.5 py-0.5 rounded shadow pointer-events-none whitespace-nowrap z-50">
+                            Edit
+                          </span>
+                        </div>
+
+                        {/* 3. Call Icon (UI-Only Placeholder) */}
+                        <div className="relative group/tip flex items-center justify-center">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (lead.mobile) window.open(`tel:${lead.mobile}`, "_self");
+                            }}
+                            title="Call"
+                            aria-label="Call lead"
+                            className="size-7 rounded-lg flex items-center justify-center bg-slate-100/90 hover:bg-blue-100/80 text-slate-600 hover:text-blue-700 dark:bg-white/[0.06] dark:hover:bg-blue-950/50 dark:text-slate-300 dark:hover:text-blue-300 border border-slate-200/90 dark:border-white/[0.08] transition-colors shadow-2xs"
+                          >
+                            <Phone className="size-3.5" />
+                          </button>
+                          <span className="absolute -top-7 hidden group-hover/tip:block text-[10px] font-medium bg-slate-900 text-white px-1.5 py-0.5 rounded shadow pointer-events-none whitespace-nowrap z-50">
+                            Call
+                          </span>
+                        </div>
+
+                        {/* 4. Dispose Icon (Triggers working lead disposition logic) */}
+                        <div className="relative group/tip flex items-center justify-center">
+                          <button
+                            type="button"
+                            disabled={lead.status === "DISPOSED" || isDisposingId === lead.id}
+                            onClick={() => setConfirmDisposeLead(lead)}
+                            title={lead.status === "DISPOSED" ? "Already Disposed" : "Dispose"}
+                            aria-label="Dispose lead"
+                            className={`size-7 rounded-lg flex items-center justify-center border transition-colors shadow-2xs ${
+                              lead.status === "DISPOSED"
+                                ? "bg-slate-100 text-slate-400 dark:bg-slate-800/60 dark:text-slate-600 border-slate-200 dark:border-slate-800 cursor-not-allowed"
+                                : "bg-slate-100/90 hover:bg-rose-100/80 text-slate-600 hover:text-rose-700 dark:bg-white/[0.06] dark:hover:bg-rose-950/50 dark:text-slate-300 dark:hover:text-rose-300 border-slate-200/90 dark:border-white/[0.08]"
+                            }`}
+                          >
+                            {isDisposingId === lead.id ? (
+                              <Loader2 className="size-3.5 animate-spin text-rose-500" />
+                            ) : (
+                              <CircleOff className="size-3.5" />
+                            )}
+                          </button>
+                          <span className="absolute -top-7 hidden group-hover/tip:block text-[10px] font-medium bg-slate-900 text-white px-1.5 py-0.5 rounded shadow pointer-events-none whitespace-nowrap z-50">
+                            Dispose
+                          </span>
+                        </div>
+
+                        {/* 5. Timeline Icon (Displays Created By & Created At timestamps) */}
+                        <div className="relative group/tip flex items-center justify-center">
+                          <button
+                            type="button"
+                            onClick={() => setTimelineModalLead(lead)}
+                            title="Timeline"
+                            aria-label="View Timeline"
+                            className="size-7 rounded-lg flex items-center justify-center bg-slate-100/90 hover:bg-sky-100/80 text-slate-600 hover:text-sky-700 dark:bg-white/[0.06] dark:hover:bg-sky-950/50 dark:text-slate-300 dark:hover:text-sky-300 border border-slate-200/90 dark:border-white/[0.08] transition-colors shadow-2xs"
+                          >
+                            <Clock className="size-3.5" />
+                          </button>
+                          <span className="absolute -top-7 hidden group-hover/tip:block text-[10px] font-medium bg-slate-900 text-white px-1.5 py-0.5 rounded shadow pointer-events-none whitespace-nowrap z-50">
+                            Timeline
+                          </span>
+                        </div>
+
+                        {/* 6. WhatsApp Icon (UI-Only Placeholder) */}
+                        <div className="relative group/tip flex items-center justify-center">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (lead.mobile) {
+                                window.open(`https://wa.me/91${lead.mobile.replace(/\D/g, "")}`, "_blank");
+                              }
+                            }}
+                            title="WhatsApp"
+                            aria-label="WhatsApp"
+                            className="size-7 rounded-lg flex items-center justify-center bg-slate-100/90 hover:bg-emerald-100/80 text-emerald-600 hover:text-emerald-700 dark:bg-white/[0.06] dark:hover:bg-emerald-950/50 dark:text-emerald-400 dark:hover:text-emerald-300 border border-slate-200/90 dark:border-white/[0.08] transition-colors shadow-2xs"
+                          >
+                            <MessageCircle className="size-3.5" />
+                          </button>
+                          <span className="absolute -top-7 hidden group-hover/tip:block text-[10px] font-medium bg-slate-900 text-white px-1.5 py-0.5 rounded shadow pointer-events-none whitespace-nowrap z-50">
+                            WhatsApp
+                          </span>
+                        </div>
+                      </div>
                     </div>
 
                     <div className="space-y-1.5 text-xs">
@@ -422,8 +621,15 @@ export function LeadsListClient({
 
                       <div className="flex items-center gap-2">
                         <span className="text-slate-400 text-[11px] w-20 shrink-0">Comment:</span>
-                        <span className="text-slate-500 dark:text-slate-400 italic text-[11px]">
-                          —
+                        <span
+                          className={`text-[11px] truncate max-w-[280px] ${
+                            lead.description
+                              ? "text-slate-700 dark:text-slate-300 font-medium not-italic"
+                              : "text-slate-400 italic"
+                          }`}
+                          title={lead.description || undefined}
+                        >
+                          {lead.description || "—"}
                         </span>
                       </div>
 
@@ -513,6 +719,151 @@ export function LeadsListClient({
           </div>
         )}
       </div>
+
+      {/* Timeline Modal (ONLY Created By and Created At timestamps) */}
+      {timelineModalLead && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={(e) => e.stopPropagation()}>
+          <div
+            className="fixed inset-0 bg-slate-950/60 backdrop-blur-sm transition-opacity"
+            onClick={() => setTimelineModalLead(null)}
+          />
+
+          <div className="relative w-full max-w-md rounded-2xl bg-white dark:bg-[#0c1220] border border-slate-200/90 dark:border-white/[0.12] shadow-2xl overflow-hidden z-10 animate-in fade-in zoom-in-95 duration-150">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between px-5 py-4 border-b border-slate-200/80 dark:border-white/[0.08] bg-slate-50/70 dark:bg-white/[0.02]">
+              <div className="flex items-center gap-2">
+                <div className="p-2 rounded-xl bg-sky-100 dark:bg-sky-950/40 text-[#0284c7] dark:text-sky-400">
+                  <Clock className="size-4" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-slate-900 dark:text-white">
+                    Lead Timeline
+                  </h3>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                    {timelineModalLead.name} ({timelineModalLead.mobile})
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setTimelineModalLead(null)}
+                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                aria-label="Close timeline modal"
+              >
+                <X className="size-4" />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-5 space-y-4">
+              <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-900/40 border border-slate-200/70 dark:border-white/[0.06] space-y-3">
+                {/* Created By */}
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-400">
+                    <User className="size-3.5 text-slate-400" />
+                    <span className="font-medium">Created By:</span>
+                  </div>
+                  <div className="text-right">
+                    <span className="text-xs font-bold text-slate-900 dark:text-white">
+                      {timelineModalLead.allotTo?.name || "Admin"}
+                    </span>
+                    <span className="ml-1.5 px-1.5 py-0.2 rounded text-[10px] font-semibold uppercase bg-blue-100 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300">
+                      {timelineModalLead.allotTo?.role || "ADMIN"}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Created At Timestamp */}
+                <div className="flex items-start justify-between gap-2 pt-2 border-t border-slate-200/60 dark:border-white/[0.04]">
+                  <div className="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-400">
+                    <Clock className="size-3.5 text-slate-400" />
+                    <span className="font-medium">Created At:</span>
+                  </div>
+                  <div className="text-right">
+                    <span className="text-xs font-mono font-semibold text-slate-900 dark:text-white">
+                      {new Date(timelineModalLead.createdAt).toLocaleString("en-GB", {
+                        day: "2-digit",
+                        month: "short",
+                        year: "numeric",
+                        hour: "2-digit",
+                        minute: "2-digit",
+                        hour12: true,
+                      })}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="px-5 py-3 border-t border-slate-200/80 dark:border-white/[0.08] bg-slate-50/50 dark:bg-white/[0.02] flex justify-end">
+              <button
+                type="button"
+                onClick={() => setTimelineModalLead(null)}
+                className="px-4 py-1.5 rounded-lg bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-semibold transition-colors"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Confirmation Modal for Lead Disposition */}
+      {confirmDisposeLead && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={(e) => e.stopPropagation()}>
+          <div
+            className="fixed inset-0 bg-slate-950/60 backdrop-blur-sm transition-opacity"
+            onClick={() => setConfirmDisposeLead(null)}
+          />
+
+          <div className="relative w-full max-w-md rounded-2xl bg-white dark:bg-[#0c1220] border border-slate-200/90 dark:border-white/[0.12] shadow-2xl p-5 z-10 animate-in fade-in zoom-in-95 duration-150 space-y-4">
+            <div className="flex items-start gap-3">
+              <div className="p-2 rounded-xl bg-rose-100 dark:bg-rose-950/50 text-rose-600 dark:text-rose-400 shrink-0">
+                <AlertTriangle className="size-5" />
+              </div>
+              <div className="space-y-1">
+                <h3 className="text-sm font-bold text-slate-900 dark:text-white">
+                  Mark Lead as Disposed?
+                </h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+                  Are you sure you want to dispose <strong className="text-slate-800 dark:text-slate-200">{confirmDisposeLead.name}</strong> ({confirmDisposeLead.mobile})? This updates the lead status to DISPOSED and refreshes your pipeline.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-200/80 dark:border-white/[0.08]">
+              <button
+                type="button"
+                disabled={isDisposingId !== null}
+                onClick={() => setConfirmDisposeLead(null)}
+                className="px-4 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-xs font-semibold transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={isDisposingId !== null}
+                onClick={() => handleDisposeLead(confirmDisposeLead)}
+                className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-700 text-white text-xs font-semibold transition-colors shadow-xs disabled:opacity-50"
+              >
+                {isDisposingId ? <Loader2 className="size-3.5 animate-spin" /> : <CircleOff className="size-3.5" />}
+                <span>Confirm Dispose</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Call Response (Add Update) Modal */}
+      <LeadCallUpdateModal
+        lead={callUpdateModalLead}
+        isOpen={!!callUpdateModalLead}
+        onClose={() => setCallUpdateModalLead(null)}
+        onSuccess={() => {
+          fetchLeads(currentPage, searchQuery, statusFilter);
+        }}
+      />
 
       {/* Details & Update Drawer */}
       <LeadDetailsDrawer

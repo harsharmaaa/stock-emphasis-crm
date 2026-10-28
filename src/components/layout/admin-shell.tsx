@@ -2,13 +2,9 @@
 
 import { useState, useEffect, useRef, useSyncExternalStore, Suspense } from "react";
 import Link from "next/link";
-import { useRouter, usePathname } from "next/navigation";
+import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { signOut } from "next-auth/react";
 import { AdminNav } from "./admin-nav";
-import {
-  searchLeadsGlobalAction,
-  type GlobalLeadSearchResult,
-} from "@/src/features/leads/actions";
 import {
   Menu,
   ShieldCheck,
@@ -19,15 +15,12 @@ import {
   Moon,
   LogOut,
   Loader2,
-  ChevronDown,
-  LayoutDashboard,
+  ChevronDown,
   Users,
   Layers,
   History,
-  Settings,
-  Sparkles,
-  X,
-  Phone,
+  Settings,
+  X,
   Smile,
   EyeOff,
   Eye,
@@ -46,52 +39,6 @@ interface AdminShellProps {
   adminRole?: string;
   children: React.ReactNode;
 }
-
-interface QuickNavDestination {
-  title: string;
-  description: string;
-  href: string;
-  category: string;
-  icon: React.ComponentType<{ className?: string }>;
-}
-
-const SEARCH_MODULES: QuickNavDestination[] = [
-  {
-    title: "Overview",
-    description: "System KPI metrics, active user ratios, and governance overview",
-    href: "/admin",
-    category: "Governance",
-    icon: LayoutDashboard,
-  },
-  {
-    title: "User Management",
-    description: "Provision employee accounts, edit roles, toggle status, reset passwords",
-    href: "/admin/users",
-    category: "Governance",
-    icon: Users,
-  },
-  {
-    title: "Teams",
-    description: "Manage sales and operations teams, assign team leads and members",
-    href: "/admin/teams",
-    category: "Governance",
-    icon: Layers,
-  },
-  {
-    title: "Activity Log",
-    description: "Audit trail of administrator actions, password resets, and changes",
-    href: "/admin/activity",
-    category: "Governance",
-    icon: History,
-  },
-  {
-    title: "Settings",
-    description: "System preferences, company details, and announcement broadcast",
-    href: "/admin/settings",
-    category: "Governance",
-    icon: Settings,
-  },
-];
 
 // External store for theme management to prevent hydration mismatches and cascading re-renders
 const themeListeners = new Set<() => void>();
@@ -174,12 +121,18 @@ export function AdminShell({
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
 
-  // Search modal state
-  const [isSearchOpen, setIsSearchOpen] = useState(false);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [leadResults, setLeadResults] = useState<GlobalLeadSearchResult[]>([]);
-  const [isSearchingLeads, setIsSearchingLeads] = useState(false);
-  const searchInputRef = useRef<HTMLInputElement>(null);
+  // Header search input state (Image 2 & 3)
+  const searchParams = useSearchParams();
+  const [headerSearch, setHeaderSearch] = useState("");
+  const headerSearchInputRef = useRef<HTMLInputElement>(null);
+
+  // Sync header search input with URL query param ?q= without cascading render effect
+  const urlQuery = searchParams?.get("q") ?? "";
+  const [prevUrlQuery, setPrevUrlQuery] = useState(urlQuery);
+  if (urlQuery !== prevUrlQuery) {
+    setPrevUrlQuery(urlQuery);
+    setHeaderSearch(urlQuery);
+  }
 
   // Sign out loading state
   const [isSigningOut, setIsSigningOut] = useState(false);
@@ -211,62 +164,25 @@ export function AdminShell({
     themeListeners.forEach((listener) => listener());
   };
 
-  // Close search and clear query
-  const handleCloseSearch = () => {
-    setIsSearchOpen(false);
-    setSearchQuery("");
-    setLeadResults([]);
-    setIsSearchingLeads(false);
-  };
-
-  // Debounced search for leads against live database
-  useEffect(() => {
-    const trimmed = searchQuery.trim();
-    if (trimmed.length < 2) {
-      return;
+  // Submits search directly to Status Header Mapping page (Image 2)
+  const handleHeaderSearchSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const trimmed = headerSearch.trim();
+    if (trimmed) {
+      router.push(`/admin/search?q=${encodeURIComponent(trimmed)}`);
+    } else {
+      router.push("/admin/search");
     }
-
-    let cancelled = false;
-    const timer = setTimeout(async () => {
-      setIsSearchingLeads(true);
-      try {
-        const res = await searchLeadsGlobalAction(trimmed);
-        if (!cancelled && res.success && res.leads) {
-          setLeadResults(res.leads);
-        } else if (!cancelled) {
-          setLeadResults([]);
-        }
-      } catch {
-        if (!cancelled) setLeadResults([]);
-      } finally {
-        if (!cancelled) setIsSearchingLeads(false);
-      }
-    }, 250);
-
-    return () => {
-      cancelled = true;
-      clearTimeout(timer);
-    };
-  }, [searchQuery]);
+  };
 
   // Global Ctrl+K / Cmd+K listener for search
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") {
         e.preventDefault();
-        setIsSearchOpen((prev) => {
-          if (prev) {
-            setSearchQuery("");
-            setLeadResults([]);
-            return false;
-          }
-          return true;
-        });
+        headerSearchInputRef.current?.focus();
+        headerSearchInputRef.current?.select();
       } else if (e.key === "Escape") {
-        setIsSearchOpen(false);
-        setSearchQuery("");
-        setLeadResults([]);
-        setIsSearchingLeads(false);
         setIsNotificationsOpen(false);
         setIsProfileOpen(false);
       }
@@ -275,14 +191,6 @@ export function AdminShell({
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, []);
-
-  // Auto-focus search input when search modal opens
-  useEffect(() => {
-    if (isSearchOpen) {
-      const timer = setTimeout(() => searchInputRef.current?.focus(), 50);
-      return () => clearTimeout(timer);
-    }
-  }, [isSearchOpen]);
 
   // Click outside listener for dropdowns
   useEffect(() => {
@@ -299,22 +207,6 @@ export function AdminShell({
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
-
-  // Filter modules for global search preview
-  const filteredSearchModules = SEARCH_MODULES.filter((mod) => {
-    if (!searchQuery.trim()) return true;
-    const q = searchQuery.toLowerCase().trim();
-    return (
-      mod.title.toLowerCase().includes(q) ||
-      mod.description.toLowerCase().includes(q) ||
-      mod.category.toLowerCase().includes(q)
-    );
-  });
-
-  const handleNavigateFromSearch = (href: string) => {
-    handleCloseSearch();
-    router.push(href);
-  };
 
   const handleSignOut = async () => {
     setIsSigningOut(true);
@@ -358,18 +250,22 @@ export function AdminShell({
               <Menu className="size-4.5" />
             </button>
 
-            {/* Search Pill Capsule */}
-            <div className="relative shrink-0">
-              <button
-                type="button"
-                onClick={() => setIsSearchOpen(true)}
-                className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-100/70 dark:bg-white/[0.05] border border-slate-200/80 dark:border-white/[0.08] text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-white/80 dark:hover:bg-white/[0.09] hover:border-violet-500/40 w-28 sm:w-44 text-xs transition-all shadow-xs group focus:outline-none focus:ring-1 focus:ring-violet-500"
-                aria-label="Search leads and modules"
-              >
-                <Search className="size-3.5 text-slate-400 group-hover:text-violet-500 dark:group-hover:text-violet-400 transition-colors shrink-0" />
-                <span className="truncate">Search</span>
-              </button>
-            </div>
+            {/* Header Global Search Input (Matches Image 2 & 3) */}
+            <form onSubmit={handleHeaderSearchSubmit} className="relative shrink-0">
+              <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-100/70 dark:bg-white/[0.05] border border-slate-200/80 dark:border-white/[0.08] text-slate-500 dark:text-slate-400 focus-within:border-blue-500 focus-within:ring-1 focus-within:ring-blue-500 w-36 sm:w-56 text-xs transition-all shadow-xs">
+                <button type="submit" className="focus:outline-none cursor-pointer" aria-label="Submit search">
+                  <Search className="size-3.5 text-slate-400 hover:text-blue-500 transition-colors shrink-0" />
+                </button>
+                <input
+                  ref={headerSearchInputRef}
+                  type="text"
+                  value={headerSearch}
+                  onChange={(e) => setHeaderSearch(e.target.value)}
+                  placeholder="Search..."
+                  className="w-full bg-transparent text-xs text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none"
+                />
+              </div>
+            </form>
 
             {/* Leads Dropdown Button + Hover Mega Menu (Image 1 & 2) */}
             <div
@@ -808,177 +704,6 @@ export function AdminShell({
             </div>
           </div>
         </header>
-
-        {/* Global Search Dialog Modal */}
-        {isSearchOpen && (
-          <div className="fixed inset-0 z-50 flex items-start justify-center pt-16 sm:pt-24 px-4">
-            <div
-              className="fixed inset-0 bg-slate-950/60 backdrop-blur-sm transition-opacity"
-              onClick={handleCloseSearch}
-            />
-
-            <div className="relative w-full max-w-2xl rounded-2xl bg-white/95 dark:bg-[#0c1220]/95 backdrop-blur-2xl border border-slate-200/90 dark:border-white/[0.12] shadow-2xl overflow-hidden z-10 animate-in fade-in zoom-in-95 duration-150">
-              {/* Search input header */}
-              <div className="flex items-center gap-3 px-4 py-3.5 border-b border-slate-200/80 dark:border-white/[0.08] bg-slate-50/70 dark:bg-white/[0.03]">
-                <Search className="size-4.5 text-violet-600 dark:text-violet-400 shrink-0" />
-                <input
-                  ref={searchInputRef}
-                  type="text"
-                  value={searchQuery}
-                  onChange={(e) => {
-                    const val = e.target.value;
-                    setSearchQuery(val);
-                    if (val.trim().length < 2) {
-                      setLeadResults([]);
-                      setIsSearchingLeads(false);
-                    }
-                  }}
-                  placeholder="Search phone number (e.g. 9876543210), lead name, or modules..."
-                  className="flex-1 bg-transparent text-sm text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none"
-                />
-                {searchQuery && (
-                  <button
-                    onClick={() => {
-                      setSearchQuery("");
-                      setLeadResults([]);
-                    }}
-                    className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1"
-                    aria-label="Clear search input"
-                  >
-                    <X className="size-4" />
-                  </button>
-                )}
-                <kbd className="hidden sm:inline-block px-1.5 py-0.5 text-[10px] font-mono font-semibold rounded bg-slate-200 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border border-slate-300 dark:border-slate-700">
-                  ESC
-                </kbd>
-              </div>
-
-              {/* Informational search guidance note */}
-              <div className="px-4 py-2.5 bg-purple-50/60 dark:bg-purple-950/30 border-b border-purple-100 dark:border-purple-900/40 text-[11px] text-purple-800 dark:text-purple-300 flex items-center justify-between gap-2">
-                <div className="flex items-center gap-2 min-w-0">
-                  <Sparkles className="size-3.5 text-purple-600 dark:text-purple-400 shrink-0" />
-                  <span className="truncate">
-                    <strong>Global Lead Search:</strong> Live phone and name lookup active. Click any lead to open drawer.
-                  </span>
-                </div>
-                {isSearchingLeads && (
-                  <span className="flex items-center gap-1 text-[10px] text-purple-700 dark:text-purple-300 shrink-0">
-                    <Loader2 className="size-3 animate-spin" />
-                    Searching DB...
-                  </span>
-                )}
-              </div>
-
-              {/* Search Results List */}
-              <div className="max-h-96 overflow-y-auto p-2 space-y-3">
-                {/* 1. Leads by Phone / Name Results */}
-                {leadResults.length > 0 && (
-                  <div>
-                    <div className="px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-purple-600 dark:text-purple-400 flex items-center justify-between">
-                      <span>Prospect Leads ({leadResults.length})</span>
-                      <span className="text-[10px] font-normal text-slate-400">Database matches</span>
-                    </div>
-                    <div className="space-y-1 mt-1">
-                      {leadResults.map((lead) => (
-                        <button
-                          key={lead.id}
-                          type="button"
-                          onClick={() => handleNavigateFromSearch(`/admin/leads?leadId=${lead.id}`)}
-                          className="w-full flex items-center justify-between p-2.5 rounded-xl text-left hover:bg-purple-50/70 dark:hover:bg-purple-950/30 border border-transparent hover:border-purple-200 dark:hover:border-purple-800/40 transition-colors group"
-                        >
-                          <div className="flex items-center gap-3 min-w-0">
-                            <div className="size-8 rounded-lg bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300 flex items-center justify-center shrink-0">
-                              <Phone className="size-4" />
-                            </div>
-                            <div className="min-w-0">
-                              <div className="flex items-center gap-2 flex-wrap">
-                                <span className="text-xs font-bold text-slate-900 dark:text-white truncate">
-                                  {lead.name}
-                                </span>
-                                <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-slate-150 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
-                                  {lead.mobile}
-                                </span>
-                                <span className="text-[9px] font-semibold px-1.5 py-0.2 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
-                                  {lead.status}
-                                </span>
-                                {lead.leadResponse && (
-                                  <span className="text-[9px] font-semibold px-1.5 py-0.2 rounded bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800">
-                                    {lead.leadResponse}
-                                  </span>
-                                )}
-                              </div>
-                              <div className="text-[11px] text-slate-500 dark:text-slate-400 flex items-center gap-2 mt-0.5 truncate">
-                                {lead.assignedToName ? (
-                                  <span className="text-indigo-600 dark:text-indigo-400 font-medium">
-                                    Allotted: {lead.assignedToName} ({lead.assignedToRole})
-                                  </span>
-                                ) : (
-                                  <span className="text-amber-600 dark:text-amber-400">
-                                    Unassigned
-                                  </span>
-                                )}
-                                {lead.segment && <span>• {lead.segment}</span>}
-                              </div>
-                            </div>
-                          </div>
-                          <span className="text-[10px] uppercase font-semibold text-purple-600 dark:text-purple-400 group-hover:underline shrink-0 ml-2">
-                            View Lead →
-                          </span>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* 2. Governance Modules */}
-                {filteredSearchModules.length > 0 && (
-                  <div>
-                    <div className="px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                      Governance Modules
-                    </div>
-                    <div className="space-y-1 mt-1">
-                      {filteredSearchModules.map((item) => {
-                        const Icon = item.icon;
-                        return (
-                          <button
-                            key={item.href}
-                            type="button"
-                            onClick={() => handleNavigateFromSearch(item.href)}
-                            className="w-full flex items-center justify-between p-2.5 rounded-xl text-left hover:bg-slate-100 dark:hover:bg-slate-800/80 transition-colors group"
-                          >
-                            <div className="flex items-center gap-3 min-w-0">
-                              <div className="p-2 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 group-hover:bg-purple-500/20 group-hover:text-purple-600 dark:group-hover:text-purple-300 transition-colors">
-                                <Icon className="size-4" />
-                              </div>
-                              <div className="min-w-0">
-                                <div className="text-xs font-bold text-slate-900 dark:text-white truncate">
-                                  {item.title}
-                                </div>
-                                <div className="text-[11px] text-slate-500 dark:text-slate-400 truncate">
-                                  {item.description}
-                                </div>
-                              </div>
-                            </div>
-                            <span className="text-[10px] uppercase font-semibold text-slate-400 group-hover:text-purple-500 shrink-0 ml-2">
-                              Jump →
-                            </span>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
-
-                {/* Empty State */}
-                {leadResults.length === 0 && !isSearchingLeads && filteredSearchModules.length === 0 && (
-                  <div className="py-8 text-center text-xs text-slate-400">
-                    No matching leads or modules found for &quot;{searchQuery}&quot;.
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-        )}
 
         {/* Page Content Body */}
         <main className="flex-1 p-4 sm:p-6 lg:p-8 max-w-7xl w-full mx-auto">
