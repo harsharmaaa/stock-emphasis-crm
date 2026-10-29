@@ -377,7 +377,7 @@ export function AdminShell({
                     {/* Column 3 (with divider) */}
                     <div className="col-span-4 border-l border-slate-200 dark:border-slate-800 pl-3 space-y-1">
                       <Link
-                        href="/admin/leads?action=upload"
+                        href="/admin/leads/upload"
                         onClick={() => setIsLeadsMenuOpen(false)}
                         className="flex items-center gap-3 p-2 rounded-xl text-slate-700 dark:text-slate-300 hover:bg-slate-100/80 dark:hover:bg-slate-800 transition-colors group"
                       >
@@ -387,7 +387,7 @@ export function AdminShell({
                         <span className="text-xs font-medium truncate">Upload Leads</span>
                       </Link>
                       <Link
-                        href="/admin/leads?action=allot"
+                        href="/admin/leads/allot"
                         onClick={() => setIsLeadsMenuOpen(false)}
                         className="flex items-center gap-3 p-2 rounded-xl text-slate-700 dark:text-slate-300 hover:bg-slate-100/80 dark:hover:bg-slate-800 transition-colors group"
                       >

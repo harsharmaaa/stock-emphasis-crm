@@ -340,7 +340,7 @@ export function LeadsListClient({
                         <Calendar className="size-3 text-slate-400" />
                         <span>
                           Created:{" "}
-                          {new Date(lead.createdAt).toLocaleDateString(undefined, {
+                          {new Date(lead.createdAt).toLocaleDateString('en-GB', {
                             day: "2-digit",
                             month: "short",
                             year: "numeric",
@@ -639,7 +639,7 @@ export function LeadsListClient({
                           <div className="flex items-center gap-1 text-[11px] text-amber-600 dark:text-amber-400 font-medium">
                             <Clock className="size-3 shrink-0" />
                             <span>
-                              {new Date(lead.callbackDate).toLocaleDateString(undefined, {
+                              {new Date(lead.callbackDate).toLocaleDateString('en-GB', {
                                 month: "short",
                                 day: "numeric",
                                 hour: "2-digit",
