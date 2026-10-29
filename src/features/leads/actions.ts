@@ -955,3 +955,508 @@ export async function searchLeadsWithLifecycleAction(
     };
   }
 }
+
+
+export interface SourceCountsBreakdown {
+  total: Record<string, number>;
+  unassigned: Record<string, number>;
+}
+
+/**
+ * Returns breakdown of leads grouped by their leadSource (both Total and Unassigned).
+ */
+export async function getDetailedLeadSourceCountsAction(): Promise<{
+  success: boolean;
+  counts?: SourceCountsBreakdown;
+  error?: string;
+}> {
+  try {
+    await requireAdminSession({ redirect: false });
+
+    // Single parallel execution using groupBy without fetching individual lead records
+    const [totalGrouped, unassignedGrouped] = await Promise.all([
+      prisma.lead.groupBy({
+        by: ["leadSource"],
+        _count: { _all: true },
+      }),
+      prisma.lead.groupBy({
+        by: ["leadSource"],
+        where: { allotToId: null },
+        _count: { _all: true },
+      }),
+    ]);
+
+    const total: Record<string, number> = {};
+    for (const g of totalGrouped) {
+      if (g.leadSource) {
+        total[g.leadSource] = g._count._all;
+      }
+    }
+
+    const unassigned: Record<string, number> = {};
+    for (const g of unassignedGrouped) {
+      if (g.leadSource) {
+        unassigned[g.leadSource] = g._count._all;
+      }
+    }
+
+    return { success: true, counts: { total, unassigned } };
+  } catch (err) {
+    return handleActionError(err, "Failed to retrieve detailed lead source breakdown.");
+  }
+}
+
+/**
+ * Returns total count of leads grouped by their leadSource, with optional unassigned-only filter and profile filter.
+ */
+export async function getLeadSourceCountsAction(params?: {
+  unassignedOnly?: boolean;
+  profile?: string;
+}): Promise<{
+  success: boolean;
+  counts?: Record<string, number>;
+  error?: string;
+}> {
+  try {
+    await requireAdminSession({ redirect: false });
+
+    const whereClause: { allotToId?: null; profile?: string } = {};
+    if (params?.unassignedOnly) {
+      whereClause.allotToId = null;
+    }
+    if (params?.profile) {
+      (whereClause as Record<string, unknown>).profile = {
+        equals: params.profile,
+        mode: "insensitive",
+      };
+    }
+
+    const grouped = await prisma.lead.groupBy({
+      by: ["leadSource"],
+      where: whereClause,
+      _count: { _all: true },
+    });
+
+    const counts: Record<string, number> = {};
+    for (const g of grouped) {
+      if (g.leadSource) {
+        counts[g.leadSource] = g._count._all;
+      }
+    }
+
+    return { success: true, counts };
+  } catch (err) {
+    return handleActionError(err, "Failed to retrieve lead source breakdown.");
+  }
+}
+
+export interface CsvLeadRow {
+  mobile: string;
+  name: string;
+  email?: string;
+  city?: string;
+  address?: string;
+  segment?: string;
+  occupation?: string;
+  investment?: string;
+  profile?: string;
+}
+
+export interface UploadLeadsBatchInput {
+  leadSource: string;
+  allotToId?: string;
+  leads: CsvLeadRow[];
+}
+
+export interface UploadLeadsResult {
+  success: boolean;
+  totalProcessed: number;
+  importedCount: number;
+  skippedDuplicates: string[];
+  invalidRows: { rowNumber: number; reason: string }[];
+  error?: string;
+}
+
+/**
+ * Bulk imports parsed leads with duplicate skipping and address-in-description convention.
+ */
+export async function uploadLeadsBatchAction(
+  input: UploadLeadsBatchInput
+): Promise<UploadLeadsResult> {
+  try {
+    const admin = await requireAdminSession({ redirect: false });
+
+    const rawSource = input.leadSource?.trim() || "Fresh Lead";
+    if (rawSource && !(LEAD_SOURCE_OPTIONS as readonly string[]).includes(rawSource)) {
+      return {
+        success: false,
+        totalProcessed: 0,
+        importedCount: 0,
+        skippedDuplicates: [],
+        invalidRows: [],
+        error: "Please select a valid Lead Source option.",
+      };
+    }
+
+    // Validate employee if allotted
+    let allottedUserId: string | null = null;
+    let allottedTeamId: string | null = null;
+    if (input.allotToId && input.allotToId.trim()) {
+      const targetUser = await prisma.user.findFirst({
+        where: { id: input.allotToId.trim(), isActive: true },
+        select: { id: true, teamId: true },
+      });
+      if (!targetUser) {
+        return {
+          success: false,
+          totalProcessed: 0,
+          importedCount: 0,
+          skippedDuplicates: [],
+          invalidRows: [],
+          error: "The chosen employee is either inactive or does not exist.",
+        };
+      }
+      allottedUserId = targetUser.id;
+      allottedTeamId = targetUser.teamId;
+    }
+
+    const skippedDuplicates: string[] = [];
+    const invalidRows: { rowNumber: number; reason: string }[] = [];
+    const seenMobilesInBatch = new Set<string>();
+
+    interface ValidatedLeadItem {
+      name: string;
+      mobile: string;
+      email?: string | null;
+      city?: string | null;
+      district?: string | null;
+      occupation?: string | null;
+      segment?: string | null;
+      investment?: string | null;
+      description?: string | null;
+      profile?: string | null;
+    }
+
+    const candidatesToInsert: ValidatedLeadItem[] = [];
+
+    // Step 1: In-memory normalization and within-batch deduplication
+    input.leads.forEach((row, idx) => {
+      const rowNum = idx + 1;
+      const rawName = (row.name || "").trim();
+      const rawMobile = (row.mobile || "").trim();
+
+      // If name is not provided or empty, fallback gracefully to lead's source or mobile identifier
+      const finalName = rawName || "Lead";
+
+      const normalizedMobile = normalizePhoneNumber(rawMobile);
+      if (!normalizedMobile || normalizedMobile.length < 10) {
+        invalidRows.push({ rowNumber: rowNum, reason: `Invalid mobile number: '${rawMobile}'` });
+        return;
+      }
+
+      if (seenMobilesInBatch.has(normalizedMobile)) {
+        skippedDuplicates.push(normalizedMobile);
+        return;
+      }
+      seenMobilesInBatch.add(normalizedMobile);
+
+      // Address convention: store formatted address into description if provided
+      const cleanAddress = (row.address || "").trim();
+      const description = cleanAddress ? `[Address: ${cleanAddress}]` : null;
+
+      const cleanProfile = (row.profile || "").trim() || null;
+
+      candidatesToInsert.push({
+        name: finalName,
+        mobile: normalizedMobile,
+        email: (row.email || "").trim() || null,
+        city: (row.city || "").trim() || null,
+        district: null,
+        occupation: (row.occupation || "").trim() || null,
+        segment: (row.segment || "").trim() || null,
+        investment: (row.investment || "").trim() || null,
+        description,
+        profile: cleanProfile,
+      });
+    });
+
+    if (candidatesToInsert.length === 0) {
+      return {
+        success: true,
+        totalProcessed: input.leads.length,
+        importedCount: 0,
+        skippedDuplicates,
+        invalidRows,
+      };
+    }
+
+    // Step 2: Query database for existing mobile numbers in one batch
+    const candidateMobiles = candidatesToInsert.map((c) => c.mobile);
+    const existingLeads = await prisma.lead.findMany({
+      where: { mobile: { in: candidateMobiles } },
+      select: { mobile: true },
+    });
+
+    const existingMobilesSet = new Set(existingLeads.map((l) => l.mobile));
+
+    const finalLeadsToInsert = candidatesToInsert.filter((candidate) => {
+      if (existingMobilesSet.has(candidate.mobile)) {
+        skippedDuplicates.push(candidate.mobile);
+        return false;
+      }
+      return true;
+    });
+
+    // Step 3: Insert non-duplicates safely in transaction
+    if (finalLeadsToInsert.length > 0) {
+      await prisma.$transaction(
+        finalLeadsToInsert.map((item) =>
+          prisma.lead.create({
+            data: {
+              name: item.name,
+              mobile: item.mobile,
+              email: item.email,
+              city: item.city,
+              district: item.district,
+              occupation: item.occupation,
+              segment: item.segment,
+              investment: item.investment,
+              description: item.description,
+              profile: item.profile,
+              leadSource: rawSource,
+              leadResponse: "Interested",
+              status: "UNFOLLOWED",
+              allotToId: allottedUserId,
+              teamId: allottedTeamId,
+              createdById: admin.id,
+            },
+          })
+        )
+      );
+
+      // Log bulk upload activity
+      await logActivity({
+        actorId: admin.id,
+        action: "LEAD_IMPORT",
+        details: `Bulk imported ${finalLeadsToInsert.length} leads under source '${rawSource}'${
+          allottedUserId ? ` (assigned to user ID: ${allottedUserId})` : ""
+        }. Skipped ${skippedDuplicates.length} duplicates.`,
+      });
+    }
+
+    revalidatePath("/admin/leads");
+
+    return {
+      success: true,
+      totalProcessed: input.leads.length,
+      importedCount: finalLeadsToInsert.length,
+      skippedDuplicates,
+      invalidRows,
+    };
+  } catch (err) {
+    const errRes = handleActionError(err, "Bulk lead import failed. Please verify CSV formatting.");
+    return {
+      success: false,
+      totalProcessed: input.leads.length,
+      importedCount: 0,
+      skippedDuplicates: [],
+      invalidRows: [],
+      error: errRes.error,
+    };
+  }
+}
+
+
+export interface AllotLeadsInput {
+  leadSource: string;
+  profile?: string; // Optional customer profile filter (Trader, Investor, etc.)
+  employeeId: string;
+  numberOfLeads: number;
+}
+
+export interface AllotLeadsResult {
+  success: boolean;
+  source: string;
+  profile?: string | null;
+  employeeName: string;
+  requestedCount: number;
+  allottedCount: number;
+  shortageCount: number;
+  error?: string;
+}
+
+/**
+ * Allots unassigned leads of a specified source to an active employee in oldest-first order (createdAt asc).
+ * Safe against race conditions and preserves existing lead status.
+ */
+export async function allotLeadsAction(
+  input: AllotLeadsInput
+): Promise<AllotLeadsResult> {
+  try {
+    const admin = await requireAdminSession({ redirect: false });
+
+    const rawSource = input.leadSource?.trim();
+    if (!rawSource || !(LEAD_SOURCE_OPTIONS as readonly string[]).includes(rawSource)) {
+      return {
+        success: false,
+        source: rawSource || "",
+        employeeName: "",
+        requestedCount: input.numberOfLeads || 0,
+        allottedCount: 0,
+        shortageCount: 0,
+        error: "Please select a valid Lead Source.",
+      };
+    }
+
+    const requestedCount = Math.floor(input.numberOfLeads);
+    if (isNaN(requestedCount) || requestedCount <= 0) {
+      return {
+        success: false,
+        source: rawSource,
+        employeeName: "",
+        requestedCount: 0,
+        allottedCount: 0,
+        shortageCount: 0,
+        error: "Please enter a valid positive number of leads to allot.",
+      };
+    }
+
+    // Validate customer profile if specified
+    const rawProfile = input.profile?.trim() || "";
+    if (rawProfile && !(LEAD_PROFILE_OPTIONS as readonly string[]).includes(rawProfile)) {
+      return {
+        success: false,
+        source: rawSource,
+        profile: rawProfile,
+        employeeName: "",
+        requestedCount,
+        allottedCount: 0,
+        shortageCount: 0,
+        error: "Please select a valid Profile option or leave it as All Profiles.",
+      };
+    }
+
+    const targetEmployeeId = input.employeeId?.trim();
+    if (!targetEmployeeId) {
+      return {
+        success: false,
+        source: rawSource,
+        profile: rawProfile || null,
+        employeeName: "",
+        requestedCount,
+        allottedCount: 0,
+        shortageCount: 0,
+        error: "Please select an employee to receive the leads.",
+      };
+    }
+
+    const targetUser = await prisma.user.findFirst({
+      where: { id: targetEmployeeId, isActive: true },
+      select: { id: true, name: true, role: true, teamId: true },
+    });
+
+    if (!targetUser) {
+      return {
+        success: false,
+        source: rawSource,
+        employeeName: "",
+        requestedCount,
+        allottedCount: 0,
+        shortageCount: 0,
+        error: "Selected employee is not active or does not exist.",
+      };
+    }
+
+    // Atomic transaction: Find oldest unassigned leads & allot them
+    const result = await prisma.$transaction(async (tx) => {
+      // 1. Fetch oldest eligible leads matching source and optional profile with allotToId: null
+      const leadFilter: {
+        leadSource: string;
+        allotToId: null;
+        profile?: string;
+      } = {
+        leadSource: rawSource,
+        allotToId: null,
+      };
+
+      if (rawProfile) {
+        // Match case-insensitively or exact match
+        (leadFilter as Record<string, unknown>).profile = {
+          equals: rawProfile,
+          mode: "insensitive",
+        };
+      }
+
+      const eligibleLeads = await tx.lead.findMany({
+        where: leadFilter,
+        orderBy: {
+          createdAt: "asc",
+        },
+        take: requestedCount,
+        select: {
+          id: true,
+        },
+      });
+
+      if (eligibleLeads.length === 0) {
+        return { allottedCount: 0, shortageCount: requestedCount };
+      }
+
+      const eligibleIds = eligibleLeads.map((l) => l.id);
+
+      // 2. Perform conditional bulk update ensuring allotToId is still null
+      const updated = await tx.lead.updateMany({
+        where: {
+          id: { in: eligibleIds },
+          allotToId: null, // Guard against concurrent allotment
+        },
+        data: {
+          allotToId: targetUser.id,
+          teamId: targetUser.teamId,
+          // Preserves existing lead status (does not touch status)
+        },
+      });
+
+      const actualAllotted = updated.count;
+      const shortage = Math.max(0, requestedCount - actualAllotted);
+
+      return {
+        allottedCount: actualAllotted,
+        shortageCount: shortage,
+      };
+    });
+
+    // Record activity log
+    await logActivity({
+      actorId: admin.id,
+      action: "LEAD_ALLOTMENT",
+      details: `Allotted ${result.allottedCount} lead(s) of source '${rawSource}'${rawProfile ? ` (Profile: ${rawProfile})` : ""} to ${targetUser.name} (${targetUser.role})${
+        result.shortageCount > 0 ? ` [Shortage: requested ${requestedCount}, available ${result.allottedCount}]` : ""
+      }.`,
+    });
+
+    revalidatePath("/admin/leads");
+    revalidatePath("/admin/leads/allot");
+
+    return {
+      success: true,
+      source: rawSource,
+      profile: rawProfile || null,
+      employeeName: targetUser.name,
+      requestedCount,
+      allottedCount: result.allottedCount,
+      shortageCount: result.shortageCount,
+    };
+  } catch (err) {
+    const errRes = handleActionError(err, "Failed to allot leads.");
+    return {
+      success: false,
+      source: input.leadSource || "",
+      employeeName: "",
+      requestedCount: input.numberOfLeads || 0,
+      allottedCount: 0,
+      shortageCount: 0,
+      error: errRes.error,
+    };
+  }
+}
