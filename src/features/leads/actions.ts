@@ -108,7 +108,7 @@ export async function getLeadAllotmentUsersAction(): Promise<{
     await requireAdminSession({ redirect: false });
 
     const rawUsers = await prisma.user.findMany({
-      where: { isActive: true },
+      where: { isActive: true, deletedAt: null },
       select: {
         id: true,
         name: true,
@@ -1321,20 +1321,8 @@ export async function allotLeadsAction(
       };
     }
 
-    // Validate customer profile if specified
+    // Employee profile designation filter
     const rawProfile = input.profile?.trim() || "";
-    if (rawProfile && !(LEAD_PROFILE_OPTIONS as readonly string[]).includes(rawProfile)) {
-      return {
-        success: false,
-        source: rawSource,
-        profile: rawProfile,
-        employeeName: "",
-        requestedCount,
-        allottedCount: 0,
-        shortageCount: 0,
-        error: "Please select a valid Profile option or leave it as All Profiles.",
-      };
-    }
 
     const targetEmployeeId = input.employeeId?.trim();
     if (!targetEmployeeId) {
@@ -1351,7 +1339,7 @@ export async function allotLeadsAction(
     }
 
     const targetUser = await prisma.user.findFirst({
-      where: { id: targetEmployeeId, isActive: true },
+      where: { id: targetEmployeeId, isActive: true, deletedAt: null },
       select: { id: true, name: true, role: true, teamId: true },
     });
 
@@ -1373,19 +1361,10 @@ export async function allotLeadsAction(
       const leadFilter: {
         leadSource: string;
         allotToId: null;
-        profile?: string;
       } = {
         leadSource: rawSource,
         allotToId: null,
       };
-
-      if (rawProfile) {
-        // Match case-insensitively or exact match
-        (leadFilter as Record<string, unknown>).profile = {
-          equals: rawProfile,
-          mode: "insensitive",
-        };
-      }
 
       const eligibleLeads = await tx.lead.findMany({
         where: leadFilter,

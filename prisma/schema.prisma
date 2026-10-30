@@ -42,6 +42,45 @@ model User {
   // Lead relations
   assignedLeads    Lead[]        @relation("AssignedLeads")
   createdLeads     Lead[]        @relation("CreatedLeads")
+
+  // Employee details
+  username          String?   @unique
+  mobile            String?
+  fatherName        String?
+  state             String?
+  city              String?
+  dob               DateTime?
+  address           String?
+  joiningDate       DateTime?
+  pastExperience    String?
+  callingExtension  String?
+  description       String?
+  employeeTarget    Int?      @default(0)
+  photo             String?
+
+  // Department & Profile relationships
+  departmentId      String?
+  department        Department?      @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  employeeProfileId String?
+  employeeProfile   EmployeeProfile? @relation(fields: [employeeProfileId], references: [id], onDelete: SetNull)
+
+  // Lead Fetch Permissions
+  leadFetchPermissions LeadFetchPermission[] @relation("UserLeadFetchPermissions")
+  leadFetchSources     String[]              @default([])
+
+  // Fetch Limit Management
+  createdFetchLimitRules  FetchLimitRule[]     @relation("FetchLimitRuleCreatedBy")
+  assignedFetchLimitRules FetchLimitRule[]     @relation("FetchLimitRuleAssignedUsers")
+  fetchUsages             EmployeeFetchUsage[]
+  leadFetchLogs           LeadFetchLog[]       @relation("UserLeadFetchLogs")
+
+  // Soft delete
+  deletedAt         DateTime?
+
+  @@index([deletedAt])
+  @@index([departmentId])
+  @@index([employeeProfileId])
+  @@index([username])
 }
 
 model Team {
@@ -147,5 +186,110 @@ model Lead {
   @@index([allotToId])
   @@index([teamId])
   @@index([callbackDate])
+  @@index([createdAt])
+}
+
+model Department {
+  id        String            @id @default(cuid())
+  name      String            @unique
+  isActive  Boolean           @default(true)
+  createdAt DateTime          @default(now())
+  updatedAt DateTime          @updatedAt
+
+  profiles  EmployeeProfile[]
+  users     User[]
+
+  @@index([name])
+}
+
+model EmployeeProfile {
+  id           String      @id @default(cuid())
+  name         String      @unique
+  departmentId String
+  department   Department  @relation(fields: [departmentId], references: [id], onDelete: Restrict)
+  clientLimit  Int         @default(0)
+  invoiceLimit Int         @default(0)
+  salesLimit   Int         @default(0)
+  description  String?
+  isActive     Boolean     @default(true)
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+
+  users        User[]
+  fetchLimitRules FetchLimitRule[] @relation("FetchLimitRuleProfiles")
+
+  @@index([departmentId])
+  @@index([name])
+}
+
+model LeadFetchPermission {
+  id         String   @id @default(cuid())
+  userId     String
+  user       User     @relation("UserLeadFetchPermissions", fields: [userId], references: [id], onDelete: Cascade)
+  leadSource String
+  createdAt  DateTime @default(now())
+
+  @@unique([userId, leadSource])
+  @@index([userId])
+  @@index([leadSource])
+}
+
+model FetchLimitRule {
+  id              String            @id @default(cuid())
+  availableLimit  Int
+  fetchLimit      Int
+  fetchCount      Int               // configured maximum successful requests
+  leadSource      String
+
+  createdById     String
+  createdBy       User              @relation("FetchLimitRuleCreatedBy", fields: [createdById], references: [id])
+
+  profiles        EmployeeProfile[] @relation("FetchLimitRuleProfiles")
+  assignedUsers   User[]            @relation("FetchLimitRuleAssignedUsers")
+
+  usages          EmployeeFetchUsage[]
+  fetchLogs       LeadFetchLog[]
+
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  @@index([leadSource])
+  @@index([createdById])
+}
+
+model EmployeeFetchUsage {
+  id                String          @id @default(cuid())
+  userId            String
+  user              User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  ruleId            String
+  rule              FetchLimitRule  @relation(fields: [ruleId], references: [id], onDelete: Cascade)
+  leadSource        String
+  successfulFetches Int             @default(0) // actual number of successful fetch requests used
+  lastFetchedAt     DateTime?
+  resetAt           DateTime?
+  resetById         String?
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+
+  @@unique([userId, ruleId])
+  @@index([userId, leadSource])
+  @@index([ruleId])
+}
+
+model LeadFetchLog {
+  id             String          @id @default(cuid())
+  userId         String
+  user           User            @relation("UserLeadFetchLogs", fields: [userId], references: [id], onDelete: Cascade)
+  ruleId         String?
+  rule           FetchLimitRule? @relation(fields: [ruleId], references: [id], onDelete: SetNull)
+  leadSource     String
+  appliedProfile String?         // Name of the winning profile applied (e.g. 'FM', 'AFM', etc.)
+  leadsCount     Int             // Number of leads allocated in this request
+  requestNumber  Int             // The sequence number of this successful request for this employee & rule (e.g. 1st, 2nd, ...)
+  leadIds        String[]        @default([]) // IDs of leads allocated in this request
+  createdAt      DateTime        @default(now())
+
+  @@index([userId, leadSource])
+  @@index([ruleId])
   @@index([createdAt])
 }

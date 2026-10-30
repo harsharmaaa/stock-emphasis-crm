@@ -47,10 +47,10 @@ export async function requireAdminSession(options?: {
   // Real-time database verification: ensure user exists, is active, and remains ADMIN
   const dbUser = await prisma.user.findUnique({
     where: { id },
-    select: { id: true, role: true, isActive: true },
+    select: { id: true, role: true, isActive: true, deletedAt: true },
   });
 
-  if (!dbUser || !dbUser.isActive || dbUser.role !== "ADMIN") {
+  if (!dbUser || !dbUser.isActive || dbUser.deletedAt || dbUser.role !== "ADMIN") {
     if (!shouldRedirect) {
       throw new Error("Forbidden: Administrator privileges required or account is inactive.");
     }
@@ -201,13 +201,23 @@ export async function validateAdminSafety({
   targetUserId,
   newRole,
   newIsActive,
+  isDeleting,
 }: {
   currentAdminId: string;
   targetUserId: string;
   newRole?: Role;
   newIsActive?: boolean;
+  isDeleting?: boolean;
 }): Promise<{ safe: boolean; error?: string }> {
   const isTargetSelf = currentAdminId === targetUserId;
+
+  // 0. Prevent self-deletion
+  if (isTargetSelf && isDeleting) {
+    return {
+      safe: false,
+      error: "Security restriction: You cannot delete your own active Administrator account.",
+    };
+  }
 
   // 1. Prevent self-deactivation
   if (isTargetSelf && newIsActive === false) {
@@ -237,13 +247,15 @@ export async function validateAdminSafety({
 
   const willBeInactiveOrNonAdmin =
     (targetUser.role === "ADMIN" && newRole !== undefined && newRole !== "ADMIN") ||
-    (targetUser.role === "ADMIN" && newIsActive === false);
+    (targetUser.role === "ADMIN" && newIsActive === false) ||
+    (targetUser.role === "ADMIN" && isDeleting === true);
 
   if (willBeInactiveOrNonAdmin) {
     const activeAdminsCount = await prisma.user.count({
       where: {
         role: "ADMIN",
         isActive: true,
+        deletedAt: null,
         NOT: { id: targetUserId },
       },
     });

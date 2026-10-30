@@ -5,14 +5,14 @@ import { UserManagementClient } from "@/src/features/users/user-management-clien
 export const instant = false;
 
 export const metadata = {
-  title: "User Management | Stock Emphasis CRM",
-  description: "Manage accounts, roles, credentials, and access permissions.",
+  title: "Employee Directory | Stock Emphasis CRM",
+  description: "Manage employee working profiles, designations, calling extensions, and lead fetch permissions.",
 };
 
 export default async function AdminUsersPage() {
   const admin = await requireAdminSession();
 
-  // Load initial page of users on server
+  // Load initial page of active non-deleted users on server
   const initialData = await getUsersAction({ page: 1, pageSize: 10 });
 
   const users = initialData.data?.users ?? [];

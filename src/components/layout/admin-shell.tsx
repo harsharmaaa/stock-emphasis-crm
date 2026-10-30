@@ -31,6 +31,11 @@ import {
   Upload,
   Share2,
   SlidersHorizontal,
+  UserCheck2,
+  Building2,
+  UserPlus,
+  UserCog,
+  Network,
 } from "lucide-react";
 
 interface AdminShellProps {
@@ -397,7 +402,7 @@ export function AdminShell({
                         <span className="text-xs font-medium truncate">Allot Leads</span>
                       </Link>
                       <Link
-                        href="/admin/leads?action=fetch-limit"
+                        href="/admin/fetch-limits"
                         onClick={() => setIsLeadsMenuOpen(false)}
                         className="flex items-center gap-3 p-2 rounded-xl text-slate-700 dark:text-slate-300 hover:bg-slate-100/80 dark:hover:bg-slate-800 transition-colors group"
                       >
@@ -431,42 +436,114 @@ export function AdminShell({
 
               {isSettingsMenuOpen && (
                 <div
-                  className="absolute left-0 top-full mt-1.5 w-52 rounded-2xl bg-white/90 dark:bg-[#0c1220]/95 backdrop-blur-2xl border border-slate-200/90 dark:border-white/[0.12] shadow-2xl p-2 z-50 animate-in fade-in zoom-in-95 duration-150"
+                  className="absolute left-0 top-full mt-1.5 w-[480px] sm:w-[500px] rounded-2xl bg-white/95 dark:bg-[#0c1220]/95 backdrop-blur-2xl border border-slate-200/90 dark:border-white/[0.12] shadow-2xl p-3.5 z-50 animate-in fade-in zoom-in-95 duration-150"
                   onMouseEnter={handleSettingsMouseEnter}
                   onMouseLeave={handleSettingsMouseLeave}
                 >
-                  <Link
-                    href="/admin/users"
-                    onClick={() => setIsSettingsMenuOpen(false)}
-                    className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-medium text-slate-700 dark:text-slate-300 hover:bg-violet-500/10 dark:hover:bg-violet-500/20 hover:text-violet-700 dark:hover:text-violet-300 transition-colors"
-                  >
-                    <Users className="size-3.5 text-slate-400 group-hover:text-violet-500" />
-                    <span>Users</span>
-                  </Link>
-                  <Link
-                    href="/admin/teams"
-                    onClick={() => setIsSettingsMenuOpen(false)}
-                    className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-medium text-slate-700 dark:text-slate-300 hover:bg-violet-500/10 dark:hover:bg-violet-500/20 hover:text-violet-700 dark:hover:text-violet-300 transition-colors"
-                  >
-                    <Layers className="size-3.5 text-slate-400 group-hover:text-violet-500" />
-                    <span>Teams</span>
-                  </Link>
-                  <Link
-                    href="/admin/activity"
-                    onClick={() => setIsSettingsMenuOpen(false)}
-                    className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-medium text-slate-700 dark:text-slate-300 hover:bg-violet-500/10 dark:hover:bg-violet-500/20 hover:text-violet-700 dark:hover:text-violet-300 transition-colors"
-                  >
-                    <History className="size-3.5 text-slate-400 group-hover:text-violet-500" />
-                    <span>Activity Log</span>
-                  </Link>
-                  <Link
-                    href="/admin/settings"
-                    onClick={() => setIsSettingsMenuOpen(false)}
-                    className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-medium text-slate-700 dark:text-slate-300 hover:bg-violet-500/10 dark:hover:bg-violet-500/20 hover:text-violet-700 dark:hover:text-violet-300 transition-colors"
-                  >
-                    <Settings className="size-3.5 text-slate-400 group-hover:text-violet-500" />
-                    <span>System Settings</span>
-                  </Link>
+                  <div className="grid grid-cols-2 gap-3">
+                    {/* Column 1 */}
+                    <div className="space-y-1">
+                      {/* Add Employee */}
+                      <Link
+                        href="/admin/users/add"
+                        onClick={() => setIsSettingsMenuOpen(false)}
+                        className="flex items-start gap-3 p-2.5 rounded-xl text-slate-700 dark:text-slate-300 hover:bg-slate-100/80 dark:hover:bg-slate-800/60 transition-colors group cursor-pointer"
+                      >
+                        <div className="size-10 rounded-2xl bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-100 dark:border-indigo-900/40 flex items-center justify-center text-indigo-600 dark:text-indigo-400 shrink-0">
+                          <UserPlus className="size-5" />
+                        </div>
+                        <div className="min-w-0">
+                          <div className="text-xs font-semibold text-slate-900 dark:text-slate-100 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
+                            Add Employee
+                          </div>
+                          <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate">
+                            Add new user to CRM...
+                          </p>
+                        </div>
+                      </Link>
+
+                      {/* Employee List */}
+                      <Link
+                        href="/admin/users"
+                        onClick={() => setIsSettingsMenuOpen(false)}
+                        className="flex items-start gap-3 p-2.5 rounded-xl text-slate-700 dark:text-slate-300 hover:bg-slate-100/80 dark:hover:bg-slate-800/60 transition-colors group cursor-pointer"
+                      >
+                        <div className="size-10 rounded-2xl bg-blue-50 dark:bg-blue-950/40 border border-blue-100 dark:border-blue-900/40 flex items-center justify-center text-blue-600 dark:text-blue-400 shrink-0">
+                          <Users className="size-5" />
+                        </div>
+                        <div className="min-w-0">
+                          <div className="text-xs font-semibold text-slate-900 dark:text-slate-100 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
+                            Employee List
+                          </div>
+                          <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate">
+                            List of all user...
+                          </p>
+                        </div>
+                      </Link>
+
+                      {/* Team */}
+                      <div className="flex items-start gap-3 p-2.5 rounded-xl text-slate-700 dark:text-slate-300 hover:bg-slate-100/80 dark:hover:bg-slate-800/60 transition-colors group cursor-pointer">
+                        <div className="size-10 rounded-2xl bg-cyan-50 dark:bg-cyan-950/40 border border-cyan-100 dark:border-cyan-900/40 flex items-center justify-center text-cyan-600 dark:text-cyan-400 shrink-0">
+                          <Network className="size-5" />
+                        </div>
+                        <div className="min-w-0">
+                          <div className="text-xs font-semibold text-slate-900 dark:text-slate-100">
+                            Team
+                          </div>
+                          <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate">
+                            Create team of employees...
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Column 2 */}
+                    <div className="space-y-1 flex flex-col justify-between">
+                      {/* Profile (Working!) */}
+                      <Link
+                        href="/admin/profiles"
+                        onClick={() => setIsSettingsMenuOpen(false)}
+                        className="flex items-start gap-3 p-2.5 rounded-xl text-slate-700 dark:text-slate-300 hover:bg-blue-50/80 dark:hover:bg-blue-950/40 transition-colors group cursor-pointer"
+                      >
+                        <div className="size-10 rounded-2xl bg-sky-50 dark:bg-sky-950/40 border border-sky-100 dark:border-sky-900/40 flex items-center justify-center text-sky-600 dark:text-sky-400 group-hover:scale-105 transition-transform shrink-0">
+                          <UserCog className="size-5" />
+                        </div>
+                        <div className="min-w-0">
+                          <div className="text-xs font-semibold text-slate-900 dark:text-slate-100 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
+                            Profile
+                          </div>
+                          <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate">
+                            Working level of employee..
+                          </p>
+                        </div>
+                      </Link>
+
+                      {/* Permissions */}
+                      <div className="flex items-start gap-3 p-2.5 rounded-xl text-slate-700 dark:text-slate-300 hover:bg-slate-100/80 dark:hover:bg-slate-800/60 transition-colors group cursor-pointer">
+                        <div className="size-10 rounded-2xl bg-teal-50 dark:bg-teal-950/40 border border-teal-100 dark:border-teal-900/40 flex items-center justify-center text-teal-600 dark:text-teal-400 shrink-0">
+                          <ShieldCheck className="size-5" />
+                        </div>
+                        <div className="min-w-0">
+                          <div className="text-xs font-semibold text-slate-900 dark:text-slate-100">
+                            Permissions
+                          </div>
+                          <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate">
+                            User permission allotment..
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* More Button */}
+                      <div className="p-2.5 flex items-center">
+                        <button
+                          type="button"
+                          className="px-6 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white text-xs font-semibold shadow-sm shadow-blue-500/25 transition-all"
+                        >
+                          More
+                        </button>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               )}
             </div>
