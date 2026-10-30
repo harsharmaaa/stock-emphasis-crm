@@ -22,14 +22,21 @@ import {
 } from "./actions";
 import { LEAD_SOURCE_OPTIONS, LEAD_PROFILE_OPTIONS } from "@/src/lib/utils";
 
+export interface EmployeeProfileOption {
+  id: string;
+  name: string;
+}
+
 interface AllotLeadsClientProps {
   allotmentUsers: AllotmentUserOption[];
   initialSourceCounts: Record<string, number>;
+  employeeProfiles?: EmployeeProfileOption[];
 }
 
 export function AllotLeadsClient({
   allotmentUsers,
   initialSourceCounts,
+  employeeProfiles = [],
 }: AllotLeadsClientProps) {
   const leadSourceId = useId();
   const profileId = useId();
@@ -259,29 +266,32 @@ export function AllotLeadsClient({
               </select>
             </div>
 
-            {/* 2. Profile (Restored Field - Matching Reference Layout) */}
+            {/* 2. Profile (Employee Designation) */}
             <div>
               <label
                 htmlFor={profileId}
                 className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5"
               >
-                Profile <span className="text-slate-400 font-normal">(Optional Filter)</span>
+                Profile <span className="text-slate-400 font-normal">(Employee Designation)</span>
               </label>
               <select
                 id={profileId}
                 value={profile}
-                onChange={(e) => handleProfileChange(e.target.value)}
+                onChange={(e) => {
+                  setProfile(e.target.value);
+                  setErrorMsg(null);
+                }}
                 className="w-full px-3 py-2 text-xs rounded-xl border border-slate-250 dark:border-white/[0.1] bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-500"
               >
                 <option value="">All Profiles (No Filter)</option>
-                {LEAD_PROFILE_OPTIONS.map((prof) => (
-                  <option key={prof} value={prof}>
-                    {prof}
+                {employeeProfiles.map((prof) => (
+                  <option key={prof.id} value={prof.name}>
+                    {prof.name}
                   </option>
                 ))}
               </select>
               <p className="text-[10px] text-slate-400 mt-1">
-                Filters unassigned leads by customer profile category (e.g. Trader, Investor, Businessman).
+                Employee working designation (e.g. SBA, AFM, TL, Admin).
               </p>
             </div>
 

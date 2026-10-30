@@ -3,6 +3,7 @@ import {
   getLeadAllotmentUsersAction,
   getLeadSourceCountsAction,
 } from "@/src/features/leads/actions";
+import { prisma } from "@/src/lib/prisma";
 import { AllotLeadsClient } from "@/src/features/leads/allot-leads-client";
 
 export const instant = false;
@@ -15,9 +16,14 @@ export const metadata = {
 export default async function AdminAllotLeadsPage() {
   await requireAdminSession();
 
-  const [usersRes, countsRes] = await Promise.all([
+  const [usersRes, countsRes, employeeProfiles] = await Promise.all([
     getLeadAllotmentUsersAction(),
     getLeadSourceCountsAction({ unassignedOnly: true }),
+    prisma.employeeProfile.findMany({
+      where: { isActive: true },
+      select: { id: true, name: true },
+      orderBy: { name: "asc" },
+    }),
   ]);
 
   const allotmentUsers = usersRes.success && usersRes.users ? usersRes.users : [];
@@ -27,7 +33,7 @@ export default async function AdminAllotLeadsPage() {
     <AllotLeadsClient
       allotmentUsers={allotmentUsers}
       initialSourceCounts={sourceCounts}
+      employeeProfiles={employeeProfiles}
     />
   );
 }
-

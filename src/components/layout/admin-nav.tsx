@@ -29,6 +29,9 @@ import {
   PanelLeftOpen,
   Mail,
   MailCheck,
+  Building2,
+  UserCheck2,
+  SlidersHorizontal,
 } from "lucide-react";
 
 interface AdminNavProps {
@@ -79,6 +82,20 @@ const NAVIGATION_GROUPS: NavGroup[] = [
         status: "active",
       },
       {
+        title: "Employee Profiles",
+        href: "/admin/profiles",
+        icon: UserCheck2,
+        exact: false,
+        status: "active",
+      },
+      {
+        title: "Departments",
+        href: "/admin/departments",
+        icon: Building2,
+        exact: false,
+        status: "active",
+      },
+      {
         title: "Teams",
         href: "/admin/teams",
         icon: Layers,
@@ -118,6 +135,13 @@ const NAVIGATION_GROUPS: NavGroup[] = [
         href: "/admin/leads",
         icon: Inbox,
         exact: true,
+        status: "active",
+      },
+      {
+        title: "Fetch Limit",
+        href: "/admin/fetch-limits",
+        icon: SlidersHorizontal,
+        exact: false,
         status: "active",
       },
       {

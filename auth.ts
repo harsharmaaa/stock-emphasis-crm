@@ -1,4 +1,3 @@
-
 import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import { compare } from "bcryptjs";
@@ -26,11 +25,18 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
                     return null;
                 }
 
-                const user = await prisma.user.findUnique({
-                    where: { email: credentials.email },
+                const identifier = credentials.email.trim();
+                const user = await prisma.user.findFirst({
+                    where: {
+                        OR: [
+                            { email: { equals: identifier, mode: "insensitive" } },
+                            { username: { equals: identifier, mode: "insensitive" } },
+                        ],
+                        deletedAt: null,
+                    },
                 });
 
-                if (!user || !user.isActive) {
+                if (!user || !user.isActive || user.deletedAt) {
                     return null;
                 }
 
