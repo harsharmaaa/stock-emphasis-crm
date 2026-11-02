@@ -535,12 +535,13 @@ export function AdminShell({
 
                       {/* More Button */}
                       <div className="p-2.5 flex items-center">
-                        <button
-                          type="button"
-                          className="px-6 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white text-xs font-semibold shadow-sm shadow-blue-500/25 transition-all"
+                        <Link
+                          href="/admin/settings/configuration"
+                          onClick={() => setIsSettingsMenuOpen(false)}
+                          className="px-6 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white text-xs font-semibold shadow-sm shadow-blue-500/25 transition-all inline-block text-center cursor-pointer"
                         >
                           More
-                        </button>
+                        </Link>
                       </div>
                     </div>
                   </div>

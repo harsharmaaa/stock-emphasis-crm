@@ -293,3 +293,19 @@ model LeadFetchLog {
   @@index([ruleId])
   @@index([createdAt])
 }
+
+
+model PaymentMode {
+  id            String    @id @default(cuid())
+  name          String    @unique
+  charges       Float     @default(0)   // Non-negative percentage (e.g., 0, 1.5, 2.5)
+  gstin         String?
+  state         String?
+  invoicePrefix String?
+  isActive      Boolean   @default(true)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@index([name])
+  @@index([isActive])
+}
