@@ -4,7 +4,7 @@ import { requireAdminSession, handleActionError } from "@/src/lib/auth-guard";
 import { auth } from "@/auth";
 import { prisma } from "@/src/lib/prisma";
 import { logActivity } from "@/src/lib/activity-logger";
-import { LEAD_SOURCE_OPTIONS } from "@/src/lib/utils";
+import { getActiveLeadSourceNames } from "@/src/lib/lead-sources-helper";
 import { revalidatePath } from "next/cache";
 import { getProfilePriorityRank } from "./constants";
 import type {
@@ -170,7 +170,7 @@ export async function getFetchLimitFormDataAction(): Promise<{
       data: {
         profiles,
         employees,
-        leadSources: LEAD_SOURCE_OPTIONS,
+        leadSources: await getActiveLeadSourceNames(),
       },
     };
   } catch (err) {
@@ -189,8 +189,9 @@ export async function createFetchLimitRuleAction(
 
     // 1. Validate Lead Source
     const leadSource = input.leadSource?.trim();
-    if (!leadSource || !(LEAD_SOURCE_OPTIONS as readonly string[]).includes(leadSource)) {
-      return { success: false, error: "Please select a valid canonical Lead Source." };
+    const activeSources = await getActiveLeadSourceNames();
+    if (!leadSource || !activeSources.includes(leadSource)) {
+      return { success: false, error: "Please select an active Lead Source from the database master." };
     }
 
     // 2. Validate numeric thresholds
@@ -298,8 +299,9 @@ export async function updateFetchLimitRuleAction(
 
     // 1. Validate Lead Source
     const leadSource = input.leadSource?.trim();
-    if (!leadSource || !(LEAD_SOURCE_OPTIONS as readonly string[]).includes(leadSource)) {
-      return { success: false, error: "Please select a valid canonical Lead Source." };
+    const activeSources = await getActiveLeadSourceNames();
+    if (!leadSource || !activeSources.includes(leadSource)) {
+      return { success: false, error: "Please select an active Lead Source from the database master." };
     }
 
     // 2. Validate numeric thresholds
@@ -558,7 +560,8 @@ export async function employeeSelfFetchLeadsAction(
     }
 
     const requestedSource = input.leadSource?.trim();
-    if (!requestedSource || !(LEAD_SOURCE_OPTIONS as readonly string[]).includes(requestedSource)) {
+    const activeSources = await getActiveLeadSourceNames();
+    if (!requestedSource || !activeSources.includes(requestedSource)) {
       return {
         success: false,
         allocatedCount: 0,

@@ -10,8 +10,6 @@ import {
   type CreateLeadInput,
 } from "./actions";
 import {
-  LEAD_RESPONSE_OPTIONS,
-  LEAD_SOURCE_OPTIONS,
   LEAD_PROFILE_OPTIONS,
   LEAD_EXPERIENCE_OPTIONS,
 } from "@/src/lib/utils";
@@ -68,9 +66,11 @@ const INDIAN_STATES = [
 
 interface AddLeadFormProps {
   allotmentUsers: AllotmentUserOption[];
+  leadSources?: string[];
+  leadResponses?: string[];
 }
 
-export function AddLeadForm({ allotmentUsers }: AddLeadFormProps) {
+export function AddLeadForm({ allotmentUsers, leadSources = [], leadResponses = [] }: AddLeadFormProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
 
@@ -94,7 +94,7 @@ export function AddLeadForm({ allotmentUsers }: AddLeadFormProps) {
     investment: "",
     profile: "",
     leadResponse: "Interested",
-    leadSource: "Fresh Lead",
+    leadSource: leadSources.length > 0 ? leadSources[0] : "",
     description: "",
     experience: "",
     status: "UNFOLLOWED",
@@ -388,11 +388,10 @@ export function AddLeadForm({ allotmentUsers }: AddLeadFormProps) {
                       onChange={handleChange}
                       onBlur={handleMobileBlur}
                       placeholder="Mobile"
-                      className={`w-full h-8 px-2.5 text-xs rounded-md border bg-white dark:bg-slate-950 text-slate-800 dark:text-slate-200 focus:outline-none ${
-                        phoneDuplicateError
+                      className={`w-full h-8 px-2.5 text-xs rounded-md border bg-white dark:bg-slate-950 text-slate-800 dark:text-slate-200 focus:outline-none ${phoneDuplicateError
                           ? "border-rose-500 text-rose-600 focus:border-rose-600"
                           : "border-slate-250 dark:border-slate-800 focus:border-blue-500"
-                      }`}
+                        }`}
                     />
                     {phoneChecking && (
                       <span className="absolute right-2 top-2 text-[10px] text-slate-400">
@@ -717,12 +716,18 @@ export function AddLeadForm({ allotmentUsers }: AddLeadFormProps) {
                     onChange={handleChange}
                     className="w-full h-8 px-2.5 text-xs rounded-md border border-slate-250 dark:border-slate-800 bg-white dark:bg-slate-950 text-slate-800 dark:text-slate-200 focus:outline-none focus:border-blue-500"
                   >
-                    <option value="">Select Response</option>
-                    {LEAD_RESPONSE_OPTIONS.map((opt) => (
-                      <option key={opt} value={opt}>
-                        {opt}
-                      </option>
-                    ))}
+                    {leadResponses.length === 0 ? (
+                      <option value="">No responses configured - please add in Settings</option>
+                    ) : (
+                      <>
+                        <option value="">-- Select Response --</option>
+                        {leadResponses.map((opt: string) => (
+                          <option key={opt} value={opt}>
+                            {opt}
+                          </option>
+                        ))}
+                      </>
+                    )}
                   </select>
                 </div>
               </div>
@@ -735,15 +740,22 @@ export function AddLeadForm({ allotmentUsers }: AddLeadFormProps) {
                 <div className="col-span-8">
                   <select
                     name="leadSource"
-                    value={formData.leadSource || "Premium Lead"}
+                    value={formData.leadSource || ""}
                     onChange={handleChange}
                     className="w-full h-8 px-2.5 text-xs rounded-md border border-slate-250 dark:border-slate-800 bg-white dark:bg-slate-950 text-slate-800 dark:text-slate-200 focus:outline-none focus:border-blue-500"
                   >
-                    {LEAD_SOURCE_OPTIONS.map((opt) => (
-                      <option key={opt} value={opt}>
-                        {opt}
-                      </option>
-                    ))}
+                    {leadSources.length === 0 ? (
+                      <option value="">No sources configured - please add in Settings</option>
+                    ) : (
+                      <>
+                        <option value="">-- Select Source --</option>
+                        {leadSources.map((opt: string) => (
+                          <option key={opt} value={opt}>
+                            {opt}
+                          </option>
+                        ))}
+                      </>
+                    )}
                   </select>
                 </div>
               </div>

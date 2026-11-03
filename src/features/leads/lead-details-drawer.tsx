@@ -1,4 +1,5 @@
 "use client";
+import { getActiveLeadSourcesAction, getActiveLeadResponsesAction } from "./actions";
 
 import { useState, useEffect, useCallback, useTransition } from "react";
 import Link from "next/link";
@@ -9,8 +10,6 @@ import {
   type AllotmentUserOption,
 } from "./actions";
 import {
-  LEAD_RESPONSE_OPTIONS,
-  LEAD_SOURCE_OPTIONS,
   LEAD_PROFILE_OPTIONS,
   LEAD_EXPERIENCE_OPTIONS,
 } from "@/src/lib/utils";
@@ -53,6 +52,10 @@ export function LeadDetailsDrawer({
   // Editable update state
   const [editResponse, setEditResponse] = useState<string>("");
   const [editSource, setEditSource] = useState<string>("");
+  const [activeSources, setActiveSources] = useState<string[]>([]);
+  const [activeResponses, setActiveResponses] = useState<string[]>([]);
+  useEffect(() => { getActiveLeadResponsesAction().then(res => { if (res.success) setActiveResponses(res.leadResponses); }); }, []);
+  useEffect(() => { getActiveLeadSourcesAction().then(res => { if (res.success) setActiveSources(res.leadSources); }); }, []);
   const [editProfile, setEditProfile] = useState<string>("");
   const [editExperience, setEditExperience] = useState<string>("");
   const [editCallbackDate, setEditCallbackDate] = useState<string>("");
@@ -426,10 +429,10 @@ export function LeadDetailsDrawer({
                       onChange={(e) => setEditResponse(e.target.value)}
                       className="w-full px-3 py-2 text-xs rounded-xl bg-white dark:bg-slate-900 border border-slate-250 dark:border-slate-750 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-500/40"
                     >
-                      {editResponse && !(LEAD_RESPONSE_OPTIONS as readonly string[]).includes(editResponse) && (
-                        <option value={editResponse}>{editResponse} (Legacy)</option>
+                      {editResponse && !activeResponses.includes(editResponse) && (
+                        <option value={editResponse}>{editResponse} (Existing)</option>
                       )}
-                      {LEAD_RESPONSE_OPTIONS.map((opt) => (
+                      {activeResponses.map((opt: string) => (
                         <option key={opt} value={opt}>
                           {opt}
                         </option>
@@ -468,10 +471,10 @@ export function LeadDetailsDrawer({
                       className="w-full px-3 py-2 text-xs rounded-xl bg-white dark:bg-slate-900 border border-slate-250 dark:border-slate-750 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-500/40"
                     >
                       <option value="">-- Select Source --</option>
-                      {editSource && !(LEAD_SOURCE_OPTIONS as readonly string[]).includes(editSource) && (
-                        <option value={editSource}>{editSource} (Legacy)</option>
+                      {editSource && !activeSources.includes(editSource) && (
+                        <option value={editSource}>{editSource} (Existing)</option>
                       )}
-                      {LEAD_SOURCE_OPTIONS.map((opt) => (
+                      {activeSources.map((opt) => (
                         <option key={opt} value={opt}>
                           {opt}
                         </option>

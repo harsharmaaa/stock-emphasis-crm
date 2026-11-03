@@ -1,4 +1,5 @@
 import { requireAdminSession } from "@/src/lib/auth-guard";
+import { getActiveLeadSourceNames } from "@/src/lib/lead-sources-helper";
 import {
   getLeadAllotmentUsersAction,
   getDetailedLeadSourceCountsAction,
@@ -15,9 +16,10 @@ export const metadata = {
 export default async function AdminUploadLeadsPage() {
   await requireAdminSession();
 
-  const [usersRes, countsRes] = await Promise.all([
+  const [usersRes, countsRes, activeSources] = await Promise.all([
     getLeadAllotmentUsersAction(),
     getDetailedLeadSourceCountsAction(),
+    getActiveLeadSourceNames(),
   ]);
 
   const allotmentUsers = usersRes.success && usersRes.users ? usersRes.users : [];
@@ -29,6 +31,7 @@ export default async function AdminUploadLeadsPage() {
     <UploadLeadsClient
       allotmentUsers={allotmentUsers}
       initialCounts={initialCounts}
+      activeSources={activeSources}
     />
   );
 }

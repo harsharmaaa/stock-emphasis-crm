@@ -1,15 +1,14 @@
 "use client";
+import { getActiveLeadSourcesAction, getActiveLeadResponsesAction } from "./actions";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, useEffect } from "react";
 import {
   type LifecycleSearchLead,
   type AllotmentUserOption,
   updateLeadDetailsAction,
 } from "./actions";
 import {
-  LEAD_RESPONSE_OPTIONS,
-  LEAD_SOURCE_OPTIONS,
-  LEAD_PROFILE_OPTIONS,
+    LEAD_PROFILE_OPTIONS,
   LEAD_EXPERIENCE_OPTIONS,
   mapStatusToLifecycleKey,
 } from "@/src/lib/utils";
@@ -54,6 +53,12 @@ export function LeadEditTimeline({
   hasNextLead = false,
   hasPrevLead = false,
 }: LeadEditTimelineProps) {
+  const [activeSources, setActiveSources] = useState<string[]>([]);
+  const [activeResponses, setActiveResponses] = useState<string[]>([]);
+  useEffect(() => {
+    getActiveLeadSourcesAction().then((res) => { if (res.success) setActiveSources(res.leadSources); });
+    getActiveLeadResponsesAction().then((res) => { if (res.success) setActiveResponses(res.leadResponses); });
+  }, []);
   const [activeTab, setActiveTab] = useState<TabType>("BASIC");
   const [isPending, startTransition] = useTransition();
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
@@ -65,7 +70,7 @@ export function LeadEditTimeline({
     mobile: lead.mobile || "",
     email: lead.email || "",
     alternateMobile: lead.alternateMobile || "",
-    leadResponse: lead.leadResponse || "Interested",
+    leadResponse: lead.leadResponse || "",
     callbackDate: lead.callbackDate ? lead.callbackDate.slice(0, 16) : "",
     description: lead.description || "",
     state: lead.state || "",
@@ -95,7 +100,7 @@ export function LeadEditTimeline({
       mobile: lead.mobile || "",
       email: lead.email || "",
       alternateMobile: lead.alternateMobile || "",
-      leadResponse: lead.leadResponse || "Interested",
+      leadResponse: lead.leadResponse || "",
       callbackDate: lead.callbackDate ? lead.callbackDate.slice(0, 16) : "",
       description: lead.description || "",
       state: lead.state || "",
@@ -597,7 +602,11 @@ export function LeadEditTimeline({
                       onChange={handleInputChange}
                       className="w-full px-3 py-2 text-xs rounded-lg border border-slate-200 dark:border-white/[0.1] bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
                     >
-                      {LEAD_RESPONSE_OPTIONS.map((opt) => (
+                      <option value="">Select Response</option>
+                      {formData.leadResponse && !activeResponses.includes(formData.leadResponse) && (
+                        <option value={formData.leadResponse}>{formData.leadResponse} (Existing)</option>
+                      )}
+                      {activeResponses.map((opt) => (
                         <option key={opt} value={opt}>
                           {opt}
                         </option>
@@ -813,7 +822,10 @@ export function LeadEditTimeline({
                     onChange={handleInputChange}
                     className="w-full px-3 py-2 text-xs rounded-lg border border-slate-200 dark:border-white/[0.1] bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
                   >
-                    {LEAD_SOURCE_OPTIONS.map((s) => (
+                    {formData.leadSource && !activeSources.includes(formData.leadSource) && (
+                      <option value={formData.leadSource}>{formData.leadSource} (Existing)</option>
+                    )}
+                    {activeSources.map((s: string) => (
                       <option key={s} value={s}>
                         {s}
                       </option>
