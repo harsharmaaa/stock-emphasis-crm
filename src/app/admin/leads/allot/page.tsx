@@ -1,4 +1,5 @@
 import { requireAdminSession } from "@/src/lib/auth-guard";
+import { getActiveLeadSourceNames } from "@/src/lib/lead-sources-helper";
 import {
   getLeadAllotmentUsersAction,
   getLeadSourceCountsAction,
@@ -16,9 +17,10 @@ export const metadata = {
 export default async function AdminAllotLeadsPage() {
   await requireAdminSession();
 
-  const [usersRes, countsRes, employeeProfiles] = await Promise.all([
+  const [usersRes, countsRes, activeSources, employeeProfiles] = await Promise.all([
     getLeadAllotmentUsersAction(),
     getLeadSourceCountsAction({ unassignedOnly: true }),
+    getActiveLeadSourceNames(),
     prisma.employeeProfile.findMany({
       where: { isActive: true },
       select: { id: true, name: true },
@@ -34,6 +36,7 @@ export default async function AdminAllotLeadsPage() {
       allotmentUsers={allotmentUsers}
       initialSourceCounts={sourceCounts}
       employeeProfiles={employeeProfiles}
+      activeSources={activeSources}
     />
   );
 }

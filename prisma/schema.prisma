@@ -73,6 +73,8 @@ model User {
   assignedFetchLimitRules FetchLimitRule[]     @relation("FetchLimitRuleAssignedUsers")
   fetchUsages             EmployeeFetchUsage[]
   leadFetchLogs           LeadFetchLog[]       @relation("UserLeadFetchLogs")
+  createdLeadSources      LeadSource[]         @relation("LeadSourceCreatedBy")
+  createdLeadResponses    LeadResponse[]       @relation("LeadResponseCreatedBy")
 
   // Soft delete
   deletedAt         DateTime?
@@ -305,6 +307,34 @@ model PaymentMode {
   isActive      Boolean   @default(true)
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
+
+  @@index([name])
+  @@index([isActive])
+}
+
+model LeadSource {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  description String?
+  createdById String?
+  createdBy   User?    @relation("LeadSourceCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([name])
+  @@index([isActive])
+}
+
+model LeadResponse {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  description String?
+  createdById String?
+  createdBy   User?    @relation("LeadResponseCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
   @@index([name])
   @@index([isActive])

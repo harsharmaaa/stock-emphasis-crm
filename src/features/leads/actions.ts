@@ -1,4 +1,6 @@
 "use server";
+import { getActiveLeadSourceNames } from "@/src/lib/lead-sources-helper";
+import { getActiveLeadResponseNames } from "@/src/lib/lead-responses-helper";
 
 import { requireAdminSession, handleActionError } from "@/src/lib/auth-guard";
 import { logActivity } from "@/src/lib/activity-logger";
@@ -6,8 +8,6 @@ import { prisma } from "@/src/lib/prisma";
 import {
   normalizePhoneNumber,
   normalizeStatusFilter,
-  LEAD_RESPONSE_OPTIONS,
-  LEAD_SOURCE_OPTIONS,
   LEAD_PROFILE_OPTIONS,
   LEAD_EXPERIENCE_OPTIONS,
   mapStatusToLifecycleKey,
@@ -20,8 +20,6 @@ import { type Role } from "@prisma/client";
 const leadModel = prisma.lead;
 
 export type {
-  LeadResponseOption,
-  LeadSourceOption,
   LeadProfileOption,
   LeadExperienceOption,
 } from "@/src/lib/utils";
@@ -187,14 +185,19 @@ export async function createLeadAction(
     }
 
     // Dropdown validation for confirmed CRM options
-    const rawResponse = input.leadResponse?.trim() || "Interested";
-    if (rawResponse && !(LEAD_RESPONSE_OPTIONS as readonly string[]).includes(rawResponse)) {
-      return { success: false, error: "Please select a valid Lead Response option." };
+    // Dropdown validation for dynamic active responses
+    const rawResponse = input.leadResponse?.trim() || null;
+    if (rawResponse) {
+      const activeResponses = await getActiveLeadResponseNames();
+      if (!activeResponses.includes(rawResponse)) {
+        return { success: false, error: "Please select an active Lead Response from the system." };
+      }
     }
 
-    const rawSource = input.leadSource?.trim() || "Fresh Lead";
-    if (rawSource && !(LEAD_SOURCE_OPTIONS as readonly string[]).includes(rawSource)) {
-      return { success: false, error: "Please select a valid Lead Source option." };
+    const activeSources = await getActiveLeadSourceNames();
+    const rawSource = input.leadSource?.trim() || null;
+    if (rawSource && !activeSources.includes(rawSource)) {
+      return { success: false, error: "Please select an active Lead Source from the system." };
     }
 
     const rawProfile = input.profile?.trim() || null;
@@ -558,8 +561,11 @@ export async function updateLeadDetailsAction(
     // 1. Update Lead Response if supplied
     if (input.leadResponse !== undefined) {
       const resp = input.leadResponse?.trim() || null;
-      if (resp && !(LEAD_RESPONSE_OPTIONS as readonly string[]).includes(resp) && resp !== existingLead.leadResponse) {
-        return { success: false, error: "Invalid Lead Response option." };
+      if (resp && resp !== existingLead.leadResponse) {
+        const activeResponses = await getActiveLeadResponseNames();
+        if (!activeResponses.includes(resp)) {
+          return { success: false, error: "Invalid Lead Response option. Must be an active response from Settings." };
+        }
       }
       updateData.leadResponse = resp;
     }
@@ -567,7 +573,8 @@ export async function updateLeadDetailsAction(
     // 2. Update Lead Source if supplied
     if (input.leadSource !== undefined) {
       const src = input.leadSource?.trim() || null;
-      if (src && !(LEAD_SOURCE_OPTIONS as readonly string[]).includes(src) && src !== existingLead.leadSource) {
+      const activeSources = await getActiveLeadSourceNames();
+      if (src && !activeSources.includes(src) && src !== existingLead.leadSource) {
         return { success: false, error: "Invalid Lead Source option." };
       }
       updateData.leadSource = src;
@@ -902,12 +909,12 @@ export async function searchLeadsWithLifecycleAction(
         allotToId: l.allotToId || null,
         allotTo: l.allotTo
           ? {
-              id: l.allotTo.id,
-              name: l.allotTo.name,
-              email: l.allotTo.email,
-              role: l.allotTo.role,
-              teamName: l.allotTo.team?.name || null,
-            }
+            id: l.allotTo.id,
+            name: l.allotTo.name,
+            email: l.allotTo.email,
+            role: l.allotTo.role,
+            teamName: l.allotTo.team?.name || null,
+          }
           : null,
         teamId: l.teamId || null,
         createdAt: l.createdAt.toISOString(),
@@ -1086,18 +1093,18 @@ export async function uploadLeadsBatchAction(
   try {
     const admin = await requireAdminSession({ redirect: false });
 
-    const rawSource = input.leadSource?.trim() || "Fresh Lead";
-    if (rawSource && !(LEAD_SOURCE_OPTIONS as readonly string[]).includes(rawSource)) {
+    const activeSources = await getActiveLeadSourceNames();
+    const rawSource = input.leadSource?.trim() || null;
+    if (!rawSource || !activeSources.includes(rawSource)) {
       return {
         success: false,
         totalProcessed: 0,
         importedCount: 0,
         skippedDuplicates: [],
         invalidRows: [],
-        error: "Please select a valid Lead Source option.",
+        error: "Please select an active Lead Source from the system.",
       };
     }
-
     // Validate employee if allotted
     let allottedUserId: string | null = null;
     let allottedTeamId: string | null = null;
@@ -1224,7 +1231,7 @@ export async function uploadLeadsBatchAction(
               description: item.description,
               profile: item.profile,
               leadSource: rawSource,
-              leadResponse: "Interested",
+              leadResponse: null,
               status: "UNFOLLOWED",
               allotToId: allottedUserId,
               teamId: allottedTeamId,
@@ -1238,9 +1245,8 @@ export async function uploadLeadsBatchAction(
       await logActivity({
         actorId: admin.id,
         action: "LEAD_IMPORT",
-        details: `Bulk imported ${finalLeadsToInsert.length} leads under source '${rawSource}'${
-          allottedUserId ? ` (assigned to user ID: ${allottedUserId})` : ""
-        }. Skipped ${skippedDuplicates.length} duplicates.`,
+        details: `Bulk imported ${finalLeadsToInsert.length} leads under source '${rawSource}'${allottedUserId ? ` (assigned to user ID: ${allottedUserId})` : ""
+          }. Skipped ${skippedDuplicates.length} duplicates.`,
       });
     }
 
@@ -1296,7 +1302,7 @@ export async function allotLeadsAction(
     const admin = await requireAdminSession({ redirect: false });
 
     const rawSource = input.leadSource?.trim();
-    if (!rawSource || !(LEAD_SOURCE_OPTIONS as readonly string[]).includes(rawSource)) {
+    if (!rawSource) {
       return {
         success: false,
         source: rawSource || "",
@@ -1409,9 +1415,8 @@ export async function allotLeadsAction(
     await logActivity({
       actorId: admin.id,
       action: "LEAD_ALLOTMENT",
-      details: `Allotted ${result.allottedCount} lead(s) of source '${rawSource}'${rawProfile ? ` (Profile: ${rawProfile})` : ""} to ${targetUser.name} (${targetUser.role})${
-        result.shortageCount > 0 ? ` [Shortage: requested ${requestedCount}, available ${result.allottedCount}]` : ""
-      }.`,
+      details: `Allotted ${result.allottedCount} lead(s) of source '${rawSource}'${rawProfile ? ` (Profile: ${rawProfile})` : ""} to ${targetUser.name} (${targetUser.role})${result.shortageCount > 0 ? ` [Shortage: requested ${requestedCount}, available ${result.allottedCount}]` : ""
+        }.`,
     });
 
     revalidatePath("/admin/leads");
@@ -1437,5 +1442,36 @@ export async function allotLeadsAction(
       shortageCount: 0,
       error: errRes.error,
     };
+  }
+}
+
+/**
+ * Server action to get all active lead sources for client components.
+ */
+export async function getActiveLeadSourcesAction(): Promise<{
+  success: boolean;
+  leadSources: string[];
+}> {
+  try {
+    const sources = await getActiveLeadSourceNames();
+    return { success: true, leadSources: sources };
+  } catch {
+    return { success: false, leadSources: [] };
+  }
+}
+
+
+/**
+ * Server action to get all active lead responses for client components.
+ */
+export async function getActiveLeadResponsesAction(): Promise<{
+  success: boolean;
+  leadResponses: string[];
+}> {
+  try {
+    const responses = await getActiveLeadResponseNames();
+    return { success: true, leadResponses: responses };
+  } catch {
+    return { success: false, leadResponses: [] };
   }
 }

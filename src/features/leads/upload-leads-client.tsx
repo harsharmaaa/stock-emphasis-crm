@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition, useId } from "react";
+import { useState, useTransition, useId, useMemo } from "react";
 import Link from "next/link";
 import {
   Upload,
@@ -21,11 +21,12 @@ import {
   type UploadLeadsResult,
   type SourceCountsBreakdown,
 } from "./actions";
-import { LEAD_SOURCE_OPTIONS } from "@/src/lib/utils";
+
 
 interface UploadLeadsClientProps {
   allotmentUsers: AllotmentUserOption[];
   initialCounts: SourceCountsBreakdown;
+  activeSources?: string[];
 }
 
 interface ColumnMapping {
@@ -72,6 +73,7 @@ function parseCsvLine(line: string): string[] {
 export function UploadLeadsClient({
   allotmentUsers,
   initialCounts,
+  activeSources = [],
 }: UploadLeadsClientProps) {
   const leadSourceId = useId();
   const employeeId = useId();
@@ -95,6 +97,7 @@ export function UploadLeadsClient({
   });
 
   const [counts, setCounts] = useState<SourceCountsBreakdown>(initialCounts);
+  const displaySources = useMemo(() => Array.from(new Set([...activeSources, ...Object.keys(counts.total)])).sort(), [activeSources, counts.total]);
   const [isPending, startTransition] = useTransition();
   const [result, setResult] = useState<UploadLeadsResult | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -353,11 +356,15 @@ export function UploadLeadsClient({
                   onChange={(e) => setLeadSource(e.target.value)}
                   className="w-full px-3 py-2 text-xs rounded-xl border border-slate-250 dark:border-white/[0.1] bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
                 >
-                  {LEAD_SOURCE_OPTIONS.map((src) => (
-                    <option key={src} value={src}>
-                      {src}
-                    </option>
-                  ))}
+                  {activeSources.length === 0 ? (
+                    <option value="">No sources configured in Settings</option>
+                  ) : (
+                    activeSources.map((src: string) => (
+                      <option key={src} value={src}>
+                        {src}
+                      </option>
+                    ))
+                  )}
                 </select>
               </div>
 
@@ -472,7 +479,7 @@ export function UploadLeadsClient({
                 Leads Breakdown
               </h3>
               <span className="text-[10px] font-mono font-semibold text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-white/[0.06] px-2 py-0.5 rounded-md">
-                {LEAD_SOURCE_OPTIONS.length} Sources
+                {displaySources.length} Sources
               </span>
             </div>
             {/* Header Column Labels */}
@@ -486,7 +493,7 @@ export function UploadLeadsClient({
           </div>
 
           <div className="p-4 sm:p-5 space-y-2.5 divide-y divide-slate-100 dark:divide-white/[0.04]">
-            {LEAD_SOURCE_OPTIONS.map((src) => {
+            {displaySources.map((src: string) => {
               const totalCount = counts.total[src] || 0;
               const unassignedCount = counts.unassigned[src] || 0;
               return (

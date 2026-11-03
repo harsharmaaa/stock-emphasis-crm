@@ -11,7 +11,7 @@ import { prisma } from "@/src/lib/prisma";
 import { hash } from "bcryptjs";
 import { revalidatePath } from "next/cache";
 import { Prisma, type Role } from "@prisma/client";
-import { LEAD_SOURCE_OPTIONS } from "@/src/lib/utils";
+import { getActiveLeadSourceNames } from "@/src/lib/lead-sources-helper";
 
 export interface SafeUser {
   id: string;
@@ -80,22 +80,22 @@ export async function getUsersAction(
       params.status === "ACTIVE"
         ? true
         : params.status === "INACTIVE"
-        ? false
-        : undefined;
+          ? false
+          : undefined;
 
     const where: Prisma.UserWhereInput = {
       deletedAt: null, // Exclude soft-deleted records
       AND: [
         search
           ? {
-              OR: [
-                { name: { contains: search, mode: "insensitive" } },
-                { email: { contains: search, mode: "insensitive" } },
-                { username: { contains: search, mode: "insensitive" } },
-                { mobile: { contains: search, mode: "insensitive" } },
-                { callingExtension: { contains: search, mode: "insensitive" } },
-              ],
-            }
+            OR: [
+              { name: { contains: search, mode: "insensitive" } },
+              { email: { contains: search, mode: "insensitive" } },
+              { username: { contains: search, mode: "insensitive" } },
+              { mobile: { contains: search, mode: "insensitive" } },
+              { callingExtension: { contains: search, mode: "insensitive" } },
+            ],
+          }
           : {},
         roleFilter ? { role: roleFilter } : {},
         statusFilter !== undefined ? { isActive: statusFilter } : {},
@@ -270,7 +270,7 @@ export async function getEmployeeFormDataAction(): Promise<{
         departments: rawDepartments,
         profiles: rawProfiles,
         managers,
-        leadSources: LEAD_SOURCE_OPTIONS,
+        leadSources: await getActiveLeadSourceNames(),
       },
     };
   } catch (err) {
@@ -501,8 +501,9 @@ export async function createUserAction(
     const parsedJoining = input.joiningDate ? new Date(input.joiningDate) : null;
 
     // Filter valid lead sources
+    const activeSources = await getActiveLeadSourceNames();
     const selectedSources: string[] = Array.isArray(input.leadFetchSources)
-      ? Array.from(new Set(input.leadFetchSources.filter((s) => (LEAD_SOURCE_OPTIONS as readonly string[]).includes(s))))
+      ? Array.from(new Set(input.leadFetchSources.filter((s: string) => activeSources.includes(s))))
       : [];
 
     const passwordHash = await hash(password, 10);
@@ -764,8 +765,10 @@ export async function updateUserAction(
     const parsedJoining = input.joiningDate ? new Date(input.joiningDate) : null;
 
     // Filter valid lead sources
+    const activeSources = await getActiveLeadSourceNames();
+    const allowedSet = new Set([...activeSources, ...existingUser.leadFetchSources]);
     const selectedSources: string[] = Array.isArray(input.leadFetchSources)
-      ? Array.from(new Set(input.leadFetchSources.filter((s) => (LEAD_SOURCE_OPTIONS as readonly string[]).includes(s))))
+      ? Array.from(new Set(input.leadFetchSources.filter((s: string) => allowedSet.has(s))))
       : [];
 
     const role: Role = input.role && ["ADMIN", "MANAGER", "EMPLOYEE"].includes(input.role)
@@ -843,6 +846,7 @@ export async function updateUserAction(
       username: updated.username,
       role: updated.role,
       isActive: updated.isActive,
+
       mobile: updated.mobile,
       fatherName: updated.fatherName,
       state: updated.state,

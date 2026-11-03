@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition, useId } from "react";
+import { useState, useTransition, useId, useMemo } from "react";
 import Link from "next/link";
 import {
   Share2,
@@ -31,12 +31,14 @@ interface AllotLeadsClientProps {
   allotmentUsers: AllotmentUserOption[];
   initialSourceCounts: Record<string, number>;
   employeeProfiles?: EmployeeProfileOption[];
+  activeSources?: string[];
 }
 
 export function AllotLeadsClient({
   allotmentUsers,
   initialSourceCounts,
   employeeProfiles = [],
+  activeSources = [],
 }: AllotLeadsClientProps) {
   const leadSourceId = useId();
   const profileId = useId();
@@ -49,6 +51,7 @@ export function AllotLeadsClient({
   const [numberOfLeads, setNumberOfLeads] = useState<string>("");
 
   const [sourceCounts, setSourceCounts] = useState<Record<string, number>>(initialSourceCounts);
+  const displaySources = useMemo(() => Array.from(new Set([...activeSources, ...Object.keys(sourceCounts)])).sort(), [activeSources, sourceCounts]);
   const [isPending, startTransition] = useTransition();
   const [isCountsLoading, setIsCountsLoading] = useState<boolean>(false);
   const [result, setResult] = useState<AllotLeadsResult | null>(null);
@@ -258,7 +261,7 @@ export function AllotLeadsClient({
                 }}
                 className="w-full px-3 py-2 text-xs rounded-xl border border-slate-250 dark:border-white/[0.1] bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-500"
               >
-                {LEAD_SOURCE_OPTIONS.map((src) => (
+                {displaySources.map((src: string) => (
                   <option key={src} value={src}>
                     {src} ({sourceCounts[src] || 0} unassigned)
                   </option>
@@ -393,7 +396,7 @@ export function AllotLeadsClient({
                 <span className="text-[11px]">Updating counts for {profile}...</span>
               </div>
             ) : (
-              LEAD_SOURCE_OPTIONS.map((src) => {
+              displaySources.map((src: string) => {
                 const count = sourceCounts[src] || 0;
                 const isSelected = src === leadSource;
                 return (
