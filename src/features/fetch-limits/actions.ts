@@ -300,7 +300,7 @@ export async function updateFetchLimitRuleAction(
     // 1. Validate Lead Source
     const leadSource = input.leadSource?.trim();
     const activeSources = await getActiveLeadSourceNames();
-    if (!leadSource || !activeSources.includes(leadSource)) {
+    if (!leadSource || (!activeSources.includes(leadSource) && leadSource !== existingRule.leadSource)) {
       return { success: false, error: "Please select an active Lead Source from the database master." };
     }
 

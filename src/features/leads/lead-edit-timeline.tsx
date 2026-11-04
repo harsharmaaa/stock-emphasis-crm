@@ -84,7 +84,7 @@ export function LeadEditTimeline({
     occupation: lead.occupation || "",
     profile: lead.profile || "",
     experience: lead.experience || "",
-    leadSource: lead.leadSource || "Premium Lead",
+    leadSource: lead.leadSource || "",
     allotToId: lead.allotToId || "",
     status: mapStatusToLifecycleKey(lead.status),
     investment: lead.investment || "",
@@ -114,7 +114,7 @@ export function LeadEditTimeline({
       occupation: lead.occupation || "",
       profile: lead.profile || "",
       experience: lead.experience || "",
-      leadSource: lead.leadSource || "Premium Lead",
+      leadSource: lead.leadSource || "",
       allotToId: lead.allotToId || "",
       status: mapStatusToLifecycleKey(lead.status),
       investment: lead.investment || "",
@@ -381,7 +381,7 @@ export function LeadEditTimeline({
               Lead Owner: <span className="text-blue-600 dark:text-blue-400">{lead.ownerName || "Admin"}</span>
             </div>
             <div className="text-[11px] text-slate-400 dark:text-slate-400 mt-0.5">
-              Lead Source: <span className="font-medium text-slate-600 dark:text-slate-300">{formData.leadSource || lead.leadSource || "Premium Lead"}</span>
+              Lead Source: <span className="font-medium text-slate-600 dark:text-slate-300">{formData.leadSource || lead.leadSource || "—"}</span>
             </div>
           </div>
 
@@ -401,7 +401,6 @@ export function LeadEditTimeline({
                   setFormData((p) => ({
                     ...p,
                     status: "FOLLOW_UP",
-                    leadResponse: "Callback",
                   }));
                   setActiveTab("BASIC");
                 }}
@@ -602,7 +601,7 @@ export function LeadEditTimeline({
                       onChange={handleInputChange}
                       className="w-full px-3 py-2 text-xs rounded-lg border border-slate-200 dark:border-white/[0.1] bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
                     >
-                      <option value="">Select Response</option>
+                    <option value="">Select Response</option>
                       {formData.leadResponse && !activeResponses.includes(formData.leadResponse) && (
                         <option value={formData.leadResponse}>{formData.leadResponse} (Existing)</option>
                       )}
@@ -822,6 +821,7 @@ export function LeadEditTimeline({
                     onChange={handleInputChange}
                     className="w-full px-3 py-2 text-xs rounded-lg border border-slate-200 dark:border-white/[0.1] bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
                   >
+                    <option value="">-- Select Source --</option>
                     {formData.leadSource && !activeSources.includes(formData.leadSource) && (
                       <option value={formData.leadSource}>{formData.leadSource} (Existing)</option>
                     )}
@@ -925,7 +925,7 @@ export function LeadEditTimeline({
                 <div className="text-slate-700 dark:text-slate-300">
                   <span className="text-slate-400">Response:</span>{" "}
                   <span className="font-semibold text-blue-600 dark:text-blue-400">
-                    {formData.leadResponse || lead.leadResponse || "Interested"}
+                    {formData.leadResponse || lead.leadResponse || "—"}
                   </span>
                 </div>
 

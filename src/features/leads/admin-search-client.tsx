@@ -234,7 +234,7 @@ export function AdminSearchClient({
                       </td>
 
                       <td className="px-4 py-3 text-slate-600 dark:text-slate-400">
-                        {lead.leadSource || "Premium Lead"}
+                        {lead.leadSource || "—"}
                       </td>
 
                       <td className="px-4 py-3 font-mono text-slate-500 dark:text-slate-400">

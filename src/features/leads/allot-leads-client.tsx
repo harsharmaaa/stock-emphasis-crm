@@ -45,7 +45,7 @@ export function AllotLeadsClient({
   const employeeId = useId();
   const leadCountId = useId();
 
-  const [leadSource, setLeadSource] = useState<string>("Premium Lead");
+  const [leadSource, setLeadSource] = useState<string>("");
   const [profile, setProfile] = useState<string>(""); // "" = All Profiles
   const [targetEmployeeId, setTargetEmployeeId] = useState<string>("");
   const [numberOfLeads, setNumberOfLeads] = useState<string>("");
@@ -84,6 +84,11 @@ export function AllotLeadsClient({
     e.preventDefault();
     setErrorMsg(null);
     setResult(null);
+
+    if (!leadSource) {
+      setErrorMsg("Please select a Lead Source to allot.");
+      return;
+    }
 
     const countNum = parseInt(numberOfLeads, 10);
     if (isNaN(countNum) || countNum <= 0) {
@@ -261,6 +266,7 @@ export function AllotLeadsClient({
                 }}
                 className="w-full px-3 py-2 text-xs rounded-xl border border-slate-250 dark:border-white/[0.1] bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-500"
               >
+                <option value="">-- Select Source --</option>
                 {displaySources.map((src: string) => (
                   <option key={src} value={src}>
                     {src} ({sourceCounts[src] || 0} unassigned)

@@ -44,7 +44,7 @@ export function FetchLimitModal({
     initialRule ? String(initialRule.fetchCount) : "60"
   );
   const [leadSource, setLeadSource] = useState<string>(
-    initialRule ? initialRule.leadSource : leadSources[0] || "Premium Lead"
+    initialRule ? initialRule.leadSource : ""
   );
   const [selectedProfileIds, setSelectedProfileIds] = useState<string[]>(
     () => initialRule?.profiles.map((p) => p.id) || []
@@ -127,6 +127,10 @@ export function FetchLimitModal({
     }
     if (isNaN(parsedFetchCount) || parsedFetchCount <= 0) {
       setErrorMsg("Fetch Count must be greater than 0.");
+      return;
+    }
+    if (!leadSource) {
+      setErrorMsg("Please select a Lead Source.");
       return;
     }
     if (selectedProfileIds.length === 0) {
@@ -280,11 +284,21 @@ export function FetchLimitModal({
                 onChange={(e) => setLeadSource(e.target.value)}
                 className="w-full px-3 py-2 text-xs rounded-xl border border-slate-250 dark:border-white/[0.1] bg-slate-50/50 dark:bg-slate-800/50 text-slate-900 dark:text-white focus:outline-hidden focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
               >
-                {leadSources.map((source) => (
-                  <option key={source} value={source}>
-                    {source}
-                  </option>
-                ))}
+                {leadSources.length === 0 ? (
+                  <option value="">No sources configured in Settings</option>
+                ) : (
+                  <>
+                    <option value="">-- Select Source --</option>
+                    {!leadSources.includes(leadSource) && leadSource && (
+                      <option value={leadSource}>{leadSource} (Existing)</option>
+                    )}
+                    {leadSources.map((source) => (
+                      <option key={source} value={source}>
+                        {source}
+                      </option>
+                    ))}
+                  </>
+                )}
               </select>
               <p className="text-[11px] text-slate-400 mt-1">
                 Canonical lead source pool to draw leads from.

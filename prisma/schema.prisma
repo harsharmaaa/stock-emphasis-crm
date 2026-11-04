@@ -75,6 +75,7 @@ model User {
   leadFetchLogs           LeadFetchLog[]       @relation("UserLeadFetchLogs")
   createdLeadSources      LeadSource[]         @relation("LeadSourceCreatedBy")
   createdLeadResponses    LeadResponse[]       @relation("LeadResponseCreatedBy")
+  createdProducts         Product[]            @relation("ProductCreatedBy")
 
   // Soft delete
   deletedAt         DateTime?
@@ -335,6 +336,37 @@ model LeadResponse {
   isActive    Boolean  @default(true)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+
+  @@index([name])
+  @@index([isActive])
+}
+
+
+model Product {
+  id              String    @id @default(cuid())
+  name            String    @unique
+  pricingWithGst  Boolean   @default(false)
+
+  // Pricing tiers (Decimal for monetary precision)
+  monthlyPrice    Decimal?  @db.Decimal(12, 2)
+  quarterlyPrice  Decimal?  @db.Decimal(12, 2)
+  halfYearlyPrice Decimal?  @db.Decimal(12, 2)
+  yearlyPrice     Decimal?  @db.Decimal(12, 2)
+
+  // Free Trial
+  hasFreeTrial    Boolean   @default(false)
+  freeTrialDays   Int       @default(2)
+
+  // Optional future-proof attributes
+  riskAbove       String?
+  telegram        String?
+
+  // Status & Audit
+  isActive        Boolean   @default(true)
+  createdById     String?
+  createdBy       User?     @relation("ProductCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
 
   @@index([name])
   @@index([isActive])
