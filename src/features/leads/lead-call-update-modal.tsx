@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, useEffect } from "react";
 import {
   X,
   Calendar,
@@ -10,7 +10,7 @@ import {
   Loader2,
   Check,
 } from "lucide-react";
-import { updateLeadDetailsAction, type LeadListItem } from "./actions";
+import { updateLeadDetailsAction, getActiveLeadResponsesAction, type LeadListItem } from "./actions";
 
 interface LeadCallUpdateModalProps {
   lead: LeadListItem | null;
@@ -18,19 +18,6 @@ interface LeadCallUpdateModalProps {
   onClose: () => void;
   onSuccess: () => void;
 }
-
-export const CALL_RESPONSE_OPTIONS = [
-  "Callback",
-  "NPC",
-  "Do Not Trade",
-  "Not Reachable",
-  "Not Interested",
-  "Call Disconnect",
-  "Language Issue",
-  "Busy",
-  "FT",
-  "Interested",
-] as const;
 
 export function LeadCallUpdateModal({
   lead,
@@ -61,12 +48,23 @@ function LeadCallUpdateModalContent({
 }) {
   const [isPending, startTransition] = useTransition();
   const [response, setResponse] = useState<string>(lead.leadResponse || "");
+  const [activeResponses, setActiveResponses] = useState<string[]>([]);
+  const [isLoadingResponses, setIsLoadingResponses] = useState<boolean>(true);
   const [callbackDate, setCallbackDate] = useState<string>(
     lead.callbackDate ? lead.callbackDate.slice(0, 16) : ""
   );
   const [comment, setComment] = useState<string>(lead.description || "");
   const [isFollowup, setIsFollowup] = useState<boolean>(lead.status === "FOLLOW_UP");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    getActiveLeadResponsesAction().then((res) => {
+      if (res.success && res.leadResponses) {
+        setActiveResponses(res.leadResponses);
+      }
+      setIsLoadingResponses(false);
+    });
+  }, []);
 
   // Format display date: e.g. 26-Oct-26
   const displayDate = lead.createdAt
@@ -80,11 +78,7 @@ function LeadCallUpdateModalContent({
     : "";
 
   const handleAddFollowupClick = () => {
-    const nextState = !isFollowup;
-    setIsFollowup(nextState);
-    if (nextState && !response) {
-      setResponse("Callback");
-    }
+    setIsFollowup(!isFollowup);
   };
 
   const handleSave = () => {
@@ -171,14 +165,27 @@ function LeadCallUpdateModalContent({
                   onChange={(e) => setResponse(e.target.value)}
                   className="w-full h-10 px-3 bg-transparent text-xs text-slate-800 dark:text-slate-100 focus:outline-none cursor-pointer"
                 >
-                  <option value="" className="text-slate-400">
-                    Select Response
-                  </option>
-                  {CALL_RESPONSE_OPTIONS.map((opt) => (
-                    <option key={opt} value={opt} className="text-slate-800 dark:text-slate-900">
-                      {opt}
+                  {activeResponses.length === 0 && !response ? (
+                    <option value="" className="text-slate-400">
+                      {isLoadingResponses ? "Loading responses..." : "No responses configured in Settings"}
                     </option>
-                  ))}
+                  ) : (
+                    <>
+                      <option value="" className="text-slate-400">
+                        Select Response
+                      </option>
+                      {response && !activeResponses.includes(response) && (
+                        <option value={response} className="text-slate-800 dark:text-slate-900">
+                          {response} (Existing)
+                        </option>
+                      )}
+                      {activeResponses.map((opt) => (
+                        <option key={opt} value={opt} className="text-slate-800 dark:text-slate-900">
+                          {opt}
+                        </option>
+                      ))}
+                    </>
+                  )}
                 </select>
               </div>
 
@@ -201,42 +208,50 @@ function LeadCallUpdateModalContent({
               </button>
             </div>
 
-            {/* 2. Callback Date */}
+            {/* 2. Select Date (Conditional or visible when user wants callback) */}
             <div className="flex items-center rounded-xl border border-slate-200 dark:border-white/[0.1] bg-slate-50/60 dark:bg-white/[0.02] overflow-hidden focus-within:border-teal-500 focus-within:ring-2 focus-within:ring-teal-500/20 transition-all">
-              <div className="flex items-center justify-center w-11 h-10 bg-slate-100/80 dark:bg-white/[0.05] border-r border-slate-200 dark:border-white/[0.08] text-blue-600 dark:text-blue-400 shrink-0">
+              <div className="flex items-center justify-center w-11 h-10 bg-slate-100/80 dark:bg-white/[0.05] border-r border-slate-200 dark:border-white/[0.08] text-purple-600 dark:text-purple-400 shrink-0">
                 <Calendar className="size-4" />
               </div>
               <input
                 type="datetime-local"
                 value={callbackDate}
                 onChange={(e) => setCallbackDate(e.target.value)}
-                placeholder="Callback Date"
-                className="w-full h-10 px-3 bg-transparent text-xs text-slate-800 dark:text-slate-100 focus:outline-none placeholder:text-slate-400"
+                placeholder="Select Date"
+                className="w-full h-10 px-3 bg-transparent text-xs text-slate-800 dark:text-slate-100 focus:outline-none"
               />
             </div>
 
-            {/* 3. Comment Textarea */}
-            <div className="flex rounded-xl border border-slate-200 dark:border-white/[0.1] bg-slate-50/60 dark:bg-white/[0.02] overflow-hidden focus-within:border-teal-500 focus-within:ring-2 focus-within:ring-teal-500/20 transition-all">
-              <div className="flex items-start justify-center w-11 pt-3 bg-slate-100/80 dark:bg-white/[0.05] border-r border-slate-200 dark:border-white/[0.08] text-teal-600 dark:text-teal-400 shrink-0">
+            {/* 3. Description / Comment Box */}
+            <div className="flex items-start rounded-xl border border-slate-200 dark:border-white/[0.1] bg-slate-50/60 dark:bg-white/[0.02] overflow-hidden focus-within:border-teal-500 focus-within:ring-2 focus-within:ring-teal-500/20 transition-all">
+              <div className="flex items-center justify-center w-11 h-10 bg-slate-100/80 dark:bg-white/[0.05] border-r border-slate-200 dark:border-white/[0.08] text-purple-600 dark:text-purple-400 shrink-0">
                 <MessageSquare className="size-4" />
               </div>
               <textarea
-                rows={3}
                 value={comment}
                 onChange={(e) => setComment(e.target.value)}
-                placeholder="Comment here..."
-                className="w-full p-3 bg-transparent text-xs text-slate-800 dark:text-slate-100 focus:outline-none placeholder:text-slate-400 resize-none"
+                rows={3}
+                placeholder="Description"
+                className="w-full p-2.5 bg-transparent text-xs text-slate-800 dark:text-slate-100 focus:outline-none resize-none"
               />
             </div>
           </div>
 
-          {/* Bottom Save Button (Exact Teal styling matching design) */}
-          <div className="flex justify-center pt-2">
+          {/* Action Buttons */}
+          <div className="flex items-center justify-end gap-2.5 pt-2">
             <button
               type="button"
+              onClick={onClose}
               disabled={isPending}
+              className="px-5 py-2 rounded-xl text-xs font-semibold bg-rose-500 hover:bg-rose-600 active:bg-rose-700 text-white shadow-sm transition-colors disabled:opacity-50"
+            >
+              Close
+            </button>
+            <button
+              type="button"
               onClick={handleSave}
-              className="inline-flex items-center justify-center gap-2 min-w-[120px] px-8 py-2.5 rounded-xl bg-[#00a884] hover:bg-[#008f6f] text-white text-xs font-bold transition-all shadow-md shadow-[#00a884]/20 hover:shadow-lg disabled:opacity-60 cursor-pointer"
+              disabled={isPending}
+              className="px-6 py-2 rounded-xl text-xs font-semibold bg-teal-600 hover:bg-teal-500 active:bg-teal-700 text-white shadow-sm transition-colors flex items-center gap-1.5 disabled:opacity-50"
             >
               {isPending ? (
                 <>

@@ -113,7 +113,7 @@ export function LeadDetailsDrawer({
           if (cancelled) return;
           if (res.success && res.lead) {
             setLead(res.lead);
-            setEditResponse(res.lead.leadResponse || "Interested");
+            setEditResponse(res.lead.leadResponse || "");
             setEditSource(res.lead.leadSource || "");
             setEditProfile(res.lead.profile || "");
             setEditExperience(res.lead.experience || "");
@@ -429,6 +429,7 @@ export function LeadDetailsDrawer({
                       onChange={(e) => setEditResponse(e.target.value)}
                       className="w-full px-3 py-2 text-xs rounded-xl bg-white dark:bg-slate-900 border border-slate-250 dark:border-slate-750 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-500/40"
                     >
+                      <option value="">-- Select Response --</option>
                       {editResponse && !activeResponses.includes(editResponse) && (
                         <option value={editResponse}>{editResponse} (Existing)</option>
                       )}

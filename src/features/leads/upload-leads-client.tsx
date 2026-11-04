@@ -79,7 +79,7 @@ export function UploadLeadsClient({
   const employeeId = useId();
   const fileInputId = useId();
 
-  const [leadSource, setLeadSource] = useState<string>("Premium Lead");
+  const [leadSource, setLeadSource] = useState<string>("");
   const [allotToId, setAllotToId] = useState<string>("");
   const [file, setFile] = useState<File | null>(null);
 
@@ -128,6 +128,11 @@ export function UploadLeadsClient({
     e.preventDefault();
     setErrorMsg(null);
     setResult(null);
+
+    if (!leadSource) {
+      setErrorMsg("Please select an active Lead Source from the system.");
+      return;
+    }
 
     if (!file) {
       setErrorMsg("Please select a CSV file to upload.");
@@ -359,11 +364,14 @@ export function UploadLeadsClient({
                   {activeSources.length === 0 ? (
                     <option value="">No sources configured in Settings</option>
                   ) : (
-                    activeSources.map((src: string) => (
+                    <>
+                      <option value="">-- Select Source --</option>
+                      {activeSources.map((src: string) => (
                       <option key={src} value={src}>
                         {src}
                       </option>
-                    ))
+                      ))}
+                    </>
                   )}
                 </select>
               </div>
