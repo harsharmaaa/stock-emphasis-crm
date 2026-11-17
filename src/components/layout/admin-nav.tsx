@@ -397,6 +397,7 @@ export function AdminNav({
                           <Link
                             key={item.href}
                             href={item.href}
+                            prefetch={true}
                             onClick={onClose}
                             title={isCollapsed ? item.title : undefined}
                             className={`group relative flex items-center ${isCollapsed ? "justify-center px-2 py-2.5" : "justify-between px-3.5 py-2.5"

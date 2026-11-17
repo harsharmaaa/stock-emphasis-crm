@@ -68,11 +68,25 @@ interface AddLeadFormProps {
   allotmentUsers: AllotmentUserOption[];
   leadSources?: string[];
   leadResponses?: string[];
+  portal?: "admin" | "manager";
+  customCreateAction?: (input: CreateLeadInput) => Promise<{ success: boolean; leadId?: string; error?: string }>;
+  customCheckPhoneAction?: (rawPhone: string) => Promise<{ isDuplicate: boolean; message?: string }>;
 }
 
-export function AddLeadForm({ allotmentUsers, leadSources = [], leadResponses = [] }: AddLeadFormProps) {
+export function AddLeadForm({
+  allotmentUsers,
+  leadSources = [],
+  leadResponses = [],
+  portal = "admin",
+  customCreateAction,
+  customCheckPhoneAction,
+}: AddLeadFormProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
+
+  const basePath = portal === "manager" ? "/manager/leads" : "/admin/leads";
+  const executeCreate = customCreateAction || createLeadAction;
+  const executeCheckPhone = customCheckPhoneAction || checkPhoneDuplicateAction;
 
   // Form fields state
   const [formData, setFormData] = useState<CreateLeadInput>({
@@ -119,7 +133,7 @@ export function AddLeadForm({ allotmentUsers, leadSources = [], leadResponses = 
 
     setPhoneChecking(true);
     try {
-      const res = await checkPhoneDuplicateAction(mobile);
+      const res = await executeCheckPhone(mobile);
       if (res.isDuplicate) {
         setPhoneDuplicateError("This number already exists.");
       } else {
@@ -130,7 +144,7 @@ export function AddLeadForm({ allotmentUsers, leadSources = [], leadResponses = 
     } finally {
       setPhoneChecking(false);
     }
-  }, [formData.mobile]);
+  }, [formData.mobile, executeCheckPhone]);
 
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
@@ -168,7 +182,7 @@ export function AddLeadForm({ allotmentUsers, leadSources = [], leadResponses = 
 
     startTransition(async () => {
       try {
-        const res = await createLeadAction(formData);
+        const res = await executeCreate(formData);
 
         if (!res.success) {
           setFormError(res.error || "Failed to create lead.");
@@ -179,6 +193,7 @@ export function AddLeadForm({ allotmentUsers, leadSources = [], leadResponses = 
         }
 
         setFormSuccess(`Lead "${formData.name.trim()}" has been recorded successfully!`);
+        router.refresh();
 
         // Reset form fields
         setFormData({
@@ -220,85 +235,79 @@ export function AddLeadForm({ allotmentUsers, leadSources = [], leadResponses = 
         <div className="flex items-center gap-1.5 flex-wrap">
           {/* Active Add Lead button */}
           <Link
-            href="/admin/leads/add"
+            href={`${basePath}/add`}
             className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-xs hover:brightness-110 transition-all"
           >
             <Plus className="size-3.5" />
             <span>Add</span>
           </Link>
           <Link
-            href="/admin/leads?status=ALL"
+            href={`${basePath}?status=ALL`}
             className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-white/70 dark:bg-white/[0.06] hover:bg-violet-500/10 text-slate-700 dark:text-slate-200 border border-slate-200/80 dark:border-white/[0.08] backdrop-blur-md shadow-xs transition-colors"
           >
             <Layers className="size-3.5" />
             <span>All</span>
-            <span className="text-[10px] opacity-75">73744</span>
           </Link>
+          {portal === "admin" && (
+            <Link
+              href="/admin/leads?status=UNALLOTTED"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-white/70 dark:bg-white/[0.06] hover:bg-violet-500/10 text-slate-700 dark:text-slate-200 border border-slate-200/80 dark:border-white/[0.08] backdrop-blur-md shadow-xs transition-colors"
+            >
+              <UserX className="size-3.5" />
+              <span>Unallotted</span>
+            </Link>
+          )}
           <Link
-            href="/admin/leads?status=UNALLOTTED"
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-white/70 dark:bg-white/[0.06] hover:bg-violet-500/10 text-slate-700 dark:text-slate-200 border border-slate-200/80 dark:border-white/[0.08] backdrop-blur-md shadow-xs transition-colors"
-          >
-            <UserX className="size-3.5" />
-            <span>Unallotted</span>
-            <span className="text-[10px] opacity-75">10068</span>
-          </Link>
-          <Link
-            href="/admin/leads?status=UNREAD"
+            href={`${basePath}?status=UNREAD`}
             className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-white/70 dark:bg-white/[0.06] hover:bg-violet-500/10 text-slate-700 dark:text-slate-200 border border-slate-200/80 dark:border-white/[0.08] backdrop-blur-md shadow-xs transition-colors"
           >
             <EyeOff className="size-3.5" />
             <span>Unread</span>
-            <span className="text-[10px] opacity-75">645</span>
           </Link>
           <Link
-            href="/admin/leads?status=READ"
+            href={`${basePath}?status=READ`}
             className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-white/70 dark:bg-white/[0.06] hover:bg-violet-500/10 text-slate-700 dark:text-slate-200 border border-slate-200/80 dark:border-white/[0.08] backdrop-blur-md shadow-xs transition-colors"
           >
             <Eye className="size-3.5" />
             <span>Read</span>
-            <span className="text-[10px] opacity-75">702057</span>
           </Link>
           <Link
-            href="/admin/leads?status=FOLLOW_UP"
+            href={`${basePath}?status=FOLLOW_UP`}
             className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-white/70 dark:bg-white/[0.06] hover:bg-violet-500/10 text-slate-700 dark:text-slate-200 border border-slate-200/80 dark:border-white/[0.08] backdrop-blur-md shadow-xs transition-colors"
           >
             <CalendarClock className="size-3.5" />
             <span>Followups</span>
-            <span className="text-[10px] opacity-75">78</span>
           </Link>
           <Link
-            href="/admin/leads?status=TRIALS"
+            href={`${basePath}?status=TRIALS`}
             className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-white/70 dark:bg-white/[0.06] hover:bg-violet-500/10 text-slate-700 dark:text-slate-200 border border-slate-200/80 dark:border-white/[0.08] backdrop-blur-md shadow-xs transition-colors"
           >
             <ScrollText className="size-3.5" />
             <span>Trials</span>
-            <span className="text-[10px] opacity-75">24</span>
           </Link>
           <Link
-            href="/admin/leads?status=CLIENTS"
+            href={`${basePath}?status=CLIENTS`}
             className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-white/70 dark:bg-white/[0.06] hover:bg-violet-500/10 text-slate-700 dark:text-slate-200 border border-slate-200/80 dark:border-white/[0.08] backdrop-blur-md shadow-xs transition-colors"
           >
             <Contact className="size-3.5" />
             <span>Clients</span>
-            <span className="text-[10px] opacity-75">580</span>
           </Link>
           <Link
-            href="/admin/leads?status=DISPOSED"
+            href={`${basePath}?status=DISPOSED`}
             className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-white/70 dark:bg-white/[0.06] hover:bg-violet-500/10 text-slate-700 dark:text-slate-200 border border-slate-200/80 dark:border-white/[0.08] backdrop-blur-md shadow-xs transition-colors"
           >
             <CircleOff className="size-3.5" />
             <span>Disposed</span>
-            <span className="text-[10px] opacity-75">38161</span>
           </Link>
         </div>
 
         <button
           type="button"
-          onClick={() => router.push("/admin/leads")}
-          className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-semibold bg-gradient-to-r from-violet-600 to-blue-600 hover:from-violet-500 hover:to-blue-500 text-white shadow-xs transition-all shrink-0"
+          onClick={() => router.push(basePath)}
+          className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-semibold bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white shadow-xs transition-all shrink-0 cursor-pointer"
         >
           <Download className="size-3.5" />
-          <span>Fetch</span>
+          <span>Directory</span>
         </button>
       </div>
 
@@ -312,7 +321,7 @@ export function AddLeadForm({ allotmentUsers, leadSources = [], leadResponses = 
           <div className="flex items-center gap-2 shrink-0">
             <button
               type="button"
-              onClick={() => router.push("/admin/leads")}
+              onClick={() => router.push(basePath)}
               className="px-2.5 py-1 rounded-md text-xs font-semibold bg-emerald-600 text-white hover:bg-emerald-500 transition-colors"
             >
               Directory
@@ -866,7 +875,7 @@ export function AddLeadForm({ allotmentUsers, leadSources = [], leadResponses = 
         {/* Action Buttons Footer */}
         <div className="flex items-center justify-between p-4 rounded-xl bg-white/75 dark:bg-[#0c1322]/70 backdrop-blur-xl border border-slate-200/80 dark:border-white/[0.08] shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-[0_8px_30px_rgb(0,0,0,0.25)]">
           <Link
-            href="/admin/leads"
+            href={basePath}
             className="px-4 py-2 text-xs font-medium text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors"
           >
             Cancel

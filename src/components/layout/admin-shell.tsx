@@ -102,11 +102,6 @@ export function AdminShell({
     }, 180);
   };
 
-  const handleLeadsClick = () => {
-    setIsLeadsMenuOpen(false);
-    router.push("/admin/leads");
-  };
-
   // Settings dropdown state
   const [isSettingsMenuOpen, setIsSettingsMenuOpen] = useState(false);
   const settingsMenuTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -278,10 +273,14 @@ export function AdminShell({
               onMouseEnter={handleLeadsMouseEnter}
               onMouseLeave={handleLeadsMouseLeave}
             >
-              <button
-                type="button"
-                onClick={handleLeadsClick}
-                className={`flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all shadow-2xs ${pathname.startsWith("/admin/leads") || isLeadsMenuOpen
+              <Link
+                href="/admin/leads"
+                prefetch={true}
+                onClick={() => {
+                  if (leadsMenuTimeoutRef.current) clearTimeout(leadsMenuTimeoutRef.current);
+                  setIsLeadsMenuOpen(false);
+                }}
+                className={`flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all shadow-2xs cursor-pointer ${pathname.startsWith("/admin/leads") || isLeadsMenuOpen
                     ? "bg-violet-500/10 text-violet-700 dark:text-violet-300 border border-violet-500/30"
                     : "text-slate-700 dark:text-slate-300 hover:bg-white/70 dark:hover:bg-white/[0.06] border border-transparent"
                   }`}
@@ -291,7 +290,7 @@ export function AdminShell({
               >
                 <span>Leads</span>
                 <ChevronDown className={`size-3 transition-transform duration-150 ${isLeadsMenuOpen ? "rotate-180" : ""}`} />
-              </button>
+              </Link>
 
               {/* Leads Hover Mega Dropdown Menu (Image 1) */}
               {isLeadsMenuOpen && (

@@ -82,45 +82,43 @@ export async function getManagerOverviewAction(): Promise<{
   try {
     const manager = await requireManagerSession({ redirect: false });
 
-    // 1. Fetch led teams
-    const rawTeams = await prisma.team.findMany({
-      where: { leaderId: manager.id },
-      include: {
-        members: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-            role: true,
-            isActive: true,
-            createdAt: true,
+    // 1, 2, 3. Fetch led teams, direct reports, and announcement setting in parallel
+    const [rawTeams, rawDirectReports, announcementSetting] = await Promise.all([
+      prisma.team.findMany({
+        where: { leaderId: manager.id },
+        include: {
+          members: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+              role: true,
+              isActive: true,
+              createdAt: true,
+            },
+            orderBy: { name: "asc" },
           },
-          orderBy: { name: "asc" },
         },
-      },
-      orderBy: { name: "asc" },
-    });
-
-    // 2. Fetch direct reports
-    const rawDirectReports = await prisma.user.findMany({
-      where: { managerId: manager.id },
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        role: true,
-        isActive: true,
-        createdAt: true,
-        team: { select: { id: true, name: true } },
-      },
-      orderBy: { name: "asc" },
-    });
-
-    // 3. Fetch announcement banner
-    const announcementSetting = await prisma.systemSetting.findUnique({
-      where: { key: "ANNOUNCEMENT_BANNER" },
-      select: { value: true },
-    });
+        orderBy: { name: "asc" },
+      }),
+      prisma.user.findMany({
+        where: { managerId: manager.id },
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          role: true,
+          isActive: true,
+          createdAt: true,
+          team: { select: { id: true, name: true } },
+        },
+        orderBy: { name: "asc" },
+      }),
+      prisma.systemSetting.findUnique({
+        where: { key: "ANNOUNCEMENT_BANNER" },
+        select: { value: true },
+      }),
+    ]);
 
     // Collect IDs for strictly-scoped activity log filter
     const subordinateIds = rawDirectReports.map((dr) => dr.id);

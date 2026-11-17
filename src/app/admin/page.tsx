@@ -26,22 +26,12 @@ export const metadata = {
 export default async function AdminOverviewPage() {
   const admin = await requireAdminSession();
 
-  // Query real-time database metrics
-  const [
-    totalUsers,
-    activeUsers,
-    inactiveUsers,
-    activeManagers,
-    activeEmployees,
-    activeAdmins,
-    recentUsers,
-  ] = await Promise.all([
-    prisma.user.count(),
-    prisma.user.count({ where: { isActive: true } }),
-    prisma.user.count({ where: { isActive: false } }),
-    prisma.user.count({ where: { role: "MANAGER", isActive: true } }),
-    prisma.user.count({ where: { role: "EMPLOYEE", isActive: true } }),
-    prisma.user.count({ where: { role: "ADMIN", isActive: true } }),
+  // Query real-time database metrics efficiently with groupBy & parallel recent accounts query
+  const [userStats, recentUsers] = await Promise.all([
+    prisma.user.groupBy({
+      by: ["role", "isActive"],
+      _count: { _all: true },
+    }),
     prisma.user.findMany({
       take: 5,
       orderBy: { createdAt: "desc" },
@@ -55,6 +45,26 @@ export default async function AdminOverviewPage() {
       },
     }),
   ]);
+
+  let totalUsers = 0;
+  let activeUsers = 0;
+  let inactiveUsers = 0;
+  let activeManagers = 0;
+  let activeEmployees = 0;
+  let activeAdmins = 0;
+
+  for (const stat of userStats) {
+    const count = stat._count._all;
+    totalUsers += count;
+    if (stat.isActive) {
+      activeUsers += count;
+      if (stat.role === "MANAGER") activeManagers += count;
+      else if (stat.role === "EMPLOYEE") activeEmployees += count;
+      else if (stat.role === "ADMIN") activeAdmins += count;
+    } else {
+      inactiveUsers += count;
+    }
+  }
 
   const activeRate = totalUsers > 0 ? Math.round((activeUsers / totalUsers) * 100) : 0;
 

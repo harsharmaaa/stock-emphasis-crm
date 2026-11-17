@@ -16,7 +16,11 @@ export default async function ManagerLayout({
   const manager = await requireManagerSession();
 
   return (
-    <ManagerShell managerName={manager.name} managerEmail={manager.email}>
+    <ManagerShell
+      managerName={manager.name}
+      managerEmail={manager.email}
+      managerRole={manager.role}
+    >
       {children}
     </ManagerShell>
   );

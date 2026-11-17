@@ -1,6 +1,7 @@
 import { auth } from "@/auth";
 import { redirect } from "next/navigation";
 import { connection } from "next/server";
+import { cache } from "react";
 import { prisma } from "@/src/lib/prisma";
 import type { Role } from "@prisma/client";
 
@@ -11,37 +12,34 @@ export interface AuthenticatedAdminUser {
   role: Role;
 }
 
+type AuthGuardResult<T> =
+  | { success: true; user: T }
+  | { success: false; redirectUrl: string; errorMessage: string };
+
 /**
- * Server-side security guard for Server Components and Server Actions.
- * Validates that an active session exists, the account is active in the database,
- * and belongs strictly to an ADMIN.
+ * Cached per-request Admin session and database verification.
+ * Evaluates connection(), auth(), and user DB check exactly once per HTTP request lifecycle.
  */
-export async function requireAdminSession(options?: {
-  redirect?: boolean;
-}): Promise<AuthenticatedAdminUser> {
+const getCachedAdminSession = cache(async (): Promise<AuthGuardResult<AuthenticatedAdminUser>> => {
   await connection();
   const session = await auth();
 
-  const shouldRedirect = options?.redirect ?? true;
-
   if (!session?.user?.id || !session?.user?.email) {
-    if (!shouldRedirect) {
-      throw new Error("Unauthorized: Active session required.");
-    }
-    redirect("/login");
+    return {
+      success: false,
+      redirectUrl: "/login",
+      errorMessage: "Unauthorized: Active session required.",
+    };
   }
 
   const { id, name, email, role } = session.user;
 
   if (role !== "ADMIN") {
-    if (!shouldRedirect) {
-      throw new Error("Forbidden: Administrator privileges required.");
-    }
-    if (role === "MANAGER") {
-      redirect("/manager");
-    } else {
-      redirect("/employee");
-    }
+    return {
+      success: false,
+      redirectUrl: role === "MANAGER" ? "/manager" : "/employee",
+      errorMessage: "Forbidden: Administrator privileges required.",
+    };
   }
 
   // Real-time database verification: ensure user exists, is active, and remains ADMIN
@@ -51,19 +49,46 @@ export async function requireAdminSession(options?: {
   });
 
   if (!dbUser || !dbUser.isActive || dbUser.deletedAt || dbUser.role !== "ADMIN") {
-    if (!shouldRedirect) {
-      throw new Error("Forbidden: Administrator privileges required or account is inactive.");
-    }
-    redirect("/login");
+    return {
+      success: false,
+      redirectUrl: "/login",
+      errorMessage: "Forbidden: Administrator privileges required or account is inactive.",
+    };
   }
 
   return {
-    id,
-    name: name ?? "Administrator",
-    email,
-    role: dbUser.role,
+    success: true,
+    user: {
+      id,
+      name: name ?? "Administrator",
+      email,
+      role: dbUser.role,
+    },
   };
-}
+});
+
+/**
+ * Server-side security guard for Server Components and Server Actions.
+ * Validates that an active session exists, the account is active in the database,
+ * and belongs strictly to an ADMIN.
+ *
+ * Wrapped in React cache() so requests across Layouts, Pages, and Actions reuse the same DB lookup.
+ */
+export const requireAdminSession = cache(async (options?: {
+  redirect?: boolean;
+}): Promise<AuthenticatedAdminUser> => {
+  const result = await getCachedAdminSession();
+  const shouldRedirect = options?.redirect ?? true;
+
+  if (!result.success) {
+    if (!shouldRedirect) {
+      throw new Error(result.errorMessage);
+    }
+    redirect(result.redirectUrl);
+  }
+
+  return result.user;
+});
 
 export interface AuthenticatedManagerUser {
   id: string;
@@ -73,32 +98,29 @@ export interface AuthenticatedManagerUser {
 }
 
 /**
- * Server-side security guard for Manager Server Components and Server Actions.
- * Validates that an active session exists, the account is active in the database,
- * and belongs to a MANAGER (or ADMIN for management oversight).
+ * Cached per-request Manager session and database verification.
+ * Evaluates connection(), auth(), and user DB check exactly once per HTTP request lifecycle.
  */
-export async function requireManagerSession(options?: {
-  redirect?: boolean;
-}): Promise<AuthenticatedManagerUser> {
+const getCachedManagerSession = cache(async (): Promise<AuthGuardResult<AuthenticatedManagerUser>> => {
   await connection();
   const session = await auth();
 
-  const shouldRedirect = options?.redirect ?? true;
-
   if (!session?.user?.id || !session?.user?.email) {
-    if (!shouldRedirect) {
-      throw new Error("Unauthorized: Active session required.");
-    }
-    redirect("/login");
+    return {
+      success: false,
+      redirectUrl: "/login",
+      errorMessage: "Unauthorized: Active session required.",
+    };
   }
 
   const { id, name, email, role } = session.user;
 
   if (role !== "MANAGER" && role !== "ADMIN") {
-    if (!shouldRedirect) {
-      throw new Error("Forbidden: Manager privileges required.");
-    }
-    redirect("/employee");
+    return {
+      success: false,
+      redirectUrl: "/employee",
+      errorMessage: "Forbidden: Manager privileges required.",
+    };
   }
 
   // Real-time database verification: ensure user exists, is active, and is MANAGER (or ADMIN)
@@ -108,26 +130,54 @@ export async function requireManagerSession(options?: {
   });
 
   if (!dbUser || !dbUser.isActive) {
-    if (!shouldRedirect) {
-      throw new Error("Forbidden: Account is inactive or does not exist.");
-    }
-    redirect("/login");
+    return {
+      success: false,
+      redirectUrl: "/login",
+      errorMessage: "Forbidden: Account is inactive or does not exist.",
+    };
   }
 
   if (dbUser.role !== "MANAGER" && dbUser.role !== "ADMIN") {
-    if (!shouldRedirect) {
-      throw new Error("Forbidden: Manager privileges required.");
-    }
-    redirect(dbUser.role === "EMPLOYEE" ? "/employee" : "/login");
+    return {
+      success: false,
+      redirectUrl: dbUser.role === "EMPLOYEE" ? "/employee" : "/login",
+      errorMessage: "Forbidden: Manager privileges required.",
+    };
   }
 
   return {
-    id,
-    name: name ?? "Operations Manager",
-    email,
-    role: dbUser.role,
+    success: true,
+    user: {
+      id,
+      name: name ?? "Operations Manager",
+      email,
+      role: dbUser.role,
+    },
   };
-}
+});
+
+/**
+ * Server-side security guard for Manager Server Components and Server Actions.
+ * Validates that an active session exists, the account is active in the database,
+ * and belongs to a MANAGER (or ADMIN for management oversight).
+ *
+ * Wrapped in React cache() so requests across Layouts, Pages, and Actions reuse the same DB lookup.
+ */
+export const requireManagerSession = cache(async (options?: {
+  redirect?: boolean;
+}): Promise<AuthenticatedManagerUser> => {
+  const result = await getCachedManagerSession();
+  const shouldRedirect = options?.redirect ?? true;
+
+  if (!result.success) {
+    if (!shouldRedirect) {
+      throw new Error(result.errorMessage);
+    }
+    redirect(result.redirectUrl);
+  }
+
+  return result.user;
+});
 
 export interface AuthenticatedEmployeeUser {
   id: string;
@@ -139,23 +189,19 @@ export interface AuthenticatedEmployeeUser {
 }
 
 /**
- * Server-side security guard for Employee Server Components and Server Actions.
- * Validates that an active session exists, the account is active in the database,
- * and belongs to an EMPLOYEE (or ADMIN/MANAGER for staff oversight).
+ * Cached per-request Employee session and database verification.
+ * Evaluates connection(), auth(), and user DB check exactly once per HTTP request lifecycle.
  */
-export async function requireEmployeeSession(options?: {
-  redirect?: boolean;
-}): Promise<AuthenticatedEmployeeUser> {
+const getCachedEmployeeSession = cache(async (): Promise<AuthGuardResult<AuthenticatedEmployeeUser>> => {
   await connection();
   const session = await auth();
 
-  const shouldRedirect = options?.redirect ?? true;
-
   if (!session?.user?.id || !session?.user?.email) {
-    if (!shouldRedirect) {
-      throw new Error("Unauthorized: Active session required.");
-    }
-    redirect("/login");
+    return {
+      success: false,
+      redirectUrl: "/login",
+      errorMessage: "Unauthorized: Active session required.",
+    };
   }
 
   const { id, name, email } = session.user;
@@ -167,28 +213,56 @@ export async function requireEmployeeSession(options?: {
   });
 
   if (!dbUser || !dbUser.isActive) {
-    if (!shouldRedirect) {
-      throw new Error("Forbidden: Account is inactive or does not exist.");
-    }
-    redirect("/login");
+    return {
+      success: false,
+      redirectUrl: "/login",
+      errorMessage: "Forbidden: Account is inactive or does not exist.",
+    };
   }
 
   if (dbUser.role !== "EMPLOYEE" && dbUser.role !== "ADMIN" && dbUser.role !== "MANAGER") {
-    if (!shouldRedirect) {
-      throw new Error("Forbidden: Employee workspace access required.");
-    }
-    redirect("/login");
+    return {
+      success: false,
+      redirectUrl: "/login",
+      errorMessage: "Forbidden: Employee workspace access required.",
+    };
   }
 
   return {
-    id,
-    name: name ?? "Warehouse Employee",
-    email,
-    role: dbUser.role,
-    teamId: dbUser.teamId,
-    managerId: dbUser.managerId,
+    success: true,
+    user: {
+      id,
+      name: name ?? "Warehouse Employee",
+      email,
+      role: dbUser.role,
+      teamId: dbUser.teamId,
+      managerId: dbUser.managerId,
+    },
   };
-}
+});
+
+/**
+ * Server-side security guard for Employee Server Components and Server Actions.
+ * Validates that an active session exists, the account is active in the database,
+ * and belongs to an EMPLOYEE (or ADMIN/MANAGER for staff oversight).
+ *
+ * Wrapped in React cache() so requests across Layouts, Pages, and Actions reuse the same DB lookup.
+ */
+export const requireEmployeeSession = cache(async (options?: {
+  redirect?: boolean;
+}): Promise<AuthenticatedEmployeeUser> => {
+  const result = await getCachedEmployeeSession();
+  const shouldRedirect = options?.redirect ?? true;
+
+  if (!result.success) {
+    if (!shouldRedirect) {
+      throw new Error(result.errorMessage);
+    }
+    redirect(result.redirectUrl);
+  }
+
+  return result.user;
+});
 
 /**
  * Validates safety rules for modifying user status or role:

@@ -454,7 +454,7 @@ export function FetchLimitsClient({
                           {rule.createdByName}
                         </div>
                         <div className="text-[10px] text-slate-400">
-                          {new Date(rule.createdAt).toLocaleDateString()}
+                          {new Date(rule.createdAt).toISOString().split('T')[0]}
                         </div>
                       </td>
 

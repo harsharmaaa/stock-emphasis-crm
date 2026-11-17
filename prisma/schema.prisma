@@ -84,6 +84,9 @@ model User {
   @@index([departmentId])
   @@index([employeeProfileId])
   @@index([username])
+  @@index([managerId])
+  @@index([teamId])
+  @@index([role, isActive])
 }
 
 model Team {
@@ -190,6 +193,9 @@ model Lead {
   @@index([teamId])
   @@index([callbackDate])
   @@index([createdAt])
+  @@index([status, createdAt(sort: Desc)])
+  @@index([allotToId, status])
+  @@index([teamId, status])
 }
 
 model Department {
