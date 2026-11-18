@@ -48,6 +48,7 @@ export async function getFetchLimitRulesAction(): Promise<{
             name: true,
             username: true,
             email: true,
+            role: true,
             employeeProfileId: true,
             employeeProfile: { select: { name: true } },
           },
@@ -75,6 +76,7 @@ export async function getFetchLimitRulesAction(): Promise<{
         name: u.name,
         username: u.username,
         email: u.email,
+        role: u.role,
         employeeProfileId: u.employeeProfileId,
         employeeProfileName: u.employeeProfile?.name || null,
       }));
@@ -142,10 +144,11 @@ export async function getFetchLimitFormDataAction(): Promise<{
           name: true,
           username: true,
           email: true,
+          role: true,
           employeeProfileId: true,
           employeeProfile: { select: { id: true, name: true } },
         },
-        orderBy: [{ employeeProfile: { name: "asc" } }, { name: "asc" }],
+        orderBy: [{ role: "desc" }, { employeeProfile: { name: "asc" } }, { name: "asc" }],
       }),
     ]);
 
@@ -161,6 +164,7 @@ export async function getFetchLimitFormDataAction(): Promise<{
       name: e.name,
       username: e.username,
       email: e.email,
+      role: e.role,
       employeeProfileId: e.employeeProfileId,
       employeeProfileName: e.employeeProfile?.name || null,
     }));
@@ -210,27 +214,31 @@ export async function createFetchLimitRuleAction(
       return { success: false, error: "Fetch Count (maximum requests) must be greater than 0." };
     }
 
-    // 3. Validate profile IDs
+    // 3. Validate profile IDs and/or assigned users
     const profileIds = Array.isArray(input.profileIds)
       ? Array.from(new Set(input.profileIds.filter(Boolean)))
       : [];
-    if (profileIds.length === 0) {
-      return { success: false, error: "Please select at least one Employee Profile." };
+    const assignedUserIds = Array.isArray(input.assignedUserIds)
+      ? Array.from(new Set(input.assignedUserIds.filter(Boolean)))
+      : [];
+
+    if (profileIds.length === 0 && assignedUserIds.length === 0) {
+      return { success: false, error: "Please select at least one Employee Profile or assign at least one User/Manager." };
     }
 
-    const existingProfiles = await prisma.employeeProfile.findMany({
-      where: { id: { in: profileIds }, isActive: true },
-      select: { id: true, name: true },
-    });
-    if (existingProfiles.length === 0) {
-      return { success: false, error: "None of the selected Employee Profiles are valid or active." };
+    let validProfileIds: string[] = [];
+    if (profileIds.length > 0) {
+      const existingProfiles = await prisma.employeeProfile.findMany({
+        where: { id: { in: profileIds }, isActive: true },
+        select: { id: true, name: true },
+      });
+      validProfileIds = existingProfiles.map((p) => p.id);
     }
-    const validProfileIds = existingProfiles.map((p) => p.id);
 
-    // 4. Validate assigned employee IDs if provided
+    // 4. Validate assigned employee / manager IDs if provided
     let validUserIds: string[] = [];
-    if (Array.isArray(input.assignedUserIds) && input.assignedUserIds.length > 0) {
-      const uniqueUserIds = Array.from(new Set(input.assignedUserIds.filter(Boolean)));
+    if (assignedUserIds.length > 0) {
+      const uniqueUserIds = Array.from(new Set(assignedUserIds.filter(Boolean)));
       const existingUsers = await prisma.user.findMany({
         where: {
           id: { in: uniqueUserIds },
@@ -240,6 +248,10 @@ export async function createFetchLimitRuleAction(
         select: { id: true },
       });
       validUserIds = existingUsers.map((u) => u.id);
+    }
+
+    if (validProfileIds.length === 0 && validUserIds.length === 0) {
+      return { success: false, error: "None of the selected Profiles or Users are valid or active." };
     }
 
     // 5. Create rule in transaction
@@ -320,27 +332,31 @@ export async function updateFetchLimitRuleAction(
       return { success: false, error: "Fetch Count (maximum requests) must be greater than 0." };
     }
 
-    // 3. Validate profile IDs
+    // 3. Validate profile IDs and/or assigned users
     const profileIds = Array.isArray(input.profileIds)
       ? Array.from(new Set(input.profileIds.filter(Boolean)))
       : [];
-    if (profileIds.length === 0) {
-      return { success: false, error: "Please select at least one Employee Profile." };
+    const assignedUserIds = Array.isArray(input.assignedUserIds)
+      ? Array.from(new Set(input.assignedUserIds.filter(Boolean)))
+      : [];
+
+    if (profileIds.length === 0 && assignedUserIds.length === 0) {
+      return { success: false, error: "Please select at least one Employee Profile or assign at least one User/Manager." };
     }
 
-    const existingProfiles = await prisma.employeeProfile.findMany({
-      where: { id: { in: profileIds }, isActive: true },
-      select: { id: true, name: true },
-    });
-    if (existingProfiles.length === 0) {
-      return { success: false, error: "None of the selected Employee Profiles are valid or active." };
+    let validProfileIds: string[] = [];
+    if (profileIds.length > 0) {
+      const existingProfiles = await prisma.employeeProfile.findMany({
+        where: { id: { in: profileIds }, isActive: true },
+        select: { id: true, name: true },
+      });
+      validProfileIds = existingProfiles.map((p) => p.id);
     }
-    const validProfileIds = existingProfiles.map((p) => p.id);
 
-    // 4. Validate assigned employee IDs
+    // 4. Validate assigned employee / manager IDs
     let validUserIds: string[] = [];
-    if (Array.isArray(input.assignedUserIds) && input.assignedUserIds.length > 0) {
-      const uniqueUserIds = Array.from(new Set(input.assignedUserIds.filter(Boolean)));
+    if (assignedUserIds.length > 0) {
+      const uniqueUserIds = Array.from(new Set(assignedUserIds.filter(Boolean)));
       const existingUsers = await prisma.user.findMany({
         where: {
           id: { in: uniqueUserIds },
@@ -350,6 +366,10 @@ export async function updateFetchLimitRuleAction(
         select: { id: true },
       });
       validUserIds = existingUsers.map((u) => u.id);
+    }
+
+    if (validProfileIds.length === 0 && validUserIds.length === 0) {
+      return { success: false, error: "None of the selected Profiles or Users are valid or active." };
     }
 
     // 5. Update rule atomically in transaction

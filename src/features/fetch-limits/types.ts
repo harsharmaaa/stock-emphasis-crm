@@ -10,6 +10,7 @@ export interface EmployeeRef {
   name: string;
   username: string | null;
   email: string;
+  role?: string;
   employeeProfileId: string | null;
   employeeProfileName: string | null;
 }

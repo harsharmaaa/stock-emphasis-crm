@@ -57,12 +57,16 @@ export function FetchLimitModal({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-  // Filter employees belonging to the currently selected profiles
+  // Filter employees and managers: active managers are always eligible; employees match selected profiles
   const eligibleEmployees = useMemo(() => {
-    if (selectedProfileIds.length === 0) return [];
-    return employees.filter(
-      (e) => e.employeeProfileId && selectedProfileIds.includes(e.employeeProfileId)
-    );
+    return employees.filter((e) => {
+      if (e.role === "MANAGER") return true;
+      return (
+        selectedProfileIds.length > 0 &&
+        e.employeeProfileId &&
+        selectedProfileIds.includes(e.employeeProfileId)
+      );
+    });
   }, [employees, selectedProfileIds]);
 
   if (!isOpen) return null;
@@ -75,10 +79,11 @@ export function FetchLimitModal({
 
     setSelectedProfileIds(nextProfiles);
 
-    // Keep only selected employees whose profile is still selected
+    // Keep selected users who are managers OR whose profile is still selected
     setSelectedEmployeeIds((prev) =>
       prev.filter((id) => {
         const emp = employees.find((e) => e.id === id);
+        if (emp?.role === "MANAGER") return true;
         return emp?.employeeProfileId && nextProfiles.includes(emp.employeeProfileId);
       })
     );
@@ -133,8 +138,8 @@ export function FetchLimitModal({
       setErrorMsg("Please select a Lead Source.");
       return;
     }
-    if (selectedProfileIds.length === 0) {
-      setErrorMsg("Please select at least one Employee Profile.");
+    if (selectedProfileIds.length === 0 && selectedEmployeeIds.length === 0) {
+      setErrorMsg("Please select at least one Profile or assign at least one Employee/Manager.");
       return;
     }
 
@@ -344,12 +349,12 @@ export function FetchLimitModal({
             </div>
           </div>
 
-          {/* Employee Selection Checklist (Filtered by Selected Profiles) */}
+          {/* Employee & Manager Selection Checklist */}
           <div className="space-y-3 pt-2 border-t border-slate-100 dark:border-white/[0.06]">
             <div className="flex items-center justify-between">
               <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
                 <Users className="size-3.5 text-indigo-500" />
-                <span>Employees Selection</span>
+                <span>Employees & Managers Selection</span>
                 <span className="text-[11px] text-slate-400 font-normal">
                   ({selectedEmployeeIds.length} of {eligibleEmployees.length} selected)
                 </span>
@@ -366,18 +371,15 @@ export function FetchLimitModal({
               )}
             </div>
 
-            {selectedProfileIds.length === 0 ? (
+            {eligibleEmployees.length === 0 ? (
               <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-900/40 border border-slate-200/60 dark:border-white/[0.06] text-center text-xs text-slate-400">
-                Please select at least one Employee Profile above to view eligible staff members.
-              </div>
-            ) : eligibleEmployees.length === 0 ? (
-              <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-center text-xs text-amber-600 dark:text-amber-400">
-                No active employees are currently assigned to the selected profiles.
+                Please select an Employee Profile above to view eligible staff, or active Managers will appear automatically.
               </div>
             ) : (
               <div className="max-h-48 overflow-y-auto p-3 rounded-2xl bg-slate-50/70 dark:bg-slate-900/50 border border-slate-200/70 dark:border-white/[0.06] grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
                 {eligibleEmployees.map((emp) => {
                   const isChecked = selectedEmployeeIds.includes(emp.id);
+                  const isManager = emp.role === "MANAGER";
                   return (
                     <label
                       key={emp.id}
@@ -394,9 +396,16 @@ export function FetchLimitModal({
                         className="size-3.5 rounded text-blue-600 focus:ring-blue-500"
                       />
                       <div className="min-w-0 truncate">
-                        <div className="truncate">{emp.name}</div>
+                        <div className="flex items-center gap-1.5 truncate">
+                          <span className="truncate">{emp.name}</span>
+                          {isManager && (
+                            <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-purple-100 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300">
+                              Manager
+                            </span>
+                          )}
+                        </div>
                         <div className="text-[10px] text-slate-400 truncate">
-                          {emp.employeeProfileName || "No Profile"}
+                          {isManager ? "Manager" : emp.employeeProfileName || "No Profile"}
                         </div>
                       </div>
                     </label>
