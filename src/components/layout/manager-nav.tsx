@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -51,6 +51,7 @@ interface NavItem {
 interface NavGroup {
   id: string;
   title: string;
+  icon?: React.ComponentType<{ className?: string }>;
   collapsible: boolean;
   items: NavItem[];
 }
@@ -94,46 +95,40 @@ const NAVIGATION_GROUPS: NavGroup[] = [
   {
     id: "history",
     title: "History",
+    icon: History,
     collapsible: true,
     items: [
       {
         title: "Trial History",
         href: "/manager/history/trials",
         icon: ScrollText,
-        badge: "Upcoming",
-        status: "upcoming",
-        tooltip: "Supervised trial performance & converted history scheduled for Phase 2.",
+        status: "active",
       },
       {
         title: "Payment History",
         href: "/manager/history/payments",
         icon: CreditCard,
-        badge: "Upcoming",
-        status: "upcoming",
-        tooltip: "Team collection transactions & payment ledger scheduled for Phase 2.",
+        status: "active",
       },
       {
         title: "Invoice History",
         href: "/manager/history/invoices",
         icon: FileText,
-        badge: "Upcoming",
-        status: "upcoming",
-        tooltip: "Client invoice records and billing receipts scheduled for Phase 2.",
+        status: "active",
       },
     ],
   },
   {
     id: "calling",
     title: "Calling",
+    icon: PhoneCall,
     collapsible: true,
     items: [
       {
         title: "Call Report",
         href: "/manager/calling/reports",
         icon: PhoneCall,
-        badge: "Upcoming",
-        status: "upcoming",
-        tooltip: "Agent call performance, duration, and disposition reports scheduled for Phase 2.",
+        status: "active",
       },
       {
         title: "Call Monitor",
@@ -164,6 +159,7 @@ const NAVIGATION_GROUPS: NavGroup[] = [
   {
     id: "reports",
     title: "Reports",
+    icon: BarChart3,
     collapsible: true,
     items: [
       {
@@ -206,6 +202,18 @@ export function ManagerNav({
   const pathname = usePathname();
   const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({});
   const [activeNotice, setActiveNotice] = useState<string | null>(null);
+
+  // Auto-expand group if any of its active children match current pathname
+  useEffect(() => {
+    NAVIGATION_GROUPS.forEach((group) => {
+      if (group.collapsible && group.items.some((i) => i.href && pathname.startsWith(i.href))) {
+        setCollapsedGroups((prev) => ({
+          ...prev,
+          [group.id]: false,
+        }));
+      }
+    });
+  }, [pathname]);
 
   const toggleGroupCollapse = (groupId: string) => {
     setCollapsedGroups((prev) => ({
@@ -286,23 +294,53 @@ export function ManagerNav({
               <div key={group.id} className="space-y-1">
                 {/* Section Title */}
                 {!isCollapsed && (
-                  <div className="px-3 pb-1">
+                  <div className="px-1 pb-1">
                     {group.collapsible ? (
-                      <button
-                        type="button"
-                        onClick={() => toggleGroupCollapse(group.id)}
-                        className="w-full flex items-center justify-between text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300 transition-colors focus:outline-none cursor-pointer"
-                        aria-expanded={!isGroupCollapsed}
-                      >
-                        <span>{group.title}</span>
-                        {isGroupCollapsed ? (
-                          <ChevronRight className="size-3 text-slate-400" />
-                        ) : (
-                          <ChevronDown className="size-3 text-slate-400" />
-                        )}
-                      </button>
+                      (() => {
+                        const isGroupActive = group.items.some(
+                          (item) => item.href && pathname.startsWith(item.href)
+                        );
+                        const GroupIcon = group.icon;
+
+                        return (
+                          <button
+                            type="button"
+                            onClick={() => toggleGroupCollapse(group.id)}
+                            className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold transition-all focus:outline-none cursor-pointer ${
+                              isGroupActive
+                                ? "bg-blue-600 text-white shadow-md shadow-blue-500/20 font-bold"
+                                : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-slate-100/70 dark:hover:bg-white/[0.04]"
+                            }`}
+                            aria-expanded={!isGroupCollapsed}
+                          >
+                            <div className="flex items-center gap-2.5 min-w-0">
+                              {GroupIcon && (
+                                <GroupIcon
+                                  className={`size-4 shrink-0 ${
+                                    isGroupActive ? "text-white" : "text-slate-400"
+                                  }`}
+                                />
+                              )}
+                              <span className="truncate">{group.title}</span>
+                            </div>
+                            {isGroupCollapsed ? (
+                              <ChevronRight
+                                className={`size-3.5 shrink-0 ${
+                                  isGroupActive ? "text-white" : "text-slate-400"
+                                }`}
+                              />
+                            ) : (
+                              <ChevronDown
+                                className={`size-3.5 shrink-0 ${
+                                  isGroupActive ? "text-white" : "text-slate-400"
+                                }`}
+                              />
+                            )}
+                          </button>
+                        );
+                      })()
                     ) : (
-                      <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-400">
+                      <div className="px-2 text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-400">
                         {group.title}
                       </div>
                     )}

@@ -180,11 +180,27 @@ export async function getManagerLeadsAction(
       };
     }
 
+    // Build status filter condition supporting aliases like UNFOLLOWED/UNREAD, FOLLOWUPS, TRIALS
+    let statusFilterCondition: Prisma.LeadWhereInput = {};
+    if (normalizedStatus) {
+      if (normalizedStatus === "UNREAD" || normalizedStatus === "UNFOLLOWED") {
+        statusFilterCondition = { status: { in: ["UNREAD", "UNFOLLOWED"] } };
+      } else if (normalizedStatus === "FOLLOW_UP") {
+        statusFilterCondition = { status: { in: ["FOLLOW_UP", "FOLLOWUPS"] } };
+      } else if (normalizedStatus === "TRIAL") {
+        statusFilterCondition = { status: { in: ["TRIAL", "TRIALS"] } };
+      } else if (normalizedStatus === "CLIENT") {
+        statusFilterCondition = { status: { in: ["CLIENT", "CLIENTS"] } };
+      } else {
+        statusFilterCondition = { status: normalizedStatus };
+      }
+    }
+
     // Combine boundary filter with optional status and search filters
     const where: Prisma.LeadWhereInput = {
       AND: [
         managerLeadsFilter,
-        normalizedStatus ? { status: normalizedStatus } : {},
+        statusFilterCondition,
         searchParam
           ? {
               OR: [
@@ -258,7 +274,7 @@ export async function getManagerLeadsAction(
       const s = (item.status || "").toUpperCase();
       const count = item._count._all;
       statusCounts.ALL += count;
-      if (s === "UNREAD") statusCounts.UNREAD += count;
+      if (s === "UNREAD" || s === "UNFOLLOWED") statusCounts.UNREAD += count;
       else if (s === "READ") statusCounts.READ += count;
       else if (s === "FOLLOW_UP" || s === "FOLLOWUPS") statusCounts.FOLLOW_UP += count;
       else if (s === "TRIAL" || s === "TRIALS") statusCounts.TRIAL += count;
@@ -794,15 +810,21 @@ export async function updateManagerLeadCallAction(
     }
 
     const updateData: Prisma.LeadUpdateInput = {};
+    let chosenResponse: string | null = null;
 
     if (input.leadResponse !== undefined) {
       const resp = input.leadResponse?.trim() || null;
       if (resp) {
+        // Disallow setting CLIENT / Client via call disposition
+        if (["CLIENT", "CLIENTS"].includes(resp.toUpperCase())) {
+          return { success: false, error: "Client status cannot be assigned manually via call disposition." };
+        }
         const activeResponses = await getActiveLeadResponseNames();
         if (!activeResponses.includes(resp)) {
           return { success: false, error: "Invalid Lead Response selected." };
         }
       }
+      chosenResponse = resp;
       updateData.leadResponse = resp;
     }
 
@@ -819,7 +841,42 @@ export async function updateManagerLeadCallAction(
       updateData.description = input.description?.trim() || null;
     }
 
-    if (input.status !== undefined) {
+    // Automatic Response-to-Status Mapping:
+    // - If input.status === "FOLLOW_UP" OR normalized response is "FOLLOW UP" / "FOLLOW_UP" / "FOLLOWUP":
+    //   -> status = "FOLLOW_UP" (moves lead to Followups tab).
+    // - Else if normalized response is "FT" OR "FREE TRIAL" OR "TRIAL":
+    //   -> status = "TRIAL" (moves lead to Trials tab and decrements Unread count).
+    // - Else if normalized response is "DISPOSED" OR "DISPOSE":
+    //   -> status = "DISPOSED" (moves lead to Disposed tab).
+    // - Else (for ANY other call response such as "Interested", "Not Interested", "Busy", "NPC", "Language Issue", "Callback", "Ringing", "Switch Off", etc.):
+    //   -> status = "READ" (automatically marks lead as read, moves it to Read tab, and decrements Unread count).
+    const normalizedResp = chosenResponse
+      ? chosenResponse.toUpperCase()
+      : input.leadResponse
+      ? input.leadResponse.trim().toUpperCase()
+      : "";
+
+    // 1. FT / TRIAL takes absolute priority
+    if (["FT", "FREE TRIAL", "TRIAL"].includes(normalizedResp)) {
+      updateData.status = "TRIAL";
+    }
+    // 2. DISPOSED takes absolute priority
+    else if (["DISPOSED", "DISPOSE"].includes(normalizedResp)) {
+      updateData.status = "DISPOSED";
+    }
+    // 3. FOLLOW_UP if actively requested or if response is Follow Up
+    else if (
+      input.status === "FOLLOW_UP" ||
+      ["FOLLOW UP", "FOLLOW_UP", "FOLLOWUP"].includes(normalizedResp)
+    ) {
+      updateData.status = "FOLLOW_UP";
+    }
+    // 4. Any other non-empty call response (Interested, Busy, NPC, etc.) maps to READ
+    else if (normalizedResp) {
+      updateData.status = "READ";
+    }
+    // 5. Fallback to explicitly passed status if any
+    else if (input.status !== undefined) {
       updateData.status = input.status?.trim() || existingLead.status;
     }
 
@@ -836,6 +893,8 @@ export async function updateManagerLeadCallAction(
 
     revalidatePath("/manager/leads");
     revalidatePath("/manager/leads", "page");
+    revalidatePath("/manager");
+    revalidatePath("/manager", "page");
 
     return { success: true };
   } catch (err) {
@@ -1171,6 +1230,7 @@ export async function updateManagerLeadDetailsAction(
 
 /**
  * Returns active lead responses configured in the CRM for managers.
+ * Filters out "CLIENT" so leads cannot be manually converted to CLIENT via call updates.
  */
 export async function getActiveManagerLeadResponsesAction(): Promise<{
   success: boolean;
@@ -1178,7 +1238,10 @@ export async function getActiveManagerLeadResponsesAction(): Promise<{
 }> {
   try {
     const responses = await getActiveLeadResponseNames();
-    return { success: true, leadResponses: responses };
+    const filteredResponses = responses.filter(
+      (r) => !["CLIENT", "CLIENTS"].includes(r.trim().toUpperCase())
+    );
+    return { success: true, leadResponses: filteredResponses };
   } catch {
     return { success: false, leadResponses: [] };
   }

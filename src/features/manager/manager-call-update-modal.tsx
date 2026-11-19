@@ -64,7 +64,11 @@ function ManagerCallUpdateModalContent({
   useEffect(() => {
     getActiveManagerLeadResponsesAction().then((res) => {
       if (res.success && res.leadResponses) {
-        setActiveResponses(res.leadResponses);
+        // Filter out CLIENT / Client from the dropdown options
+        const filtered = res.leadResponses.filter(
+          (opt) => !["CLIENT", "CLIENTS"].includes(opt.trim().toUpperCase())
+        );
+        setActiveResponses(filtered);
       }
       setIsLoadingResponses(false);
     });
@@ -80,12 +84,28 @@ function ManagerCallUpdateModalContent({
         .replace(/ /g, "-")
     : "";
 
+  const handleResponseChange = (newResp: string) => {
+    setResponse(newResp);
+    const upper = newResp.trim().toUpperCase();
+    if (["FOLLOW UP", "FOLLOW_UP", "FOLLOWUP"].includes(upper)) {
+      setIsFollowup(true);
+    } else if (newResp) {
+      // If user selected any other response (like "FT", "Disposed", "Interested", "Busy", etc.),
+      // automatically turn off followup (unless the user explicitly toggles + Followup manually afterwards)
+      setIsFollowup(false);
+    }
+  };
+
   const handleAddFollowupClick = () => {
-    setIsFollowup(!isFollowup);
+    setIsFollowup((prev) => !prev);
   };
 
   const handleSave = () => {
     setErrorMessage(null);
+
+    const normResp = (response || "").trim().toUpperCase();
+    const isSpecialTerminal = ["FT", "FREE TRIAL", "TRIAL", "DISPOSED", "DISPOSE"].includes(normResp);
+    const statusPayload = isFollowup && !isSpecialTerminal ? "FOLLOW_UP" : undefined;
 
     startTransition(async () => {
       try {
@@ -94,7 +114,7 @@ function ManagerCallUpdateModalContent({
           leadResponse: response || undefined,
           callbackDate: callbackDate || null,
           description: comment || undefined,
-          status: isFollowup ? "FOLLOW_UP" : undefined,
+          status: statusPayload,
         });
 
         if (res.success) {
@@ -163,7 +183,7 @@ function ManagerCallUpdateModalContent({
                 </div>
                 <select
                   value={response}
-                  onChange={(e) => setResponse(e.target.value)}
+                  onChange={(e) => handleResponseChange(e.target.value)}
                   className="w-full h-10 px-3 bg-transparent text-xs text-slate-800 dark:text-slate-100 focus:outline-none cursor-pointer"
                 >
                   {activeResponses.length === 0 && !response ? (
@@ -175,7 +195,9 @@ function ManagerCallUpdateModalContent({
                       <option value="" className="text-slate-400">
                         Select Response
                       </option>
-                      {response && !activeResponses.includes(response) && (
+                      {response &&
+                        !["CLIENT", "CLIENTS"].includes(response.trim().toUpperCase()) &&
+                        !activeResponses.includes(response) && (
                         <option value={response} className="text-slate-800 dark:text-slate-900">
                           {response} (Existing)
                         </option>

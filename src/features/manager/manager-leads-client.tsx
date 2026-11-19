@@ -59,7 +59,6 @@ const STATUS_TABS = [
   { label: "Read", value: "READ" },
   { label: "Followups", value: "FOLLOW_UP" },
   { label: "Trials", value: "TRIAL" },
-  { label: "Clients", value: "CLIENT" },
   { label: "Disposed", value: "DISPOSED" },
 ] as const;
 
@@ -126,7 +125,7 @@ export function ManagerLeadsClient({
     };
     leads.forEach((l) => {
       const s = (l.status || "").toUpperCase();
-      if (s === "UNREAD") counts.UNREAD++;
+      if (s === "UNREAD" || s === "UNFOLLOWED") counts.UNREAD++;
       else if (s === "READ") counts.READ++;
       else if (s === "FOLLOW_UP" || s === "FOLLOWUPS") counts.FOLLOW_UP++;
       else if (s === "TRIAL" || s === "TRIALS") counts.TRIAL++;
@@ -142,7 +141,9 @@ export function ManagerLeadsClient({
       // 1. Status Filter
       if (activeStatus !== "ALL") {
         const leadStatusUpper = (lead.status || "").toUpperCase();
-        if (activeStatus === "TRIAL") {
+        if (activeStatus === "UNREAD") {
+          if (leadStatusUpper !== "UNREAD" && leadStatusUpper !== "UNFOLLOWED") return false;
+        } else if (activeStatus === "TRIAL") {
           if (leadStatusUpper !== "TRIAL" && leadStatusUpper !== "TRIALS") return false;
         } else if (activeStatus === "CLIENT") {
           if (leadStatusUpper !== "CLIENT" && leadStatusUpper !== "CLIENTS") return false;
@@ -254,6 +255,21 @@ export function ManagerLeadsClient({
     }
     
     router.replace(`/manager/leads?${params.toString()}`, { scroll: false });
+
+    // Immediately fetch leads for the newly selected status tab from the database
+    startTransition(async () => {
+      const res = await getManagerLeadsAction({
+        status: newStatus !== "ALL" ? newStatus : undefined,
+        search: searchQuery || undefined,
+        pageSize: 25,
+      });
+      if (res.success && res.leads) {
+        setLeads(res.leads);
+        if (res.statusCounts) {
+          setStatusCountsState(res.statusCounts);
+        }
+      }
+    });
   };
 
   // Handle sorting changes

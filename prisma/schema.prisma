@@ -76,6 +76,14 @@ model User {
   createdLeadSources      LeadSource[]         @relation("LeadSourceCreatedBy")
   createdLeadResponses    LeadResponse[]       @relation("LeadResponseCreatedBy")
   createdProducts         Product[]            @relation("ProductCreatedBy")
+  createdTrials           FreeTrial[]          @relation("TrialCreatedBy")
+  assignedTrials          FreeTrial[]          @relation("TrialAssignedTo")
+  createdPayments         Payment[]            @relation("PaymentCreatedBy")
+  ownedPayments           Payment[]            @relation("PaymentLeadOwner")
+  leadAddedPayments       Payment[]            @relation("PaymentLeadAddedBy")
+  createdInvoices         Invoice[]            @relation("InvoiceCreatedBy")
+  assignedInvoices        Invoice[]            @relation("InvoiceAssignedTo")
+  callLogs                CallLog[]            @relation("UserCallLogs")
 
   // Soft delete
   deletedAt         DateTime?
@@ -103,6 +111,18 @@ model Team {
 
   // Team leads
   leads       Lead[]
+
+  // Team free trials
+  trials      FreeTrial[]
+
+  // Team payments
+  payments    Payment[]
+
+  // Team invoices
+  invoices    Invoice[]
+
+  // Team call logs
+  callLogs    CallLog[]
 
   // Team audit logs
   activities  ActivityLog[]
@@ -183,6 +203,11 @@ model Lead {
   // Audit
   createdById     String?
   createdBy       User?     @relation("CreatedLeads", fields: [createdById], references: [id], onDelete: SetNull)
+
+  trials          FreeTrial[]
+  payments        Payment[]
+  invoices        Invoice[]
+  callLogs        CallLog[]
 
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
@@ -312,6 +337,7 @@ model PaymentMode {
   state         String?
   invoicePrefix String?
   isActive      Boolean   @default(true)
+  payments      Payment[]
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
@@ -374,6 +400,145 @@ model Product {
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
 
+  trials          FreeTrial[]
+  invoices        Invoice[]
+
   @@index([name])
   @@index([isActive])
+}
+
+model FreeTrial {
+  id           String    @id @default(cuid())
+  leadId       String
+  lead         Lead      @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  productId    String
+  product      Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
+  createdById  String
+  createdBy    User      @relation("TrialCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  assignedToId String?
+  assignedTo   User?     @relation("TrialAssignedTo", fields: [assignedToId], references: [id], onDelete: SetNull)
+  teamId       String?
+  team         Team?     @relation(fields: [teamId], references: [id], onDelete: SetNull)
+  profile      String?
+  startDate    DateTime
+  endDate      DateTime
+  status       String    @default("APPROVED") // APPROVED, RUNNING, EXPIRED, PENDING, REJECTED
+  remarks      String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@index([leadId])
+  @@index([productId])
+  @@index([createdById])
+  @@index([assignedToId])
+  @@index([teamId])
+  @@index([status])
+  @@index([startDate, endDate])
+  @@index([createdAt])
+}
+
+model Payment {
+  id            String       @id @default(cuid())
+  serialNo      String?
+  leadId        String
+  lead          Lead         @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  paymentModeId String?
+  paymentMode   PaymentMode? @relation(fields: [paymentModeId], references: [id], onDelete: SetNull)
+  leadAddedById String?
+  leadAddedBy   User?        @relation("PaymentLeadAddedBy", fields: [leadAddedById], references: [id], onDelete: SetNull)
+  createdById   String
+  createdBy     User         @relation("PaymentCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  leadOwnerId   String?
+  leadOwner     User?        @relation("PaymentLeadOwner", fields: [leadOwnerId], references: [id], onDelete: SetNull)
+  teamId        String?
+  team          Team?        @relation(fields: [teamId], references: [id], onDelete: SetNull)
+  amount        Decimal      @db.Decimal(12, 2)
+  paymentType   String?      // e.g., Full, Part, Renewal
+  modeName      String?      // fallback label if paymentModeId is null
+  transactionId String?
+  invoiceNumber String?
+  status        String       @default("PENDING") // e.g., APPROVED, PENDING, REJECTED
+  description   String?
+  paymentDate   DateTime
+  leadSource    String?
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  @@index([leadId])
+  @@index([paymentModeId])
+  @@index([leadAddedById])
+  @@index([createdById])
+  @@index([leadOwnerId])
+  @@index([teamId])
+  @@index([status])
+  @@index([paymentDate])
+  @@index([invoiceNumber])
+  @@index([createdAt])
+}
+
+model Invoice {
+  id            String    @id @default(cuid())
+  serialNo      String    @unique
+  leadId        String
+  lead          Lead      @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  productId     String?
+  product       Product?  @relation(fields: [productId], references: [id], onDelete: SetNull)
+  createdById   String
+  createdBy     User      @relation("InvoiceCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  assignedToId  String?
+  assignedTo    User?     @relation("InvoiceAssignedTo", fields: [assignedToId], references: [id], onDelete: SetNull)
+  teamId        String?
+  team          Team?     @relation(fields: [teamId], references: [id], onDelete: SetNull)
+  profile       String?
+  productName   String?
+  planType      String?   // e.g., Monthly, Quarterly, Half-Yearly, Yearly
+  durationLabel String?   // e.g., 13 Days, 20 Days, 48 Days
+  startDate     DateTime?
+  endDate       DateTime?
+  invoiceDate   DateTime
+  baseAmount    Decimal   @db.Decimal(12, 2) @default(0)
+  gstAmount     Decimal   @db.Decimal(12, 2) @default(0)
+  totalAmount   Decimal   @db.Decimal(12, 2)
+  status        String    @default("APPROVED") // APPROVED, RUNNING, PENDING, CANCELLED
+  mailStatus    String?   // Mail Sent, Mail Not Sent
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@index([leadId])
+  @@index([productId])
+  @@index([createdById])
+  @@index([assignedToId])
+  @@index([teamId])
+  @@index([status])
+  @@index([invoiceDate])
+  @@index([createdAt])
+}
+
+model CallLog {
+  id             String    @id @default(cuid())
+  callerId       String
+  caller         User      @relation("UserCallLogs", fields: [callerId], references: [id], onDelete: Cascade)
+  teamId         String?
+  team           Team?     @relation(fields: [teamId], references: [id], onDelete: SetNull)
+  leadId         String?
+  lead           Lead?     @relation(fields: [leadId], references: [id], onDelete: SetNull)
+  extension      String?
+  customerNumber String?
+  callType       String    // e.g., OUTGOING, INCOMING, MISSED
+  status         String    @default("ANSWERED") // e.g., ANSWERED, BUSY, NO_ANSWER, FAILED
+  duration       Int       @default(0) // total call duration in seconds
+  talkTime       Int       @default(0) // connected talk time in seconds
+  callDate       DateTime  @default(now())
+  recordingUrl   String?
+  externalCallId String?   @unique
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  @@index([callerId])
+  @@index([teamId])
+  @@index([leadId])
+  @@index([callDate])
+  @@index([extension])
+  @@index([callType])
+  @@index([status])
 }
