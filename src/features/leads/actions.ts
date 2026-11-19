@@ -13,7 +13,7 @@ import {
   mapStatusToLifecycleKey,
 } from "@/src/lib/utils";
 import { revalidatePath } from "next/cache";
-import { type Role } from "@prisma/client";
+import { type Role, Prisma } from "@prisma/client";
 
 // Safe accessor for Lead model delegate across IDE TypeScript servers
 
@@ -188,9 +188,30 @@ export async function createLeadAction(
     // Dropdown validation for dynamic active responses
     const rawResponse = input.leadResponse?.trim() || null;
     if (rawResponse) {
+      if (["CLIENT", "CLIENTS"].includes(rawResponse.toUpperCase())) {
+        return { success: false, error: "Client status cannot be assigned manually via call disposition." };
+      }
       const activeResponses = await getActiveLeadResponseNames();
       if (!activeResponses.includes(rawResponse)) {
         return { success: false, error: "Please select an active Lead Response from the system." };
+      }
+    }
+
+    if (input.status && ["CLIENT", "CLIENTS"].includes(input.status.toUpperCase())) {
+      return { success: false, error: "Cannot create lead directly as Client without confirmed payment." };
+    }
+
+    let initialStatus = input.status || "UNFOLLOWED";
+    if (rawResponse) {
+      const norm = rawResponse.toUpperCase();
+      if (["FT", "FREE TRIAL", "TRIAL"].includes(norm)) {
+        initialStatus = "TRIAL";
+      } else if (["DISPOSED", "DISPOSE"].includes(norm)) {
+        initialStatus = "DISPOSED";
+      } else if (["FOLLOW UP", "FOLLOW_UP", "FOLLOWUP"].includes(norm) || input.status === "FOLLOW_UP") {
+        initialStatus = "FOLLOW_UP";
+      } else {
+        initialStatus = "READ";
       }
     }
 
@@ -240,7 +261,7 @@ export async function createLeadAction(
         leadSource: rawSource,
         description: input.description?.trim() || null,
         experience: rawExperience,
-        status: input.status || "UNFOLLOWED",
+        status: initialStatus,
         callbackDate: callbackDate && !isNaN(callbackDate.getTime()) ? callbackDate : null,
         allotToId: allottedUserId,
         teamId: allottedTeamId,
@@ -366,7 +387,24 @@ export async function getLeadsAction(params: GetLeadsParams = {}): Promise<{
     const search = params.search?.trim();
     const statusFilter = normalizeStatusFilter(params.status);
 
-    const where: Record<string, unknown> = {
+    let statusCondition: Prisma.LeadWhereInput = {};
+    if (statusFilter) {
+      if (statusFilter === "UNREAD" || statusFilter === "UNFOLLOWED") {
+        statusCondition = { status: { in: ["UNREAD", "UNFOLLOWED"] } };
+      } else if (statusFilter === "FOLLOW_UP") {
+        statusCondition = { status: { in: ["FOLLOW_UP", "FOLLOWUPS"] } };
+      } else if (statusFilter === "TRIAL") {
+        statusCondition = { status: { in: ["TRIAL", "TRIALS"] } };
+      } else if (statusFilter === "CLIENT") {
+        statusCondition = { status: { in: ["CLIENT", "CLIENTS"] } };
+      } else if (statusFilter === "DISPOSED") {
+        statusCondition = { status: { in: ["DISPOSED", "DISPOSE"] } };
+      } else {
+        statusCondition = { status: statusFilter };
+      }
+    }
+
+    const where: Prisma.LeadWhereInput = {
       AND: [
         search
           ? {
@@ -378,7 +416,7 @@ export async function getLeadsAction(params: GetLeadsParams = {}): Promise<{
             ],
           }
           : {},
-        statusFilter ? { status: statusFilter } : {},
+        statusCondition,
       ],
     };
 
@@ -522,6 +560,31 @@ export interface UpdateLeadDetailsInput {
 }
 
 /**
+ * Checks whether a lead has a confirmed/approved payment or active invoice.
+ * Used to guard against unauthorized/manual conversion to CLIENT.
+ */
+export async function checkLeadHasConfirmedPayment(leadId: string): Promise<boolean> {
+  const [confirmedPayment, confirmedInvoice] = await Promise.all([
+    prisma.payment.findFirst({
+      where: {
+        leadId,
+        status: { in: ["APPROVED", "Approved", "approved"] },
+      },
+      select: { id: true },
+    }),
+    prisma.invoice.findFirst({
+      where: {
+        leadId,
+        status: { in: ["APPROVED", "Approved", "approved", "RUNNING", "Running", "running"] },
+      },
+      select: { id: true },
+    }),
+  ]);
+
+  return Boolean(confirmedPayment || confirmedInvoice);
+}
+
+/**
  * Updates a lead's response, source, profile, experience, callback date, comments/description, and allotment.
  * Records changes in ActivityLog.
  */
@@ -557,16 +620,24 @@ export async function updateLeadDetailsAction(
     }
 
     const updateData: Record<string, unknown> = {};
+    let chosenResponse: string | null = null;
+    let isResponseExplicitlyProvided = false;
 
     // 1. Update Lead Response if supplied
     if (input.leadResponse !== undefined) {
+      isResponseExplicitlyProvided = true;
       const resp = input.leadResponse?.trim() || null;
-      if (resp && resp !== existingLead.leadResponse) {
+      if (resp) {
+        // Disallow setting CLIENT / Client via call disposition
+        if (["CLIENT", "CLIENTS"].includes(resp.toUpperCase())) {
+          return { success: false, error: "Client status cannot be assigned manually via call disposition." };
+        }
         const activeResponses = await getActiveLeadResponseNames();
-        if (!activeResponses.includes(resp)) {
+        if (!activeResponses.includes(resp) && resp !== existingLead.leadResponse) {
           return { success: false, error: "Invalid Lead Response option. Must be an active response from Settings." };
         }
       }
+      chosenResponse = resp;
       updateData.leadResponse = resp;
     }
 
@@ -613,9 +684,64 @@ export async function updateLeadDetailsAction(
       updateData.description = input.description?.trim() || null;
     }
 
-    // 4. Update Status if supplied
-    if (input.status !== undefined) {
-      updateData.status = input.status?.trim() || existingLead.status;
+    // 4. Update Status with response-to-pill mapping and payment verification for CLIENT
+    const isExistingClient = ["CLIENT", "CLIENTS"].includes((existingLead.status || "").toUpperCase());
+
+    // Guard manual assignment of CLIENT status
+    if (input.status !== undefined && ["CLIENT", "CLIENTS"].includes(input.status.trim().toUpperCase())) {
+      const hasPayment = await checkLeadHasConfirmedPayment(leadId);
+      if (!hasPayment) {
+        return {
+          success: false,
+          error: "Cannot convert lead to Client without a confirmed/approved payment or active invoice.",
+        };
+      }
+    }
+
+    // Automatic Response-to-Status Mapping:
+    // - If input.status === "FOLLOW_UP" OR normalized response is "FOLLOW UP" / "FOLLOW_UP" / "FOLLOWUP":
+    //   -> status = "FOLLOW_UP" (moves lead to Followups tab).
+    // - Else if normalized response is "FT" OR "FREE TRIAL" OR "TRIAL":
+    //   -> status = "TRIAL" (moves lead to Trials tab and decrements Unread count).
+    // - Else if normalized response is "DISPOSED" OR "DISPOSE" OR input.status === "DISPOSED":
+    //   -> status = "DISPOSED" (moves lead to Disposed tab).
+    // - Else if a response is provided (e.g. Interested, Busy, NPC, Callback, etc.):
+    //   -> If the lead is already a confirmed CLIENT, preserve CLIENT status.
+    //   -> If an explicit overriding status is passed (like DELETED or TRIAL), preserve it.
+    //   -> Otherwise, cleanly fall back to READ (moves lead to Read tab and decrements Unread count).
+    // - Else if no response is provided, fallback to explicitly passed status (guarded for CLIENT).
+
+    const normalizedResp = chosenResponse
+      ? chosenResponse.toUpperCase()
+      : isResponseExplicitlyProvided && input.leadResponse
+      ? input.leadResponse.trim().toUpperCase()
+      : "";
+
+    if (["FT", "FREE TRIAL", "TRIAL"].includes(normalizedResp)) {
+      updateData.status = "TRIAL";
+    } else if (["DISPOSED", "DISPOSE"].includes(normalizedResp) || input.status === "DISPOSED") {
+      updateData.status = "DISPOSED";
+    } else if (
+      input.status === "FOLLOW_UP" ||
+      ["FOLLOW UP", "FOLLOW_UP", "FOLLOWUP"].includes(normalizedResp)
+    ) {
+      updateData.status = "FOLLOW_UP";
+    } else if (normalizedResp) {
+      if (isExistingClient) {
+        // Preserve CLIENT status for confirmed paying clients
+        updateData.status = existingLead.status;
+      } else if (
+        input.status !== undefined &&
+        !["UNFOLLOWED", "UNREAD", "READ"].includes(input.status.trim().toUpperCase())
+      ) {
+        // Explicit non-read status from drawer/timeline (e.g. DELETED or TRIAL)
+        updateData.status = input.status.trim();
+      } else {
+        // Clean fallback to READ for any other disposition
+        updateData.status = "READ";
+      }
+    } else if (input.status !== undefined) {
+      updateData.status = input.status.trim() || existingLead.status;
     }
 
     // 5. Reassign Lead (Allot To)
@@ -924,9 +1050,12 @@ export async function searchLeadsWithLifecycleAction(
       };
     });
 
-    // Determine active status header
+    // Determine active status header supporting aliases (e.g. UNFOLLOWED -> UNREAD)
     let activeKey = "";
-    if (requestedStatus && requestedStatus.toUpperCase() in statusCounts) {
+    const normalizedReq = requestedStatus ? normalizeStatusFilter(requestedStatus) : undefined;
+    if (normalizedReq && normalizedReq in statusCounts) {
+      activeKey = normalizedReq;
+    } else if (requestedStatus && requestedStatus.toUpperCase() in statusCounts) {
       activeKey = requestedStatus.toUpperCase();
     } else if (leads.length > 0) {
       // Automatically select the status of the first matched lead!
@@ -1463,14 +1592,18 @@ export async function getActiveLeadSourcesAction(): Promise<{
 
 /**
  * Server action to get all active lead responses for client components.
+ * Filters out "CLIENT" so leads cannot be manually converted to CLIENT via call updates.
  */
 export async function getActiveLeadResponsesAction(): Promise<{
   success: boolean;
   leadResponses: string[];
 }> {
   try {
-    const responses = await getActiveLeadResponseNames();
-    return { success: true, leadResponses: responses };
+    const rawResponses = await getActiveLeadResponseNames();
+    const filteredResponses = rawResponses.filter(
+      (r) => !["CLIENT", "CLIENTS"].includes(r.trim().toUpperCase())
+    );
+    return { success: true, leadResponses: filteredResponses };
   } catch {
     return { success: false, leadResponses: [] };
   }

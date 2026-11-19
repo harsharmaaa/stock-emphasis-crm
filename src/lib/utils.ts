@@ -30,8 +30,7 @@ export function normalizeStatusFilter(param?: string): string | undefined {
   if (upper === "FOLLOWUPS" || upper === "FOLLOW_UP" || upper === "FOLLOW-UPS") return "FOLLOW_UP";
   if (upper === "TRIALS" || upper === "TRIAL") return "TRIAL";
   if (upper === "CLIENTS" || upper === "CLIENT") return "CLIENT";
-  if (upper === "UNFOLLOWED") return "UNFOLLOWED";
-  if (upper === "UNREAD") return "UNREAD";
+  if (upper === "UNFOLLOWED" || upper === "UNREAD") return "UNREAD";
   if (upper === "READ") return "READ";
   if (upper === "DISPOSED") return "DISPOSED";
   return upper;
@@ -127,7 +126,7 @@ export type LifecycleTabKey = (typeof LIFECYCLE_TABS)[number]["key"];
 
 export function mapStatusToLifecycleKey(status?: string | null): LifecycleTabKey {
   const upper = (status || "").toUpperCase().trim();
-  if (upper === "UNREAD") return "UNREAD";
+  if (upper === "UNREAD" || upper === "UNFOLLOWED") return "UNREAD";
   if (upper === "READ") return "READ";
   if (upper === "FOLLOW_UP" || upper === "FOLLOWUPS" || upper === "FOLLOW-UP" || upper === "FOLLOW-UPS") return "FOLLOW_UP";
   if (upper === "TRIAL" || upper === "TRIALS") return "TRIAL";

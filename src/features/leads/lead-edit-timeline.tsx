@@ -122,11 +122,28 @@ export function LeadEditTimeline({
     });
   }
 
+  const isCurrentClient = lead.status?.toUpperCase() === "CLIENT" || lead.status?.toUpperCase() === "CLIENTS";
+
   const handleInputChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
   ) => {
     const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
+    setFormData((prev) => {
+      const next = { ...prev, [name]: value };
+      if (name === "leadResponse") {
+        const upper = value.trim().toUpperCase();
+        if (["FT", "FREE TRIAL", "TRIAL"].includes(upper)) {
+          next.status = "TRIAL";
+        } else if (["DISPOSED", "DISPOSE"].includes(upper)) {
+          next.status = "DISPOSED";
+        } else if (["FOLLOW UP", "FOLLOW_UP", "FOLLOWUP"].includes(upper)) {
+          next.status = "FOLLOW_UP";
+        } else if (value && !isCurrentClient) {
+          next.status = "READ";
+        }
+      }
+      return next;
+    });
   };
 
   const handleSave = () => {
@@ -602,14 +619,18 @@ export function LeadEditTimeline({
                       className="w-full px-3 py-2 text-xs rounded-lg border border-slate-200 dark:border-white/[0.1] bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
                     >
                     <option value="">Select Response</option>
-                      {formData.leadResponse && !activeResponses.includes(formData.leadResponse) && (
+                      {formData.leadResponse &&
+                        !["CLIENT", "CLIENTS"].includes(formData.leadResponse.trim().toUpperCase()) &&
+                        !activeResponses.includes(formData.leadResponse) && (
                         <option value={formData.leadResponse}>{formData.leadResponse} (Existing)</option>
                       )}
-                      {activeResponses.map((opt) => (
-                        <option key={opt} value={opt}>
-                          {opt}
-                        </option>
-                      ))}
+                      {activeResponses
+                        .filter((opt) => !["CLIENT", "CLIENTS"].includes(opt.trim().toUpperCase()))
+                        .map((opt) => (
+                          <option key={opt} value={opt}>
+                            {opt}
+                          </option>
+                        ))}
                     </select>
                   </div>
 
@@ -867,7 +888,11 @@ export function LeadEditTimeline({
                     <option value="UNREAD">Unread</option>
                     <option value="FOLLOW_UP">Followups</option>
                     <option value="TRIAL">Trials</option>
-                    <option value="CLIENT">Clients</option>
+                    {isCurrentClient && (
+                      <option value="CLIENT" disabled>
+                        Clients (Permanent / Paid)
+                      </option>
+                    )}
                     <option value="DISPOSED">Disposed</option>
                     <option value="DELETED">Deleted</option>
                   </select>

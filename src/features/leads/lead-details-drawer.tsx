@@ -74,6 +74,24 @@ export function LeadDetailsDrawer({
   const [isConfirmingDispose, setIsConfirmingDispose] = useState(false);
   const [isDisposing, setIsDisposing] = useState(false);
 
+  const isCurrentClient = lead?.status?.toUpperCase() === "CLIENT" || lead?.status?.toUpperCase() === "CLIENTS";
+
+  const handleResponseChange = (newResp: string) => {
+    setEditResponse(newResp);
+    const upper = newResp.trim().toUpperCase();
+    if (["FT", "FREE TRIAL", "TRIAL"].includes(upper)) {
+      setEditStatus("TRIAL");
+    } else if (["DISPOSED", "DISPOSE"].includes(upper)) {
+      setEditStatus("DISPOSED");
+    } else if (["FOLLOW UP", "FOLLOW_UP", "FOLLOWUP"].includes(upper)) {
+      setEditStatus("FOLLOW_UP");
+    } else if (newResp) {
+      if (!isCurrentClient) {
+        setEditStatus("READ");
+      }
+    }
+  };
+
   const handleCloseDrawer = useCallback(() => {
     setLead(null);
     setSaveSuccess(null);
@@ -426,18 +444,22 @@ export function LeadDetailsDrawer({
                     </label>
                     <select
                       value={editResponse}
-                      onChange={(e) => setEditResponse(e.target.value)}
+                      onChange={(e) => handleResponseChange(e.target.value)}
                       className="w-full px-3 py-2 text-xs rounded-xl bg-white dark:bg-slate-900 border border-slate-250 dark:border-slate-750 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-500/40"
                     >
                       <option value="">-- Select Response --</option>
-                      {editResponse && !activeResponses.includes(editResponse) && (
+                      {editResponse &&
+                        !["CLIENT", "CLIENTS"].includes(editResponse.trim().toUpperCase()) &&
+                        !activeResponses.includes(editResponse) && (
                         <option value={editResponse}>{editResponse} (Existing)</option>
                       )}
-                      {activeResponses.map((opt: string) => (
-                        <option key={opt} value={opt}>
-                          {opt}
-                        </option>
-                      ))}
+                      {activeResponses
+                        .filter((opt) => !["CLIENT", "CLIENTS"].includes(opt.trim().toUpperCase()))
+                        .map((opt: string) => (
+                          <option key={opt} value={opt}>
+                            {opt}
+                          </option>
+                        ))}
                     </select>
                   </div>
 
@@ -456,7 +478,11 @@ export function LeadDetailsDrawer({
                       <option value="READ">READ</option>
                       <option value="FOLLOW_UP">FOLLOW_UP</option>
                       <option value="TRIAL">TRIAL</option>
-                      <option value="CLIENT">CLIENT</option>
+                      {isCurrentClient && (
+                        <option value="CLIENT" disabled>
+                          CLIENT (Confirmed Payment)
+                        </option>
+                      )}
                       <option value="DISPOSED">DISPOSED</option>
                     </select>
                   </div>
