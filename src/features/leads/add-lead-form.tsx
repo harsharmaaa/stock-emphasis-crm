@@ -68,7 +68,7 @@ interface AddLeadFormProps {
   allotmentUsers: AllotmentUserOption[];
   leadSources?: string[];
   leadResponses?: string[];
-  portal?: "admin" | "manager";
+  portal?: "admin" | "manager" | "employee";
   customCreateAction?: (input: CreateLeadInput) => Promise<{ success: boolean; leadId?: string; error?: string }>;
   customCheckPhoneAction?: (rawPhone: string) => Promise<{ isDuplicate: boolean; message?: string }>;
 }
@@ -84,7 +84,12 @@ export function AddLeadForm({
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
 
-  const basePath = portal === "manager" ? "/manager/leads" : "/admin/leads";
+  const basePath =
+    portal === "manager"
+      ? "/manager/leads"
+      : portal === "employee"
+      ? "/employee/leads"
+      : "/admin/leads";
   const executeCreate = customCreateAction || createLeadAction;
   const executeCheckPhone = customCheckPhoneAction || checkPhoneDuplicateAction;
 

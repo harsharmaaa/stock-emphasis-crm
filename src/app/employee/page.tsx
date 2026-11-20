@@ -1,4 +1,5 @@
 import { getEmployeeOverviewAction } from "@/src/features/employee/actions";
+import { EmployeeDashboardCallbackBanner } from "@/src/features/employee/employee-callback-reminder";
 import Link from "next/link";
 import {
   Boxes,
@@ -101,6 +102,9 @@ export default async function EmployeeOverviewPage() {
             </div>
           </div>
         )}
+
+        {/* Dynamic Callback Reminders Banner (renders conditionally for today's callbacks) */}
+        <EmployeeDashboardCallbackBanner />
       </div>
 
       {/* KPI Cards Grid */}

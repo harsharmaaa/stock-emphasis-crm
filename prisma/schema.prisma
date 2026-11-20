@@ -220,7 +220,11 @@ model Lead {
   @@index([createdAt])
   @@index([status, createdAt(sort: Desc)])
   @@index([allotToId, status])
+  @@index([allotToId, leadSource, status])
+  @@index([leadSource, allotToId])
   @@index([teamId, status])
+  @@index([updatedAt])
+  @@index([leadSource])
 }
 
 model Department {

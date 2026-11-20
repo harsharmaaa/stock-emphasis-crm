@@ -4,11 +4,12 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   LayoutDashboard,
-  Boxes,
-  CheckSquare,
+  Layers,
   History,
+  MessageSquare,
+  PhoneCall,
+  Boxes,
   X,
-  Sparkles,
 } from "lucide-react";
 
 interface EmployeeNavProps {
@@ -18,34 +19,59 @@ interface EmployeeNavProps {
   employeeEmail: string;
 }
 
-const NAV_ITEMS = [
+interface NavItem {
+  title: string;
+  href: string;
+  icon: React.ComponentType<{ className?: string }>;
+  badge?: string | null;
+  exact?: boolean;
+  status: "active" | "upcoming";
+  tooltip?: string;
+}
+
+const NAV_ITEMS: NavItem[] = [
   {
-    title: "Overview",
+    title: "Home",
     href: "/employee",
     icon: LayoutDashboard,
     badge: null,
     exact: true,
+    status: "active" as const,
   },
   {
-    title: "Assigned Stocks & Leads",
-    href: "/employee/stocks",
-    icon: Boxes,
+    title: "Leads",
+    href: "/employee/leads",
+    icon: Layers,
     badge: null,
     exact: false,
+    status: "active" as const,
   },
   {
-    title: "Tasks & Follow-ups",
-    href: "/employee/tasks",
-    icon: CheckSquare,
-    badge: null,
-    exact: false,
-  },
-  {
-    title: "My Activity Log",
-    href: "/employee/activity",
+    title: "History",
+    href: "/employee/history",
     icon: History,
-    badge: null,
+    badge: "Upcoming",
     exact: false,
+    status: "upcoming" as const,
+    tooltip: "History records and archives scheduled for future release.",
+  },
+  {
+    title: "SMS",
+    href: "/employee/sms",
+    icon: MessageSquare,
+    badge: "Upcoming",
+    exact: false,
+    status: "upcoming" as const,
+    tooltip: "SMS messaging and client communication scheduled for future release.",
+  },
+  {
+    title: "Calling",
+    href: "/employee/calling",
+    icon: PhoneCall,
+    badge: "Upcoming",
+    exact: false,
+    status: "upcoming" as const,
+    tooltip: "Telephony calling dialer scheduled for future release.",
   },
 ];
 
@@ -107,8 +133,30 @@ export function EmployeeNav({
         {/* Main Nav Items */}
         <nav className="px-3 space-y-1">
           {NAV_ITEMS.map((item) => {
-            const active = isLinkActive(item);
             const Icon = item.icon;
+
+            if (item.status === "upcoming") {
+              return (
+                <div
+                  key={item.title}
+                  title={item.tooltip}
+                  className="flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-400 hover:bg-slate-100/50 dark:hover:bg-white/[0.03] transition-all border border-transparent select-none cursor-default"
+                >
+                  <div className="flex items-center gap-3">
+                    <Icon className="size-4 text-slate-400 dark:text-slate-500" />
+                    <span>{item.title}</span>
+                  </div>
+
+                  {item.badge && (
+                    <span className="px-1.5 py-0.5 text-[9px] font-semibold tracking-wider rounded-md bg-slate-100 dark:bg-slate-800/80 text-slate-400 dark:text-slate-500 border border-slate-200/80 dark:border-slate-700/60">
+                      {item.badge}
+                    </span>
+                  )}
+                </div>
+              );
+            }
+
+            const active = isLinkActive(item);
 
             return (
               <Link
@@ -150,25 +198,13 @@ export function EmployeeNav({
             {employeeName.slice(0, 2).toUpperCase()}
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-xs font-semibold text-slate-800 dark:text-slate-200 truncate">
+            <p className="text-xs font-bold text-slate-900 dark:text-white truncate">
               {employeeName}
             </p>
-            <p className="text-[10px] text-slate-500 dark:text-slate-400 truncate font-mono">
+            <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate">
               {employeeEmail}
             </p>
           </div>
-          <div
-            className="size-2 rounded-full bg-emerald-400 ring-2 ring-emerald-400/20"
-            title="Active Operational Staff"
-          />
-        </div>
-
-        <div className="mt-3 flex items-center justify-between text-[10px] text-slate-400 px-1">
-          <span className="flex items-center gap-1 text-cyan-600 dark:text-cyan-400">
-            <Sparkles className="size-3" />
-            <span>Staff Portal</span>
-          </span>
-          <span className="font-mono">v1.0</span>
         </div>
       </div>
     </div>
@@ -181,22 +217,22 @@ export function EmployeeNav({
         {navContent}
       </aside>
 
-      {/* Mobile Drawer Backdrop */}
+      {/* Mobile Drawer Backdrop & Slide-over */}
       {isOpen && (
-        <div
-          className="fixed inset-0 z-40 bg-slate-950/60 backdrop-blur-sm lg:hidden transition-opacity"
-          onClick={onClose}
-        />
-      )}
+        <div className="fixed inset-0 z-50 lg:hidden">
+          {/* Backdrop overlay */}
+          <div
+            className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm transition-opacity"
+            onClick={onClose}
+            aria-hidden="true"
+          />
 
-      {/* Mobile Drawer Panel */}
-      <div
-        className={`fixed inset-y-0 left-0 z-50 w-72 transform transition-transform duration-300 ease-in-out lg:hidden ${
-          isOpen ? "translate-x-0" : "-translate-x-full"
-        }`}
-      >
-        {navContent}
-      </div>
+          {/* Drawer container */}
+          <div className="fixed inset-y-0 left-0 w-64 max-w-[80vw] z-50 animate-in slide-in-from-left duration-200">
+            {navContent}
+          </div>
+        </div>
+      )}
     </>
   );
 }
