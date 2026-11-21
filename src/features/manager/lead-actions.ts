@@ -14,6 +14,88 @@ import { logActivity } from "@/src/lib/activity-logger";
 import { revalidatePath } from "next/cache";
 import { Prisma, type Role } from "@prisma/client";
 import type { AllotmentUserOption, CreateLeadInput } from "@/src/features/leads/actions";
+import type {
+  EmployeeLeadCountFiltersInput,
+  LeadCountSummaryResult,
+  DispositionBreakdownItem,
+} from "@/src/features/employee/lead-actions";
+
+export type {
+  EmployeeLeadCountFiltersInput,
+  LeadCountSummaryResult,
+  DispositionBreakdownItem,
+};
+
+// Canonical responses mapping
+const CANONICAL_RESPONSE_MAP: Record<string, string> = {
+  "call back": "Call Back",
+  "callback": "Call Back",
+  "call_back": "Call Back",
+  "cb": "Call Back",
+  "npc": "NPC",
+  "do not trade": "Do Not Trade",
+  "dnt": "Do Not Trade",
+  "not reachable": "Not Reachable",
+  "not rechable": "Not Reachable",
+  "unreachable": "Not Reachable",
+  "switch off": "Switch Off",
+  "switched off": "Switch Off",
+  "not interested": "Not Interested",
+  "not intrested": "Not Interested",
+  "ni": "Not Interested",
+  "call disconnect": "Call Disconnected",
+  "call disconnected": "Call Disconnected",
+  "call disconnected ": "Call Disconnected",
+  "disconnected": "Call Disconnected",
+  "language issue": "Language Issue",
+  "busy": "Busy",
+  "ft": "FT",
+  "free trial": "FT",
+  "trial": "FT",
+  "interested": "Interested",
+  "intrested": "Interested",
+  "paid": "Paid",
+  "payment": "Paid",
+};
+
+const RESPONSE_VARIANTS_MAP: Record<string, string[]> = {
+  "Call Back": ["Call Back", "callback", "Callback", "CALL BACK", "call_back", "CB", "cb"],
+  "NPC": ["NPC", "npc", "Npc"],
+  "Do Not Trade": ["Do Not Trade", "do not trade", "DNT", "dnt"],
+  "Not Reachable": ["Not Reachable", "not reachable", "Not Rechable", "not rechable", "unreachable", "Unreachable"],
+  "Switch Off": ["Switch Off", "switch off", "Switched Off", "switched off"],
+  "Not Interested": ["Not Interested", "not interested", "Not Intrested", "not intrested", "NI", "ni"],
+  "Call Disconnected": ["Call Disconnected", "call disconnected", "Call Disconnect", "call disconnect", "disconnected"],
+  "Language Issue": ["Language Issue", "language issue"],
+  "Busy": ["Busy", "busy"],
+  "FT": ["FT", "ft", "Free Trial", "free trial", "Trial", "trial"],
+  "Interested": ["Interested", "interested", "Intrested", "intrested"],
+  "Paid": ["Paid", "paid", "Payment", "payment"],
+};
+
+function normalizeCanonicalResponse(resp: string): string {
+  const trimmed = resp.trim();
+  const lower = trimmed.toLowerCase();
+  if (CANONICAL_RESPONSE_MAP[lower]) {
+    return CANONICAL_RESPONSE_MAP[lower];
+  }
+  return trimmed;
+}
+
+function getResponseFilterVariants(canonicalOrRaw: string): string[] {
+  const canonical = normalizeCanonicalResponse(canonicalOrRaw);
+  const variants = RESPONSE_VARIANTS_MAP[canonical];
+  if (variants && variants.length > 0) {
+    return Array.from(new Set([canonical, canonicalOrRaw, ...variants]));
+  }
+  return Array.from(
+    new Set([
+      canonicalOrRaw,
+      canonicalOrRaw.toLowerCase(),
+      canonicalOrRaw.toUpperCase(),
+    ])
+  );
+}
 
 export interface ManagerLeadAssignedUser {
   id: string;
@@ -74,12 +156,33 @@ export interface ManagerStatusCounts {
 
 export interface GetManagerLeadsOptions {
   status?: string;
+  statusIn?: string[];
   search?: string;
   page?: number;
   pageSize?: number;
   take?: number;
   skip?: number;
   all?: boolean;
+  lastUpdateDate?: string | null;
+  lastUpdateDateType?: string | null;
+  startDate?: string | null;
+  endDate?: string | null;
+  leadSource?: string | null;
+  leadResponse?: string | null;
+  leadResponseIn?: string[];
+  trialStatus?: string | null;
+  serviceStatus?: string | null;
+  serviceId?: string | null;
+  productId?: string | null;
+  createdById?: string | null;
+  leadOwnerId?: string | null;
+  teamId?: string | null;
+  leadAssignment?: string | null;
+  paidRange?: string | null;
+  paidMin?: number | null;
+  paidMax?: number | null;
+  recycleCount?: number | string | null;
+  mobile?: string | null;
 }
 
 /**
@@ -125,8 +228,8 @@ export async function getManagerLeadsAction(
     const pageSize = isOptionsObj && statusOrOptions.pageSize
       ? Math.max(1, Math.min(100, statusOrOptions.pageSize))
       : isOptionsObj && statusOrOptions.take
-      ? Math.max(1, Math.min(100, statusOrOptions.take))
-      : 25;
+        ? Math.max(1, Math.min(100, statusOrOptions.take))
+        : 25;
 
     const skip = isOptionsObj && statusOrOptions.skip !== undefined
       ? Math.max(0, statusOrOptions.skip)
@@ -182,36 +285,268 @@ export async function getManagerLeadsAction(
 
     // Build status filter condition supporting aliases like UNFOLLOWED/UNREAD, FOLLOWUPS, TRIALS
     let statusFilterCondition: Prisma.LeadWhereInput = {};
-    if (normalizedStatus) {
+    if (normalizedStatus && normalizedStatus !== "ALL") {
       if (normalizedStatus === "UNREAD" || normalizedStatus === "UNFOLLOWED") {
         statusFilterCondition = { status: { in: ["UNREAD", "UNFOLLOWED"] } };
-      } else if (normalizedStatus === "FOLLOW_UP") {
+      } else if (normalizedStatus === "FOLLOW_UP" || normalizedStatus === "FOLLOWUPS") {
         statusFilterCondition = { status: { in: ["FOLLOW_UP", "FOLLOWUPS"] } };
-      } else if (normalizedStatus === "TRIAL") {
+      } else if (normalizedStatus === "TRIAL" || normalizedStatus === "TRIALS") {
         statusFilterCondition = { status: { in: ["TRIAL", "TRIALS"] } };
-      } else if (normalizedStatus === "CLIENT") {
+      } else if (normalizedStatus === "CLIENT" || normalizedStatus === "CLIENTS") {
         statusFilterCondition = { status: { in: ["CLIENT", "CLIENTS"] } };
+      } else if (normalizedStatus === "DISPOSED" || normalizedStatus === "DISPOSE") {
+        statusFilterCondition = { status: { in: ["DISPOSED", "DISPOSE"] } };
       } else {
         statusFilterCondition = { status: normalizedStatus };
       }
     }
 
-    // Combine boundary filter with optional status and search filters
+    const andConditions: Prisma.LeadWhereInput[] = [
+      managerLeadsFilter,
+    ];
+
+    // Modal / Multi-select stages condition
+    let stagesCondition: Prisma.LeadWhereInput | null = null;
+    if (isOptionsObj && statusOrOptions.statusIn && statusOrOptions.statusIn.length > 0) {
+      const expandedStatuses: string[] = [];
+      for (const st of statusOrOptions.statusIn) {
+        const norm = normalizeStatusFilter(st) || st.toUpperCase();
+        if (norm === "UNREAD" || norm === "UNFOLLOWED") {
+          expandedStatuses.push("UNREAD", "UNFOLLOWED");
+        } else if (norm === "FOLLOW_UP" || norm === "FOLLOWUPS") {
+          expandedStatuses.push("FOLLOW_UP", "FOLLOWUPS");
+        } else if (norm === "TRIAL" || norm === "TRIALS") {
+          expandedStatuses.push("TRIAL", "TRIALS");
+        } else if (norm === "CLIENT" || norm === "CLIENTS") {
+          expandedStatuses.push("CLIENT", "CLIENTS");
+        } else if (norm === "DISPOSED" || norm === "DISPOSE") {
+          expandedStatuses.push("DISPOSED", "DISPOSE");
+        } else {
+          expandedStatuses.push(norm);
+        }
+      }
+      stagesCondition = { status: { in: Array.from(new Set(expandedStatuses)) } };
+    }
+
+    // Modal / Multi-select responses condition (expanded with all spelling/casing variants)
+    let responsesCondition: Prisma.LeadWhereInput | null = null;
+    if (isOptionsObj && statusOrOptions.leadResponseIn && statusOrOptions.leadResponseIn.length > 0) {
+      const allVariants = statusOrOptions.leadResponseIn.flatMap((resp) =>
+        getResponseFilterVariants(resp)
+      );
+      responsesCondition = { leadResponse: { in: Array.from(new Set(allVariants)) } };
+    }
+
+    if (stagesCondition && responsesCondition) {
+      andConditions.push({
+        OR: [stagesCondition, responsesCondition],
+      });
+    } else if (stagesCondition) {
+      andConditions.push(stagesCondition);
+    } else if (responsesCondition) {
+      andConditions.push(responsesCondition);
+    } else if (Object.keys(statusFilterCondition).length > 0) {
+      andConditions.push(statusFilterCondition);
+    }
+
+    if (searchParam) {
+      andConditions.push({
+        OR: [
+          { name: { contains: searchParam, mode: "insensitive" } },
+          { mobile: { contains: searchParam } },
+          { email: { contains: searchParam, mode: "insensitive" } },
+          { city: { contains: searchParam, mode: "insensitive" } },
+          { state: { contains: searchParam, mode: "insensitive" } },
+        ],
+      });
+    }
+
+    if (isOptionsObj) {
+      const dateType = statusOrOptions.lastUpdateDateType?.trim();
+
+      if (dateType === "pending callback") {
+        andConditions.push({
+          status: { in: ["FOLLOW_UP", "FOLLOWUPS"] },
+          callbackDate: { lt: new Date(), not: null },
+        });
+      } else if (dateType === "upcomming callback") {
+        andConditions.push({
+          status: { in: ["FOLLOW_UP", "FOLLOWUPS"] },
+          callbackDate: { gte: new Date() },
+        });
+      } else if (dateType === "pending followup") {
+        andConditions.push({
+          status: { in: ["FOLLOW_UP", "FOLLOWUPS"] },
+          callbackDate: null,
+        });
+      }
+
+      // Date condition handling (supporting startDate/endDate range as well as single lastUpdateDate)
+      const dateCondition: Prisma.DateTimeFilter = {};
+      if (statusOrOptions.startDate?.trim()) {
+        const s = new Date(statusOrOptions.startDate.trim());
+        if (!isNaN(s.getTime())) {
+          s.setHours(0, 0, 0, 0);
+          dateCondition.gte = s;
+        }
+      }
+      if (statusOrOptions.endDate?.trim()) {
+        const e = new Date(statusOrOptions.endDate.trim());
+        if (!isNaN(e.getTime())) {
+          e.setHours(23, 59, 59, 999);
+          dateCondition.lte = e;
+        }
+      }
+      if (!dateCondition.gte && !dateCondition.lte && statusOrOptions.lastUpdateDate?.trim()) {
+        const d = new Date(statusOrOptions.lastUpdateDate.trim());
+        if (!isNaN(d.getTime())) {
+          const s = new Date(d);
+          s.setHours(0, 0, 0, 0);
+          const e = new Date(d);
+          e.setHours(23, 59, 59, 999);
+          dateCondition.gte = s;
+          dateCondition.lte = e;
+        }
+      }
+
+      if (dateCondition.gte || dateCondition.lte) {
+        if (dateType === "Call Back date") {
+          andConditions.push({ callbackDate: dateCondition });
+        } else if (dateType === "Trial added date") {
+          andConditions.push({ trials: { some: { createdAt: dateCondition } } });
+        } else if (dateType === "client conversion date") {
+          andConditions.push({
+            payments: { some: { createdAt: dateCondition, status: "APPROVED" } },
+          });
+        } else if (dateType === "updated followup" || dateType === "followup added date") {
+          andConditions.push({ updatedAt: dateCondition });
+        } else if (dateType === "Lead uploaded date" || dateType === "lead alloted date") {
+          andConditions.push({ createdAt: dateCondition });
+        } else {
+          andConditions.push({ createdAt: dateCondition });
+        }
+      }
+
+      if (statusOrOptions.leadSource?.trim()) {
+        andConditions.push({
+          leadSource: { equals: statusOrOptions.leadSource.trim(), mode: "insensitive" },
+        });
+      }
+
+      if (
+        statusOrOptions.leadResponse?.trim() &&
+        (!statusOrOptions.leadResponseIn || statusOrOptions.leadResponseIn.length === 0)
+      ) {
+        const variants = getResponseFilterVariants(statusOrOptions.leadResponse.trim());
+        if (variants.length === 1) {
+          andConditions.push({ leadResponse: variants[0] });
+        } else {
+          andConditions.push({ leadResponse: { in: variants } });
+        }
+      }
+
+      if (statusOrOptions.trialStatus?.trim()) {
+        andConditions.push({
+          trials: { some: { status: statusOrOptions.trialStatus.trim() } },
+        });
+      }
+
+      if (statusOrOptions.serviceStatus?.trim()) {
+        andConditions.push({
+          invoices: { some: { status: statusOrOptions.serviceStatus.trim() } },
+        });
+      }
+
+      const svcId = statusOrOptions.serviceId || statusOrOptions.productId;
+      if (svcId?.trim()) {
+        andConditions.push({
+          invoices: { some: { productId: svcId.trim() } },
+        });
+      }
+
+      if (statusOrOptions.createdById?.trim()) {
+        const cb = statusOrOptions.createdById.trim();
+        if (cb === "ADMIN" || cb === "ADMIN_ROLE") {
+          andConditions.push({ createdBy: { role: "ADMIN" } });
+        } else {
+          andConditions.push({ createdById: cb });
+        }
+      }
+
+      if (statusOrOptions.leadOwnerId?.trim()) {
+        const owner = statusOrOptions.leadOwnerId.trim();
+        if (owner === "DEACTIVATED") {
+          andConditions.push({ allotTo: { isActive: false } });
+        } else if (owner === "ME") {
+          andConditions.push({ allotToId: manager.id });
+        } else {
+          andConditions.push({ allotToId: owner });
+        }
+      }
+
+      if (statusOrOptions.teamId?.trim()) {
+        andConditions.push({ teamId: statusOrOptions.teamId.trim() });
+      }
+
+      if (statusOrOptions.leadAssignment?.trim()) {
+        const assign = statusOrOptions.leadAssignment.trim();
+        if (assign === "Fetched Leads") {
+          andConditions.push({ createdById: manager.id });
+        } else if (assign === "Alloted Leads" || assign === "Transferred Leads") {
+          andConditions.push({ createdById: { not: manager.id } });
+        }
+      }
+
+      const paidMin = typeof statusOrOptions.paidMin === "number" ? statusOrOptions.paidMin : undefined;
+      const paidMax = typeof statusOrOptions.paidMax === "number" ? statusOrOptions.paidMax : undefined;
+      if (paidMin !== undefined || paidMax !== undefined) {
+        andConditions.push({
+          payments: {
+            some: {
+              status: "APPROVED",
+              amount: {
+                ...(paidMin !== undefined ? { gte: paidMin } : {}),
+                ...(paidMax !== undefined ? { lte: paidMax } : {}),
+              },
+            },
+          },
+        });
+      } else if (statusOrOptions.paidRange?.trim()) {
+        const parts = statusOrOptions.paidRange
+          .split("-")
+          .map((p) => parseFloat(p.trim()))
+          .filter((n) => !isNaN(n));
+        if (parts.length === 2) {
+          andConditions.push({
+            payments: {
+              some: {
+                status: "APPROVED",
+                amount: { gte: parts[0], lte: parts[1] },
+              },
+            },
+          });
+        } else if (parts.length === 1) {
+          andConditions.push({
+            payments: {
+              some: {
+                status: "APPROVED",
+                amount: { gte: parts[0] },
+              },
+            },
+          });
+        }
+      }
+
+      if (statusOrOptions.mobile?.trim()) {
+        andConditions.push({
+          mobile: { contains: statusOrOptions.mobile.trim() },
+        });
+      }
+    }
+
+    // Combine boundary filter with status, multi-select, and right-side filters
     const where: Prisma.LeadWhereInput = {
-      AND: [
-        managerLeadsFilter,
-        statusFilterCondition,
-        searchParam
-          ? {
-              OR: [
-                { name: { contains: searchParam, mode: "insensitive" } },
-                { mobile: { contains: searchParam } },
-                { email: { contains: searchParam, mode: "insensitive" } },
-                { city: { contains: searchParam, mode: "insensitive" } },
-              ],
-            }
-          : {},
-      ],
+      AND: andConditions,
     };
 
     // 3. Parallel Query Execution: count, paginated leads, and status tab metrics
@@ -334,6 +669,487 @@ export async function getManagerLeadsAction(
     };
   } catch (err) {
     return handleActionError(err, "Failed to load manager leads.");
+  }
+}
+
+/**
+ * Retrieves the disposition & stage breakdown counts for leads within the manager's team boundary.
+ * Strictly scoped to managerLeadsFilter: leads assigned to the manager or their subordinate team members.
+ */
+export async function getManagerLeadCountsSummaryAction(
+  filters: EmployeeLeadCountFiltersInput = {}
+): Promise<LeadCountSummaryResult> {
+  try {
+    const manager = await requireManagerSession({ redirect: false });
+
+    // 1. Determine Manager boundary
+    const managerUser = await prisma.user.findUnique({
+      where: { id: manager.id },
+      select: {
+        id: true,
+        name: true,
+        teamId: true,
+        role: true,
+        team: { select: { id: true, name: true } },
+        ledTeams: { select: { id: true, name: true } },
+      },
+    });
+
+    const ledTeams = managerUser?.ledTeams || [];
+    const relevantTeamIds = [
+      ...new Set([
+        ...ledTeams.map((t) => t.id),
+        ...(managerUser?.teamId ? [managerUser.teamId] : []),
+      ]),
+    ];
+
+    let managerLeadsFilter: Prisma.LeadWhereInput;
+    let allowedUsers: { id: string; name: string; role: string; isActive: boolean }[] = [];
+    let allowedTeams: { id: string; name: string }[] = ledTeams;
+
+    if (manager.role === "ADMIN" || managerUser?.role === "ADMIN") {
+      managerLeadsFilter = { allotToId: { not: null } };
+      const [allDbUsers, allDbTeams] = await Promise.all([
+        prisma.user.findMany({
+          select: { id: true, name: true, role: true, isActive: true },
+          orderBy: [{ role: "asc" }, { name: "asc" }],
+        }),
+        prisma.team.findMany({
+          select: { id: true, name: true },
+          orderBy: { name: "asc" },
+        }),
+      ]);
+      allowedUsers = allDbUsers;
+      allowedTeams = allDbTeams;
+    } else {
+      const subordinates = await prisma.user.findMany({
+        where: {
+          OR: [
+            { managerId: manager.id },
+            ...(relevantTeamIds.length > 0 ? [{ teamId: { in: relevantTeamIds } }] : []),
+          ],
+        },
+        select: { id: true, name: true, role: true, isActive: true },
+        orderBy: { name: "asc" },
+      });
+      const subordinateIds = subordinates.map((u) => u.id);
+      const allowedUserIds = Array.from(new Set([manager.id, ...subordinateIds]));
+
+      managerLeadsFilter = {
+        allotToId: { in: allowedUserIds },
+      };
+
+      allowedUsers = [
+        {
+          id: manager.id,
+          name: `${manager.name || "Manager"} (Me)`,
+          role: manager.role,
+          isActive: true,
+        },
+        ...subordinates.filter((s) => s.id !== manager.id),
+      ];
+    }
+
+    // 2. Build where clause inside manager boundary
+    const andConditions: Prisma.LeadWhereInput[] = [managerLeadsFilter];
+
+    if (filters.leadSource && filters.leadSource.trim()) {
+      andConditions.push({
+        leadSource: {
+          equals: filters.leadSource.trim(),
+          mode: "insensitive",
+        },
+      });
+    }
+
+    if (filters.leadResponse && filters.leadResponse.trim()) {
+      const variants = getResponseFilterVariants(filters.leadResponse.trim());
+      if (variants.length === 1) {
+        andConditions.push({ leadResponse: variants[0] });
+      } else {
+        andConditions.push({ leadResponse: { in: variants } });
+      }
+    }
+
+    if (filters.mobile && filters.mobile.trim()) {
+      andConditions.push({ mobile: { contains: filters.mobile.trim() } });
+    }
+
+    if (filters.createdById && filters.createdById.trim()) {
+      const cb = filters.createdById.trim();
+      if (cb === "ADMIN" || cb === "ADMIN_ROLE") {
+        andConditions.push({ createdBy: { role: "ADMIN" } });
+      } else {
+        andConditions.push({ createdById: cb });
+      }
+    }
+
+    if (filters.teamId && filters.teamId.trim()) {
+      andConditions.push({ teamId: filters.teamId.trim() });
+    }
+
+    if (filters.leadAssignment && filters.leadAssignment.trim()) {
+      const assign = filters.leadAssignment.trim();
+      if (assign === "Fetched Leads") {
+        andConditions.push({ createdById: manager.id });
+      } else if (assign === "Alloted Leads" || assign === "Transferred Leads") {
+        andConditions.push({ createdById: { not: manager.id } });
+      }
+    }
+
+    if (filters.leadOwnerId && filters.leadOwnerId.trim()) {
+      const owner = filters.leadOwnerId.trim();
+      if (owner === "DEACTIVATED") {
+        andConditions.push({ allotTo: { isActive: false } });
+      } else if (owner === "ME") {
+        andConditions.push({ allotToId: manager.id });
+      } else {
+        andConditions.push({ allotToId: owner });
+      }
+    }
+
+    const dateType = filters.lastUpdateDateType?.trim();
+
+    if (dateType === "pending callback") {
+      andConditions.push({
+        status: { in: ["FOLLOW_UP", "FOLLOWUPS"] },
+        callbackDate: { lt: new Date(), not: null },
+      });
+    } else if (dateType === "upcomming callback") {
+      andConditions.push({
+        status: { in: ["FOLLOW_UP", "FOLLOWUPS"] },
+        callbackDate: { gte: new Date() },
+      });
+    } else if (dateType === "pending followup") {
+      andConditions.push({
+        status: { in: ["FOLLOW_UP", "FOLLOWUPS"] },
+        callbackDate: null,
+      });
+    }
+
+    // Date Range / Single date filter
+    const dateCondition: Prisma.DateTimeFilter = {};
+    if (filters.startDate?.trim()) {
+      const s = new Date(filters.startDate.trim());
+      if (!isNaN(s.getTime())) {
+        s.setHours(0, 0, 0, 0);
+        dateCondition.gte = s;
+      }
+    }
+    if (filters.endDate?.trim()) {
+      const e = new Date(filters.endDate.trim());
+      if (!isNaN(e.getTime())) {
+        e.setHours(23, 59, 59, 999);
+        dateCondition.lte = e;
+      }
+    }
+    if (!dateCondition.gte && !dateCondition.lte && filters.lastUpdateDate?.trim()) {
+      const d = new Date(filters.lastUpdateDate.trim());
+      if (!isNaN(d.getTime())) {
+        const s = new Date(d);
+        s.setHours(0, 0, 0, 0);
+        const e = new Date(d);
+        e.setHours(23, 59, 59, 999);
+        dateCondition.gte = s;
+        dateCondition.lte = e;
+      }
+    }
+
+    if (dateCondition.gte || dateCondition.lte) {
+      if (dateType === "Call Back date") {
+        andConditions.push({ callbackDate: dateCondition });
+      } else if (dateType === "Trial added date") {
+        andConditions.push({ trials: { some: { createdAt: dateCondition } } });
+      } else if (dateType === "client conversion date") {
+        andConditions.push({
+          payments: { some: { createdAt: dateCondition, status: "APPROVED" } },
+        });
+      } else if (dateType === "updated followup" || dateType === "followup added date") {
+        andConditions.push({ updatedAt: dateCondition });
+      } else if (dateType === "Lead uploaded date" || dateType === "lead alloted date") {
+        andConditions.push({ createdAt: dateCondition });
+      } else {
+        andConditions.push({ createdAt: dateCondition });
+      }
+    }
+
+    if (filters.trialStatus && filters.trialStatus.trim()) {
+      andConditions.push({ trials: { some: { status: filters.trialStatus.trim() } } });
+    }
+
+    if (filters.serviceStatus && filters.serviceStatus.trim()) {
+      andConditions.push({ invoices: { some: { status: filters.serviceStatus.trim() } } });
+    }
+
+    const svcId = filters.serviceId || (filters as Record<string, unknown>).productId as string | undefined;
+    if (svcId && svcId.trim()) {
+      andConditions.push({ invoices: { some: { productId: svcId.trim() } } });
+    }
+
+    const rawPaidMin = (filters as Record<string, unknown>).paidMin;
+    const rawPaidMax = (filters as Record<string, unknown>).paidMax;
+    const paidMin = typeof rawPaidMin === "number" ? rawPaidMin : undefined;
+    const paidMax = typeof rawPaidMax === "number" ? rawPaidMax : undefined;
+    if (paidMin !== undefined || paidMax !== undefined) {
+      andConditions.push({
+        payments: {
+          some: {
+            status: "APPROVED",
+            amount: {
+              ...(paidMin !== undefined ? { gte: paidMin } : {}),
+              ...(paidMax !== undefined ? { lte: paidMax } : {}),
+            },
+          },
+        },
+      });
+    } else if (filters.paidRange && filters.paidRange.trim()) {
+      const parts = filters.paidRange
+        .split("-")
+        .map((p) => parseFloat(p.trim()))
+        .filter((n) => !isNaN(n));
+      if (parts.length === 2) {
+        andConditions.push({
+          payments: {
+            some: {
+              status: "APPROVED",
+              amount: { gte: parts[0], lte: parts[1] },
+            },
+          },
+        });
+      } else if (parts.length === 1) {
+        andConditions.push({
+          payments: {
+            some: {
+              status: "APPROVED",
+              amount: { gte: parts[0] },
+            },
+          },
+        });
+      }
+    }
+
+    const where: Prisma.LeadWhereInput = {
+      AND: andConditions,
+    };
+
+    // 3. Parallel Query Execution
+    const [
+      totalCount,
+      responseGroups,
+      statusGroups,
+      activeResponses,
+      activeSources,
+      activeProducts,
+      sourceGroups,
+      allUsers,
+    ] = await Promise.all([
+      prisma.lead.count({ where }),
+      prisma.lead.groupBy({
+        by: ["leadResponse"],
+        where,
+        _count: { _all: true },
+      }),
+      prisma.lead.groupBy({
+        by: ["status"],
+        where,
+        _count: { _all: true },
+      }),
+      getActiveLeadResponseNames(),
+      getActiveLeadSourceNames(),
+      prisma.product.findMany({
+        where: { isActive: true },
+        select: { id: true, name: true },
+        orderBy: { name: "asc" },
+      }),
+      prisma.lead.groupBy({
+        by: ["leadSource"],
+        where: managerLeadsFilter,
+        _count: { _all: true },
+      }),
+      prisma.user.findMany({
+        where: { role: { in: ["ADMIN", "MANAGER", "EMPLOYEE"] } },
+        select: { id: true, name: true, role: true, isActive: true },
+        orderBy: [{ role: "asc" }, { name: "asc" }],
+      }),
+    ]);
+
+    // Build status counts map
+    const statusCountsMap: Record<string, number> = {};
+    for (const sg of statusGroups) {
+      const s = (sg.status || "").toUpperCase();
+      statusCountsMap[s] = (statusCountsMap[s] || 0) + sg._count._all;
+    }
+
+    // Build response counts map aggregated by canonical name
+    const canonicalResponseCounts: Record<string, number> = {};
+    for (const rg of responseGroups) {
+      if (rg.leadResponse) {
+        const canonical = normalizeCanonicalResponse(rg.leadResponse);
+        canonicalResponseCounts[canonical] =
+          (canonicalResponseCounts[canonical] || 0) + rg._count._all;
+      }
+    }
+
+    const unreadCount =
+      (statusCountsMap["UNREAD"] || 0) + (statusCountsMap["UNFOLLOWED"] || 0);
+    const followupCount =
+      (statusCountsMap["FOLLOW_UP"] || 0) + (statusCountsMap["FOLLOWUPS"] || 0);
+    const trialCount =
+      (statusCountsMap["TRIAL"] || 0) + (statusCountsMap["TRIALS"] || 0);
+    const clientCount =
+      (statusCountsMap["CLIENT"] || 0) + (statusCountsMap["CLIENTS"] || 0);
+    const disposedCount =
+      (statusCountsMap["DISPOSED"] || 0) + (statusCountsMap["DISPOSE"] || 0);
+    const readCount = statusCountsMap["READ"] || 0;
+
+    const canonicalResponsesOrder = [
+      "Call Back",
+      "NPC",
+      "Do Not Trade",
+      "Not Reachable",
+      "Switch Off",
+      "Not Interested",
+      "Call Disconnected",
+      "Language Issue",
+      "Busy",
+      "FT",
+      "Interested",
+      "Paid",
+    ];
+
+    const allKnownResponses = Array.from(
+      new Set([
+        ...canonicalResponsesOrder,
+        ...activeResponses.map(normalizeCanonicalResponse),
+        ...Object.keys(canonicalResponseCounts),
+      ])
+    );
+
+    const breakdown: DispositionBreakdownItem[] = [];
+
+    // Stage: Unread Leads
+    breakdown.push({
+      key: "stage:UNREAD",
+      label: "Unread Leads",
+      type: "stage",
+      value: "UNREAD",
+      count: unreadCount,
+      percentage: totalCount > 0 ? Number(((unreadCount / totalCount) * 100).toFixed(1)) : 0,
+    });
+
+    // Call response items
+    for (const resp of allKnownResponses) {
+      const count = canonicalResponseCounts[resp] || 0;
+      breakdown.push({
+        key: `response:${resp}`,
+        label: resp,
+        type: "response",
+        value: resp,
+        count,
+        percentage: totalCount > 0 ? Number(((count / totalCount) * 100).toFixed(1)) : 0,
+      });
+    }
+
+    // Additional stages
+    breakdown.push({
+      key: "stage:FOLLOW_UP",
+      label: "Followups",
+      type: "stage",
+      value: "FOLLOW_UP",
+      count: followupCount,
+      percentage: totalCount > 0 ? Number(((followupCount / totalCount) * 100).toFixed(1)) : 0,
+    });
+
+    breakdown.push({
+      key: "stage:TRIAL",
+      label: "Trials",
+      type: "stage",
+      value: "TRIAL",
+      count: trialCount,
+      percentage: totalCount > 0 ? Number(((trialCount / totalCount) * 100).toFixed(1)) : 0,
+    });
+
+    breakdown.push({
+      key: "stage:CLIENT",
+      label: "Clients",
+      type: "stage",
+      value: "CLIENT",
+      count: clientCount,
+      percentage: totalCount > 0 ? Number(((clientCount / totalCount) * 100).toFixed(1)) : 0,
+    });
+
+    if (disposedCount > 0) {
+      breakdown.push({
+        key: "stage:DISPOSED",
+        label: "Disposed",
+        type: "stage",
+        value: "DISPOSED",
+        count: disposedCount,
+        percentage: totalCount > 0 ? Number(((disposedCount / totalCount) * 100).toFixed(1)) : 0,
+      });
+    }
+
+    if (readCount > 0) {
+      breakdown.push({
+        key: "stage:READ",
+        label: "Read Leads",
+        type: "stage",
+        value: "READ",
+        count: readCount,
+        percentage: totalCount > 0 ? Number(((readCount / totalCount) * 100).toFixed(1)) : 0,
+      });
+    }
+
+    const deduplicatedResponses = Array.from(
+      new Set([
+        ...canonicalResponsesOrder,
+        ...activeResponses.map(normalizeCanonicalResponse),
+      ])
+    );
+
+    // Merge active master LeadSource with distinct leadSource values in managerLeadsFilter
+    const leadDbSources = sourceGroups.map((g) => g.leadSource).filter(Boolean) as string[];
+    const sourceMap = new Map<string, string>();
+    for (const s of [...activeSources, ...leadDbSources]) {
+      const trimmed = s.trim();
+      if (!trimmed) continue;
+      const key = trimmed.toLowerCase();
+      if (!sourceMap.has(key)) {
+        sourceMap.set(key, trimmed);
+      }
+    }
+    const deduplicatedSources = Array.from(sourceMap.values()).sort((a, b) =>
+      a.localeCompare(b, undefined, { sensitivity: "base" })
+    );
+
+    return {
+      success: true,
+      totalCount,
+      breakdown,
+      sources: deduplicatedSources,
+      responses: deduplicatedResponses,
+      products: activeProducts,
+      creators: allUsers.map((u) => ({
+        id: u.id,
+        name: u.name,
+        role: u.role,
+      })),
+      users: allowedUsers,
+      teams: allowedTeams,
+      employeeName: managerUser?.name || manager.name || "Manager",
+      employeeTeamName: managerUser?.team?.name || "Operations Team",
+    };
+  } catch (err) {
+    console.error("[GET_MANAGER_LEAD_COUNTS_SUMMARY_ERROR]", err);
+    return {
+      success: false,
+      totalCount: 0,
+      breakdown: [],
+      sources: [],
+      responses: [],
+      products: [],
+      error: "Failed to compute manager lead counts summary.",
+    };
   }
 }
 
@@ -568,9 +1384,8 @@ export async function createManagerLeadAction(
       actorId: manager.id,
       action: "CREATE_LEAD",
       targetTeamId: allottedTeamId || undefined,
-      details: `Manager ${manager.name} registered team lead "${name}" (${normalizedMobile})${
-        allottedUserId ? ` allotted to user ${allottedUserId}` : " unassigned"
-      }`,
+      details: `Manager ${manager.name} registered team lead "${name}" (${normalizedMobile})${allottedUserId ? ` allotted to user ${allottedUserId}` : " unassigned"
+        }`,
     });
 
     revalidatePath("/manager/leads");
@@ -853,8 +1668,8 @@ export async function updateManagerLeadCallAction(
     const normalizedResp = chosenResponse
       ? chosenResponse.toUpperCase()
       : input.leadResponse
-      ? input.leadResponse.trim().toUpperCase()
-      : "";
+        ? input.leadResponse.trim().toUpperCase()
+        : "";
 
     // 1. FT / TRIAL takes absolute priority
     if (["FT", "FREE TRIAL", "TRIAL"].includes(normalizedResp)) {
@@ -957,9 +1772,8 @@ export async function disposeManagerLeadAction(
     await logActivity({
       actorId: manager.id,
       action: "LEAD_DISPOSED",
-      details: `Manager ${manager.name} marked team lead "${existingLead.name}" (${existingLead.mobile}) as DISPOSED${
-        reason?.trim() ? `: ${reason.trim()}` : ""
-      }`,
+      details: `Manager ${manager.name} marked team lead "${existingLead.name}" (${existingLead.mobile}) as DISPOSED${reason?.trim() ? `: ${reason.trim()}` : ""
+        }`,
     });
 
     revalidatePath("/manager/leads");

@@ -6,9 +6,14 @@ import { useRouter, useSearchParams } from "next/navigation";
 import type { ManagerLeadItem, ManagerStatusCounts } from "./lead-actions";
 import {
   getManagerLeadsAction,
+  getManagerLeadCountsSummaryAction,
   disposeManagerLeadAction,
   restoreManagerLeadAction,
 } from "./lead-actions";
+import {
+  LeadCountModal,
+  type LeadCountFilterApplyPayload,
+} from "@/src/components/leads/lead-count-modal";
 import { ManagerCallUpdateModal } from "./manager-call-update-modal";
 import { ManagerLeadDrawer } from "./manager-lead-drawer";
 import { ManagerFetchModal } from "./manager-fetch-modal";
@@ -44,7 +49,45 @@ import {
   AlertTriangle,
   Loader2,
   Download,
+  BarChart2,
 } from "lucide-react";
+
+const CLIENT_CANONICAL_RESPONSES: Record<string, string> = {
+  "call back": "Call Back",
+  "callback": "Call Back",
+  "call_back": "Call Back",
+  "cb": "Call Back",
+  "npc": "NPC",
+  "do not trade": "Do Not Trade",
+  "dnt": "Do Not Trade",
+  "not reachable": "Not Reachable",
+  "not rechable": "Not Reachable",
+  "unreachable": "Not Reachable",
+  "switch off": "Switch Off",
+  "switched off": "Switch Off",
+  "not interested": "Not Interested",
+  "not intrested": "Not Interested",
+  "ni": "Not Interested",
+  "call disconnect": "Call Disconnected",
+  "call disconnected": "Call Disconnected",
+  "call disconnected ": "Call Disconnected",
+  "disconnected": "Call Disconnected",
+  "language issue": "Language Issue",
+  "busy": "Busy",
+  "ft": "FT",
+  "free trial": "FT",
+  "trial": "FT",
+  "interested": "Interested",
+  "intrested": "Interested",
+  "paid": "Paid",
+  "payment": "Paid",
+};
+
+function normalizeClientResponse(raw: string | null | undefined): string {
+  if (!raw) return "";
+  const trimmed = raw.trim().toLowerCase();
+  return CLIENT_CANONICAL_RESPONSES[trimmed] || trimmed;
+}
 
 interface ManagerLeadsClientProps {
   initialLeads: ManagerLeadItem[];
@@ -109,6 +152,12 @@ export function ManagerLeadsClient({
   const [isRestoringId, setIsRestoringId] = useState<string | null>(null);
   const [isFetchModalOpen, setIsFetchModalOpen] = useState(false);
 
+  // ALL Lead Count Modal states
+  const [isCountModalOpen, setIsCountModalOpen] = useState(false);
+  const [modalSelectedStages, setModalSelectedStages] = useState<string[]>([]);
+  const [modalSelectedResponses, setModalSelectedResponses] = useState<string[]>([]);
+  const [appliedCountFilters, setAppliedCountFilters] = useState<LeadCountFilterApplyPayload | null>(null);
+
   const [isPending, startTransition] = useTransition();
 
   // Compute live counts across all status tabs (prefer server groupBy counts for speed)
@@ -135,12 +184,39 @@ export function ManagerLeadsClient({
     return counts;
   }, [leads, statusCountsState]);
 
-  // Filter leads based on active status pill and search query
+  // Filter leads based on active status pill, modal multi-selections, and search query
   const filteredLeads = useMemo(() => {
     return leads.filter((lead) => {
-      // 1. Status Filter
-      if (activeStatus !== "ALL") {
-        const leadStatusUpper = (lead.status || "").toUpperCase();
+      const leadStatusUpper = (lead.status || "").toUpperCase();
+      const normalizedLeadResp = normalizeClientResponse(lead.leadResponse);
+
+      // Modal multi-selection filter across stages and call responses
+      if (modalSelectedStages.length > 0 || modalSelectedResponses.length > 0) {
+        const stageMatch = modalSelectedStages.some((stage) => {
+          if (stage === "UNREAD") return leadStatusUpper === "UNREAD" || leadStatusUpper === "UNFOLLOWED";
+          if (stage === "FOLLOW_UP") return leadStatusUpper === "FOLLOW_UP" || leadStatusUpper === "FOLLOWUPS";
+          if (stage === "TRIAL") return leadStatusUpper === "TRIAL" || leadStatusUpper === "TRIALS";
+          if (stage === "CLIENT") return leadStatusUpper === "CLIENT" || leadStatusUpper === "CLIENTS";
+          if (stage === "DISPOSED") return leadStatusUpper === "DISPOSED";
+          return leadStatusUpper === stage;
+        });
+
+        const respMatch = modalSelectedResponses.some((resp) => {
+          const normalizedSelected = normalizeClientResponse(resp);
+          return (
+            normalizedSelected === normalizedLeadResp ||
+            resp.trim().toLowerCase() === (lead.leadResponse || "").trim().toLowerCase()
+          );
+        });
+
+        if (modalSelectedStages.length > 0 && modalSelectedResponses.length > 0) {
+          if (!stageMatch && !respMatch) return false;
+        } else if (modalSelectedStages.length > 0) {
+          if (!stageMatch) return false;
+        } else if (modalSelectedResponses.length > 0) {
+          if (!respMatch) return false;
+        }
+      } else if (activeStatus !== "ALL") {
         if (activeStatus === "UNREAD") {
           if (leadStatusUpper !== "UNREAD" && leadStatusUpper !== "UNFOLLOWED") return false;
         } else if (activeStatus === "TRIAL") {
@@ -184,7 +260,7 @@ export function ManagerLeadsClient({
 
       return true;
     });
-  }, [leads, activeStatus, searchQuery]);
+  }, [leads, activeStatus, modalSelectedStages, modalSelectedResponses, searchQuery]);
 
   // Sort filtered leads based on selected sort key and order
   const sortedLeads = useMemo(() => {
@@ -245,6 +321,8 @@ export function ManagerLeadsClient({
   // Handle switching tabs
   const handleTabChange = (newStatus: string) => {
     setActiveStatus(newStatus);
+    setModalSelectedStages([]);
+    setModalSelectedResponses([]);
     setCurrentPage(1);
 
     const params = new URLSearchParams(searchParams.toString());
@@ -260,6 +338,104 @@ export function ManagerLeadsClient({
     startTransition(async () => {
       const res = await getManagerLeadsAction({
         status: newStatus !== "ALL" ? newStatus : undefined,
+        search: searchQuery || undefined,
+        pageSize: 25,
+        lastUpdateDateType: appliedCountFilters?.lastUpdateDateType || undefined,
+        lastUpdateDate: appliedCountFilters?.lastUpdateDate || undefined,
+        startDate: appliedCountFilters?.startDate || undefined,
+        endDate: appliedCountFilters?.endDate || undefined,
+        leadSource: appliedCountFilters?.leadSource || undefined,
+        leadResponse: appliedCountFilters?.leadResponse || undefined,
+        trialStatus: appliedCountFilters?.trialStatus || undefined,
+        serviceStatus: appliedCountFilters?.serviceStatus || undefined,
+        serviceId: appliedCountFilters?.serviceId || undefined,
+        createdById: appliedCountFilters?.createdById || undefined,
+        leadOwnerId: appliedCountFilters?.leadOwnerId || undefined,
+        teamId: appliedCountFilters?.teamId || undefined,
+        leadAssignment: appliedCountFilters?.leadAssignment || undefined,
+        paidRange: appliedCountFilters?.paidRange || undefined,
+        recycleCount: appliedCountFilters?.leadRecycleCount || undefined,
+        mobile: appliedCountFilters?.mobile || undefined,
+      });
+      if (res.success && res.leads) {
+        setLeads(res.leads);
+        if (res.statusCounts) {
+          setStatusCountsState(res.statusCounts);
+        }
+      }
+    });
+  };
+
+  // Handle applying filters from LeadCountModal
+  const handleApplyCountModalFilters = (payload: LeadCountFilterApplyPayload) => {
+    setModalSelectedStages(payload.selectedStages);
+    setModalSelectedResponses(payload.selectedResponses);
+    setAppliedCountFilters(payload);
+
+    const hasSpecificStage =
+      payload.selectedStages.length === 1 && payload.selectedResponses.length === 0;
+    const newStatus = hasSpecificStage ? payload.selectedStages[0] : "ALL";
+    setActiveStatus(newStatus);
+    setCurrentPage(1);
+
+    const params = new URLSearchParams(searchParams.toString());
+    if (newStatus === "ALL") {
+      params.delete("status");
+    } else {
+      params.set("status", newStatus);
+    }
+    router.replace(`/manager/leads?${params.toString()}`, { scroll: false });
+
+    startTransition(async () => {
+      const res = await getManagerLeadsAction({
+        status: hasSpecificStage ? newStatus : undefined,
+        statusIn: payload.selectedStages.length > 0 ? payload.selectedStages : undefined,
+        leadResponseIn:
+          payload.selectedResponses.length > 0 ? payload.selectedResponses : undefined,
+        search: searchQuery || undefined,
+        pageSize: 100,
+        lastUpdateDateType: payload.lastUpdateDateType || undefined,
+        lastUpdateDate: payload.lastUpdateDate || undefined,
+        startDate: payload.startDate || undefined,
+        endDate: payload.endDate || undefined,
+        leadSource: payload.leadSource || undefined,
+        leadResponse: payload.leadResponse || undefined,
+        trialStatus: payload.trialStatus || undefined,
+        serviceStatus: payload.serviceStatus || undefined,
+        serviceId: payload.serviceId || undefined,
+        createdById: payload.createdById || undefined,
+        leadOwnerId: payload.leadOwnerId || undefined,
+        teamId: payload.teamId || undefined,
+        leadAssignment: payload.leadAssignment || undefined,
+        paidRange: payload.paidRange || undefined,
+        recycleCount: payload.leadRecycleCount || undefined,
+        mobile: payload.mobile || undefined,
+      });
+
+      if (res.success && res.leads) {
+        setLeads(res.leads);
+        if (res.statusCounts) {
+          setStatusCountsState(res.statusCounts);
+        }
+      }
+    });
+  };
+
+  // Handle resetting LeadCountModal filters
+  const handleResetCountModalFilters = () => {
+    setModalSelectedStages([]);
+    setModalSelectedResponses([]);
+    setAppliedCountFilters(null);
+    setActiveStatus("ALL");
+    setCurrentPage(1);
+
+    const params = new URLSearchParams(searchParams.toString());
+    params.delete("status");
+    router.replace(`/manager/leads?${params.toString()}`, { scroll: false });
+
+    startTransition(async () => {
+      const res = await getManagerLeadsAction({
+        status: undefined,
         search: searchQuery || undefined,
         pageSize: 25,
       });
@@ -288,8 +464,26 @@ export function ManagerLeadsClient({
     startTransition(async () => {
       const res = await getManagerLeadsAction({
         status: activeStatus !== "ALL" ? activeStatus : undefined,
+        statusIn: modalSelectedStages.length > 0 ? modalSelectedStages : undefined,
+        leadResponseIn: modalSelectedResponses.length > 0 ? modalSelectedResponses : undefined,
         search: searchQuery || undefined,
         pageSize: 25,
+        lastUpdateDateType: appliedCountFilters?.lastUpdateDateType || undefined,
+        lastUpdateDate: appliedCountFilters?.lastUpdateDate || undefined,
+        startDate: appliedCountFilters?.startDate || undefined,
+        endDate: appliedCountFilters?.endDate || undefined,
+        leadSource: appliedCountFilters?.leadSource || undefined,
+        leadResponse: appliedCountFilters?.leadResponse || undefined,
+        trialStatus: appliedCountFilters?.trialStatus || undefined,
+        serviceStatus: appliedCountFilters?.serviceStatus || undefined,
+        serviceId: appliedCountFilters?.serviceId || undefined,
+        createdById: appliedCountFilters?.createdById || undefined,
+        leadOwnerId: appliedCountFilters?.leadOwnerId || undefined,
+        teamId: appliedCountFilters?.teamId || undefined,
+        leadAssignment: appliedCountFilters?.leadAssignment || undefined,
+        paidRange: appliedCountFilters?.paidRange || undefined,
+        recycleCount: appliedCountFilters?.leadRecycleCount || undefined,
+        mobile: appliedCountFilters?.mobile || undefined,
       });
       if (res.success && res.leads) {
         setLeads(res.leads);
@@ -524,14 +718,73 @@ export function ManagerLeadsClient({
           })}
         </div>
 
-        {/* Far Right: Total Count Pill */}
+        {/* Far Right: Interactive Count Button (opens LeadCountModal) */}
         <div className="shrink-0">
-          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl text-xs font-bold bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20">
+          <button
+            type="button"
+            onClick={() => setIsCountModalOpen(true)}
+            className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl text-xs font-bold border border-rose-300 dark:border-rose-800 bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/40 dark:hover:bg-rose-900/50 text-rose-600 dark:text-rose-400 shadow-2xs transition-all cursor-pointer active:scale-95"
+            title="Open ALL Lead Count Modal"
+          >
+            <BarChart2 className="size-3.5" />
             <span>Count</span>
-            <span className="font-mono">{sortedLeads.length}</span>
-          </span>
+          </button>
         </div>
       </div>
+
+      {/* Active Count Filters Banner */}
+      {(modalSelectedStages.length > 0 || modalSelectedResponses.length > 0 || appliedCountFilters) && (
+        <div className="flex items-center justify-between gap-3 px-4 py-2.5 rounded-2xl bg-gradient-to-r from-blue-600/10 via-indigo-600/10 to-purple-600/10 border border-blue-500/20 text-xs">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="font-semibold text-blue-700 dark:text-blue-300">
+              Active Count Filters:
+            </span>
+            {modalSelectedStages.map((st) => (
+              <span
+                key={st}
+                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-blue-500/15 text-blue-700 dark:text-blue-300 font-bold border border-blue-500/30 text-[11px]"
+              >
+                <span>Stage: {st}</span>
+              </span>
+            ))}
+            {modalSelectedResponses.map((r) => (
+              <span
+                key={r}
+                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-indigo-500/15 text-indigo-700 dark:text-indigo-300 font-bold border border-indigo-500/30 text-[11px]"
+              >
+                <span>Response: {r}</span>
+              </span>
+            ))}
+            {appliedCountFilters?.leadSource && (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-cyan-500/15 text-cyan-700 dark:text-cyan-300 font-bold border border-cyan-500/30 text-[11px]">
+                <span>Source: {appliedCountFilters.leadSource}</span>
+              </span>
+            )}
+            {appliedCountFilters?.leadOwnerId && (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 font-bold border border-emerald-500/30 text-[11px]">
+                <span>Owner Filtered</span>
+              </span>
+            )}
+            {appliedCountFilters?.teamId && (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-amber-500/15 text-amber-700 dark:text-amber-300 font-bold border border-amber-500/30 text-[11px]">
+                <span>Team Filtered</span>
+              </span>
+            )}
+            {appliedCountFilters?.lastUpdateDateType && (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-purple-500/15 text-purple-700 dark:text-purple-300 font-bold border border-purple-500/30 text-[11px]">
+                <span>{appliedCountFilters.lastUpdateDateType}</span>
+              </span>
+            )}
+          </div>
+          <button
+            type="button"
+            onClick={handleResetCountModalFilters}
+            className="text-xs font-semibold text-rose-600 dark:text-rose-400 hover:underline cursor-pointer shrink-0"
+          >
+            Clear Modal Filters
+          </button>
+        </div>
+      )}
 
       {/* 4. STRUCTURED LEAD ROW-CARD LIST */}
       <div className="space-y-3">
@@ -1211,6 +1464,16 @@ export function ManagerLeadsClient({
         isOpen={isFetchModalOpen}
         onClose={() => setIsFetchModalOpen(false)}
         onLeadFetched={handleRefreshLeads}
+      />
+
+      {/* 12. ALL Lead Count Modal */}
+      <LeadCountModal
+        isOpen={isCountModalOpen}
+        onClose={() => setIsCountModalOpen(false)}
+        mode="admin"
+        fetchCountsAction={getManagerLeadCountsSummaryAction}
+        onApplyFilters={handleApplyCountModalFilters}
+        onResetFilters={handleResetCountModalFilters}
       />
     </div>
   );
