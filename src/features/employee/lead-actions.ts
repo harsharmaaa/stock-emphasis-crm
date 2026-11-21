@@ -15,6 +15,77 @@ import { checkLeadHasConfirmedPayment, type CreateLeadInput } from "@/src/featur
 import { revalidatePath } from "next/cache";
 import { Prisma } from "@prisma/client";
 
+// Canonical responses mapping
+const CANONICAL_RESPONSE_MAP: Record<string, string> = {
+  "call back": "Call Back",
+  "callback": "Call Back",
+  "call_back": "Call Back",
+  "cb": "Call Back",
+  "npc": "NPC",
+  "do not trade": "Do Not Trade",
+  "dnt": "Do Not Trade",
+  "not reachable": "Not Reachable",
+  "not rechable": "Not Reachable",
+  "unreachable": "Not Reachable",
+  "switch off": "Switch Off",
+  "switched off": "Switch Off",
+  "not interested": "Not Interested",
+  "not intrested": "Not Interested",
+  "ni": "Not Interested",
+  "call disconnect": "Call Disconnected",
+  "call disconnected": "Call Disconnected",
+  "call disconnected ": "Call Disconnected",
+  "disconnected": "Call Disconnected",
+  "language issue": "Language Issue",
+  "busy": "Busy",
+  "ft": "FT",
+  "free trial": "FT",
+  "trial": "FT",
+  "interested": "Interested",
+  "intrested": "Interested",
+  "paid": "Paid",
+  "payment": "Paid",
+};
+
+const RESPONSE_VARIANTS_MAP: Record<string, string[]> = {
+  "Call Back": ["Call Back", "callback", "Callback", "CALL BACK", "call_back", "CB", "cb"],
+  "NPC": ["NPC", "npc", "Npc"],
+  "Do Not Trade": ["Do Not Trade", "do not trade", "DNT", "dnt"],
+  "Not Reachable": ["Not Reachable", "not reachable", "Not Rechable", "not rechable", "unreachable", "Unreachable"],
+  "Switch Off": ["Switch Off", "switch off", "Switched Off", "switched off"],
+  "Not Interested": ["Not Interested", "not interested", "Not Intrested", "not intrested", "NI", "ni"],
+  "Call Disconnected": ["Call Disconnected", "call disconnected", "Call Disconnect", "call disconnect", "disconnected"],
+  "Language Issue": ["Language Issue", "language issue"],
+  "Busy": ["Busy", "busy"],
+  "FT": ["FT", "ft", "Free Trial", "free trial", "Trial", "trial"],
+  "Interested": ["Interested", "interested", "Intrested", "intrested"],
+  "Paid": ["Paid", "paid", "Payment", "payment"],
+};
+
+function normalizeCanonicalResponse(resp: string): string {
+  const trimmed = resp.trim();
+  const lower = trimmed.toLowerCase();
+  if (CANONICAL_RESPONSE_MAP[lower]) {
+    return CANONICAL_RESPONSE_MAP[lower];
+  }
+  return trimmed;
+}
+
+function getResponseFilterVariants(canonicalOrRaw: string): string[] {
+  const canonical = normalizeCanonicalResponse(canonicalOrRaw);
+  const variants = RESPONSE_VARIANTS_MAP[canonical];
+  if (variants && variants.length > 0) {
+    return Array.from(new Set([canonical, canonicalOrRaw, ...variants]));
+  }
+  return Array.from(
+    new Set([
+      canonicalOrRaw,
+      canonicalOrRaw.toLowerCase(),
+      canonicalOrRaw.toUpperCase(),
+    ])
+  );
+}
+
 export interface EmployeeLeadItem {
   id: string;
   name: string;
@@ -75,6 +146,7 @@ export interface GetEmployeeLeadsOptions {
   skip?: number;
   all?: boolean;
   lastUpdateDate?: string | null;
+  lastUpdateDateType?: string | null;
   startDate?: string | null;
   endDate?: string | null;
   leadSource?: string | null;
@@ -84,6 +156,9 @@ export interface GetEmployeeLeadsOptions {
   serviceStatus?: string | null;
   serviceId?: string | null;
   createdById?: string | null;
+  leadOwnerId?: string | null;
+  teamId?: string | null;
+  leadAssignment?: string | null;
   paidRange?: string | null;
   recycleCount?: number | string | null;
   mobile?: string | null;
@@ -135,8 +210,8 @@ export async function getEmployeeLeadsAction(
     const pageSize = isOptionsObj && statusOrOptions.pageSize
       ? Math.max(1, Math.min(100, statusOrOptions.pageSize))
       : isOptionsObj && statusOrOptions.take
-      ? Math.max(1, Math.min(100, statusOrOptions.take))
-      : 25;
+        ? Math.max(1, Math.min(100, statusOrOptions.take))
+        : 25;
 
     const skip = isOptionsObj && statusOrOptions.skip !== undefined
       ? Math.max(0, statusOrOptions.skip)
@@ -193,10 +268,13 @@ export async function getEmployeeLeadsAction(
       stagesCondition = { status: { in: Array.from(new Set(expandedStatuses)) } };
     }
 
-    // Modal / Multi-select responses condition
+    // Modal / Multi-select responses condition (expanded with all spelling/casing variants)
     let responsesCondition: Prisma.LeadWhereInput | null = null;
     if (isOptionsObj && statusOrOptions.leadResponseIn && statusOrOptions.leadResponseIn.length > 0) {
-      responsesCondition = { leadResponse: { in: statusOrOptions.leadResponseIn } };
+      const allVariants = statusOrOptions.leadResponseIn.flatMap((resp) =>
+        getResponseFilterVariants(resp)
+      );
+      responsesCondition = { leadResponse: { in: Array.from(new Set(allVariants)) } };
     }
 
     if (stagesCondition && responsesCondition) {
@@ -224,47 +302,87 @@ export async function getEmployeeLeadsAction(
     }
 
     if (isOptionsObj) {
-      if (statusOrOptions.lastUpdateDate?.trim()) {
+      const dateType = statusOrOptions.lastUpdateDateType?.trim();
+
+      if (dateType === "pending callback") {
+        andConditions.push({
+          status: { in: ["FOLLOW_UP", "FOLLOWUPS"] },
+          callbackDate: { lt: new Date(), not: null },
+        });
+      } else if (dateType === "upcomming callback") {
+        andConditions.push({
+          status: { in: ["FOLLOW_UP", "FOLLOWUPS"] },
+          callbackDate: { gte: new Date() },
+        });
+      } else if (dateType === "pending followup") {
+        andConditions.push({
+          status: { in: ["FOLLOW_UP", "FOLLOWUPS"] },
+          callbackDate: null,
+        });
+      }
+
+      // Date condition handling (supporting startDate/endDate range as well as single lastUpdateDate)
+      const dateCondition: Prisma.DateTimeFilter = {};
+      if (statusOrOptions.startDate?.trim()) {
+        const s = new Date(statusOrOptions.startDate.trim());
+        if (!isNaN(s.getTime())) {
+          s.setHours(0, 0, 0, 0);
+          dateCondition.gte = s;
+        }
+      }
+      if (statusOrOptions.endDate?.trim()) {
+        const e = new Date(statusOrOptions.endDate.trim());
+        if (!isNaN(e.getTime())) {
+          e.setHours(23, 59, 59, 999);
+          dateCondition.lte = e;
+        }
+      }
+      if (!dateCondition.gte && !dateCondition.lte && statusOrOptions.lastUpdateDate?.trim()) {
         const d = new Date(statusOrOptions.lastUpdateDate.trim());
         if (!isNaN(d.getTime())) {
-          const start = new Date(d);
-          start.setHours(0, 0, 0, 0);
-          const end = new Date(d);
-          end.setHours(23, 59, 59, 999);
-          andConditions.push({ updatedAt: { gte: start, lte: end } });
+          const s = new Date(d);
+          s.setHours(0, 0, 0, 0);
+          const e = new Date(d);
+          e.setHours(23, 59, 59, 999);
+          dateCondition.gte = s;
+          dateCondition.lte = e;
         }
       }
 
-      if (statusOrOptions.startDate?.trim() || statusOrOptions.endDate?.trim()) {
-        const dateCondition: Prisma.DateTimeFilter = {};
-        if (statusOrOptions.startDate?.trim()) {
-          const s = new Date(statusOrOptions.startDate.trim());
-          if (!isNaN(s.getTime())) {
-            s.setHours(0, 0, 0, 0);
-            dateCondition.gte = s;
-          }
-        }
-        if (statusOrOptions.endDate?.trim()) {
-          const e = new Date(statusOrOptions.endDate.trim());
-          if (!isNaN(e.getTime())) {
-            e.setHours(23, 59, 59, 999);
-            dateCondition.lte = e;
-          }
-        }
-        if (dateCondition.gte || dateCondition.lte) {
+      if (dateCondition.gte || dateCondition.lte) {
+        if (dateType === "Call Back date") {
+          andConditions.push({ callbackDate: dateCondition });
+        } else if (dateType === "Trial added date") {
+          andConditions.push({ trials: { some: { createdAt: dateCondition } } });
+        } else if (dateType === "client conversion date") {
+          andConditions.push({
+            payments: { some: { createdAt: dateCondition, status: "APPROVED" } },
+          });
+        } else if (dateType === "updated followup" || dateType === "followup added date") {
+          andConditions.push({ updatedAt: dateCondition });
+        } else if (dateType === "Lead uploaded date" || dateType === "lead alloted date") {
+          andConditions.push({ createdAt: dateCondition });
+        } else {
           andConditions.push({ createdAt: dateCondition });
         }
       }
 
       if (statusOrOptions.leadSource?.trim()) {
-        andConditions.push({ leadSource: statusOrOptions.leadSource.trim() });
+        andConditions.push({
+          leadSource: { equals: statusOrOptions.leadSource.trim(), mode: "insensitive" },
+        });
       }
 
       if (
         statusOrOptions.leadResponse?.trim() &&
         (!statusOrOptions.leadResponseIn || statusOrOptions.leadResponseIn.length === 0)
       ) {
-        andConditions.push({ leadResponse: statusOrOptions.leadResponse.trim() });
+        const variants = getResponseFilterVariants(statusOrOptions.leadResponse.trim());
+        if (variants.length === 1) {
+          andConditions.push({ leadResponse: variants[0] });
+        } else {
+          andConditions.push({ leadResponse: { in: variants } });
+        }
       }
 
       if (statusOrOptions.trialStatus?.trim()) {
@@ -286,7 +404,25 @@ export async function getEmployeeLeadsAction(
       }
 
       if (statusOrOptions.createdById?.trim()) {
-        andConditions.push({ createdById: statusOrOptions.createdById.trim() });
+        const cb = statusOrOptions.createdById.trim();
+        if (cb === "ADMIN" || cb === "ADMIN_ROLE") {
+          andConditions.push({ createdBy: { role: "ADMIN" } });
+        } else {
+          andConditions.push({ createdById: cb });
+        }
+      }
+
+      if (statusOrOptions.teamId?.trim()) {
+        andConditions.push({ teamId: statusOrOptions.teamId.trim() });
+      }
+
+      if (statusOrOptions.leadAssignment?.trim()) {
+        const assign = statusOrOptions.leadAssignment.trim();
+        if (assign === "Fetched Leads") {
+          andConditions.push({ createdById: employee.id });
+        } else if (assign === "Alloted Leads" || assign === "Transferred Leads") {
+          andConditions.push({ createdById: { not: employee.id } });
+        }
       }
 
       if (statusOrOptions.paidRange?.trim()) {
@@ -841,8 +977,8 @@ export async function updateEmployeeLeadCallAction(
     const normalizedResp = chosenResponse
       ? chosenResponse.toUpperCase()
       : input.leadResponse
-      ? input.leadResponse.trim().toUpperCase()
-      : "";
+        ? input.leadResponse.trim().toUpperCase()
+        : "";
 
     const isExistingClient = ["CLIENT", "CLIENTS"].includes((existingLead.status || "").toUpperCase());
 
@@ -1240,8 +1376,8 @@ export async function updateEmployeeLeadDetailsAction(
     const normalizedResp = chosenResponse
       ? chosenResponse.toUpperCase()
       : isResponseExplicitlyProvided && input.leadResponse
-      ? input.leadResponse.trim().toUpperCase()
-      : "";
+        ? input.leadResponse.trim().toUpperCase()
+        : "";
 
     if (["FT", "FREE TRIAL", "TRIAL"].includes(normalizedResp)) {
       updateData.status = "TRIAL";
@@ -1665,6 +1801,7 @@ export async function dismissEmployeeCallbackAction(input: {
 
 export interface EmployeeLeadCountFiltersInput {
   lastUpdateDate?: string | null;
+  lastUpdateDateType?: string | null;
   startDate?: string | null;
   endDate?: string | null;
   leadSource?: string | null;
@@ -1672,6 +1809,10 @@ export interface EmployeeLeadCountFiltersInput {
   trialStatus?: string | null;
   serviceStatus?: string | null;
   serviceId?: string | null;
+  createdById?: string | null;
+  leadOwnerId?: string | null;
+  teamId?: string | null;
+  leadAssignment?: string | null;
   mobile?: string | null;
   paidRange?: string | null;
   leadRecycleCount?: string | null;
@@ -1693,6 +1834,11 @@ export interface LeadCountSummaryResult {
   sources: string[];
   responses: string[];
   products: { id: string; name: string }[];
+  creators?: { id: string; name: string; role?: string }[];
+  users?: { id: string; name: string; role: string; isActive: boolean }[];
+  teams?: { id: string; name: string }[];
+  employeeName?: string;
+  employeeTeamName?: string;
   error?: string;
 }
 
@@ -1712,47 +1858,109 @@ export async function getEmployeeLeadCountsSummaryAction(
     };
 
     if (filters.leadSource && filters.leadSource.trim()) {
-      where.leadSource = filters.leadSource.trim();
+      where.leadSource = {
+        equals: filters.leadSource.trim(),
+        mode: "insensitive",
+      };
     }
 
     if (filters.leadResponse && filters.leadResponse.trim()) {
-      where.leadResponse = filters.leadResponse.trim();
+      const variants = getResponseFilterVariants(filters.leadResponse.trim());
+      if (variants.length === 1) {
+        where.leadResponse = variants[0];
+      } else {
+        where.leadResponse = { in: variants };
+      }
     }
 
     if (filters.mobile && filters.mobile.trim()) {
       where.mobile = { contains: filters.mobile.trim() };
     }
 
-    // Last Update Date filter
-    if (filters.lastUpdateDate && filters.lastUpdateDate.trim()) {
-      const d = new Date(filters.lastUpdateDate.trim());
-      if (!isNaN(d.getTime())) {
-        const start = new Date(d);
-        start.setHours(0, 0, 0, 0);
-        const end = new Date(d);
-        end.setHours(23, 59, 59, 999);
-        where.updatedAt = { gte: start, lte: end };
+    if (filters.createdById && filters.createdById.trim()) {
+      const cb = filters.createdById.trim();
+      if (cb === "ADMIN" || cb === "ADMIN_ROLE") {
+        where.createdBy = { role: "ADMIN" };
+      } else {
+        where.createdById = cb;
       }
     }
 
-    // Date Range (Created At) filter
-    if (filters.startDate || filters.endDate) {
-      const dateCondition: Prisma.DateTimeFilter = {};
-      if (filters.startDate && filters.startDate.trim()) {
-        const s = new Date(filters.startDate.trim());
-        if (!isNaN(s.getTime())) {
-          s.setHours(0, 0, 0, 0);
-          dateCondition.gte = s;
-        }
+    if (filters.teamId && filters.teamId.trim()) {
+      where.teamId = filters.teamId.trim();
+    }
+
+    if (filters.leadAssignment && filters.leadAssignment.trim()) {
+      const assign = filters.leadAssignment.trim();
+      if (assign === "Fetched Leads") {
+        where.createdById = employee.id;
+      } else if (assign === "Alloted Leads" || assign === "Transferred Leads") {
+        where.createdById = { not: employee.id };
       }
-      if (filters.endDate && filters.endDate.trim()) {
-        const e = new Date(filters.endDate.trim());
-        if (!isNaN(e.getTime())) {
-          e.setHours(23, 59, 59, 999);
-          dateCondition.lte = e;
-        }
+    }
+
+    if (filters.leadOwnerId && filters.leadOwnerId.trim()) {
+      const owner = filters.leadOwnerId.trim();
+      if (owner === "DEACTIVATED") {
+        where.allotTo = { isActive: false };
+      } else if (owner !== employee.id) {
+        where.allotToId = owner;
       }
-      if (dateCondition.gte || dateCondition.lte) {
+    }
+
+    const dateType = filters.lastUpdateDateType?.trim();
+
+    if (dateType === "pending callback") {
+      where.status = { in: ["FOLLOW_UP", "FOLLOWUPS"] };
+      where.callbackDate = { lt: new Date(), not: null };
+    } else if (dateType === "upcomming callback") {
+      where.status = { in: ["FOLLOW_UP", "FOLLOWUPS"] };
+      where.callbackDate = { gte: new Date() };
+    } else if (dateType === "pending followup") {
+      where.status = { in: ["FOLLOW_UP", "FOLLOWUPS"] };
+      where.callbackDate = null;
+    }
+
+    // Date Range / Single date filter
+    const dateCondition: Prisma.DateTimeFilter = {};
+    if (filters.startDate?.trim()) {
+      const s = new Date(filters.startDate.trim());
+      if (!isNaN(s.getTime())) {
+        s.setHours(0, 0, 0, 0);
+        dateCondition.gte = s;
+      }
+    }
+    if (filters.endDate?.trim()) {
+      const e = new Date(filters.endDate.trim());
+      if (!isNaN(e.getTime())) {
+        e.setHours(23, 59, 59, 999);
+        dateCondition.lte = e;
+      }
+    }
+    if (!dateCondition.gte && !dateCondition.lte && filters.lastUpdateDate?.trim()) {
+      const d = new Date(filters.lastUpdateDate.trim());
+      if (!isNaN(d.getTime())) {
+        const s = new Date(d);
+        s.setHours(0, 0, 0, 0);
+        const e = new Date(d);
+        e.setHours(23, 59, 59, 999);
+        dateCondition.gte = s;
+        dateCondition.lte = e;
+      }
+    }
+
+    if (dateCondition.gte || dateCondition.lte) {
+      if (dateType === "Call Back date") {
+        where.callbackDate = dateCondition;
+      } else if (dateType === "Trial added date") {
+        where.trials = { some: { createdAt: dateCondition } };
+      } else if (dateType === "client conversion date") {
+        where.payments = { some: { createdAt: dateCondition, status: "APPROVED" } };
+      } else if (dateType === "updated followup" || dateType === "followup added date") {
+        where.updatedAt = dateCondition;
+      } else if (dateType === "Lead uploaded date" || dateType === "lead alloted date") {
+        where.createdAt = dateCondition;
+      } else {
         where.createdAt = dateCondition;
       }
     }
@@ -1796,27 +2004,48 @@ export async function getEmployeeLeadCountsSummaryAction(
     }
 
     // Parallel aggregate queries inside Promise.all
-    const [totalCount, responseGroups, statusGroups, activeResponses, activeSources, activeProducts] =
-      await Promise.all([
-        prisma.lead.count({ where }),
-        prisma.lead.groupBy({
-          by: ["leadResponse"],
-          where,
-          _count: { _all: true },
-        }),
-        prisma.lead.groupBy({
-          by: ["status"],
-          where,
-          _count: { _all: true },
-        }),
-        getActiveLeadResponseNames(),
-        getActiveLeadSourceNames(),
-        prisma.product.findMany({
-          where: { isActive: true },
-          select: { id: true, name: true },
-          orderBy: { name: "asc" },
-        }),
-      ]);
+    const [
+      totalCount,
+      responseGroups,
+      statusGroups,
+      activeResponses,
+      activeSources,
+      activeProducts,
+      allUsers,
+      allTeams,
+      employeeUser,
+    ] = await Promise.all([
+      prisma.lead.count({ where }),
+      prisma.lead.groupBy({
+        by: ["leadResponse"],
+        where,
+        _count: { _all: true },
+      }),
+      prisma.lead.groupBy({
+        by: ["status"],
+        where,
+        _count: { _all: true },
+      }),
+      getActiveLeadResponseNames(),
+      getActiveLeadSourceNames(),
+      prisma.product.findMany({
+        where: { isActive: true },
+        select: { id: true, name: true },
+        orderBy: { name: "asc" },
+      }),
+      prisma.user.findMany({
+        select: { id: true, name: true, role: true, isActive: true },
+        orderBy: [{ role: "asc" }, { name: "asc" }],
+      }),
+      prisma.team.findMany({
+        select: { id: true, name: true },
+        orderBy: { name: "asc" },
+      }),
+      prisma.user.findUnique({
+        where: { id: employee.id },
+        select: { name: true, team: { select: { name: true } } },
+      }),
+    ]);
 
     // Build status counts map
     const statusCountsMap: Record<string, number> = {};
@@ -1825,11 +2054,13 @@ export async function getEmployeeLeadCountsSummaryAction(
       statusCountsMap[s] = (statusCountsMap[s] || 0) + sg._count._all;
     }
 
-    // Build response counts map
-    const responseCountsMap: Record<string, number> = {};
+    // Build response counts map aggregated by canonical name
+    const canonicalResponseCounts: Record<string, number> = {};
     for (const rg of responseGroups) {
       if (rg.leadResponse) {
-        responseCountsMap[rg.leadResponse] = rg._count._all;
+        const canonical = normalizeCanonicalResponse(rg.leadResponse);
+        canonicalResponseCounts[canonical] =
+          (canonicalResponseCounts[canonical] || 0) + rg._count._all;
       }
     }
 
@@ -1846,7 +2077,7 @@ export async function getEmployeeLeadCountsSummaryAction(
       (statusCountsMap["DISPOSED"] || 0) + (statusCountsMap["DISPOSE"] || 0);
     const readCount = statusCountsMap["READ"] || 0;
 
-    // Distinct list of call responses to display
+    // Distinct canonical list of call responses to display (deduplicated)
     const canonicalResponsesOrder = [
       "Call Back",
       "NPC",
@@ -1854,13 +2085,11 @@ export async function getEmployeeLeadCountsSummaryAction(
       "Not Reachable",
       "Switch Off",
       "Not Interested",
-      "Not Intrested",
       "Call Disconnected",
       "Language Issue",
       "Busy",
       "FT",
       "Interested",
-      "Intrested",
       "Paid",
     ];
 
@@ -1868,8 +2097,8 @@ export async function getEmployeeLeadCountsSummaryAction(
     const allKnownResponses = Array.from(
       new Set([
         ...canonicalResponsesOrder,
-        ...activeResponses,
-        ...Object.keys(responseCountsMap),
+        ...activeResponses.map(normalizeCanonicalResponse),
+        ...Object.keys(canonicalResponseCounts),
       ])
     );
 
@@ -1885,9 +2114,9 @@ export async function getEmployeeLeadCountsSummaryAction(
       percentage: totalCount > 0 ? Number(((unreadCount / totalCount) * 100).toFixed(1)) : 0,
     });
 
-    // 2. Call response items
+    // 2. Call response items (deduplicated & canonical)
     for (const resp of allKnownResponses) {
-      const count = responseCountsMap[resp] || 0;
+      const count = canonicalResponseCounts[resp] || 0;
       breakdown.push({
         key: `response:${resp}`,
         label: resp,
@@ -1948,13 +2177,44 @@ export async function getEmployeeLeadCountsSummaryAction(
       });
     }
 
+    // Deduplicate and canonicalize active responses
+    const deduplicatedResponses = Array.from(
+      new Set([
+        ...canonicalResponsesOrder,
+        ...activeResponses.map(normalizeCanonicalResponse),
+      ])
+    );
+
+    // Deduplicate active sources case-insensitively
+    const sourceMap = new Map<string, string>();
+    for (const s of activeSources) {
+      const trimmed = s.trim();
+      if (!trimmed) continue;
+      const key = trimmed.toLowerCase();
+      if (!sourceMap.has(key)) {
+        sourceMap.set(key, trimmed);
+      }
+    }
+    const deduplicatedSources = Array.from(sourceMap.values()).sort((a, b) =>
+      a.localeCompare(b, undefined, { sensitivity: "base" })
+    );
+
     return {
       success: true,
       totalCount,
       breakdown,
-      sources: activeSources,
-      responses: activeResponses,
+      sources: deduplicatedSources,
+      responses: deduplicatedResponses,
       products: activeProducts,
+      creators: allUsers.map((u) => ({
+        id: u.id,
+        name: u.name,
+        role: u.role,
+      })),
+      users: allUsers,
+      teams: allTeams,
+      employeeName: employeeUser?.name || employee.name || "Me",
+      employeeTeamName: employeeUser?.team?.name || "General Team",
     };
   } catch {
     return {

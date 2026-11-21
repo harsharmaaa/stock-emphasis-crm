@@ -55,6 +55,7 @@ import {
 } from "lucide-react";
 
 export interface EmployeeLeadFiltersState {
+  lastUpdateDateType?: string;
   lastUpdateDate: string;
   startDate: string;
   endDate: string;
@@ -64,12 +65,14 @@ export interface EmployeeLeadFiltersState {
   serviceStatus: string;
   serviceId: string;
   createdById: string;
+  leadAssignment?: string;
   paidRange: string;
   recycleCount: string;
   mobile: string;
 }
 
 const DEFAULT_FILTERS: EmployeeLeadFiltersState = {
+  lastUpdateDateType: "",
   lastUpdateDate: "",
   startDate: "",
   endDate: "",
@@ -79,6 +82,7 @@ const DEFAULT_FILTERS: EmployeeLeadFiltersState = {
   serviceStatus: "",
   serviceId: "",
   createdById: "",
+  leadAssignment: "",
   paidRange: "",
   recycleCount: "",
   mobile: "",
@@ -113,6 +117,42 @@ const SORT_OPTIONS: { key: SortKey; label: string }[] = [
   { key: "source", label: "Source" },
   { key: "lastUpdate", label: "Last Update" },
 ];
+
+const CLIENT_CANONICAL_RESPONSES: Record<string, string> = {
+  "call back": "Call Back",
+  "callback": "Call Back",
+  "call_back": "Call Back",
+  "cb": "Call Back",
+  "npc": "NPC",
+  "do not trade": "Do Not Trade",
+  "dnt": "Do Not Trade",
+  "not reachable": "Not Reachable",
+  "not rechable": "Not Reachable",
+  "unreachable": "Not Reachable",
+  "switch off": "Switch Off",
+  "switched off": "Switch Off",
+  "not interested": "Not Interested",
+  "not intrested": "Not Interested",
+  "ni": "Not Interested",
+  "call disconnect": "Call Disconnected",
+  "call disconnected": "Call Disconnected",
+  "disconnected": "Call Disconnected",
+  "language issue": "Language Issue",
+  "busy": "Busy",
+  "ft": "FT",
+  "free trial": "FT",
+  "trial": "FT",
+  "interested": "Interested",
+  "intrested": "Interested",
+  "paid": "Paid",
+  "payment": "Paid",
+};
+
+function normalizeClientResponse(raw: string | null | undefined): string {
+  if (!raw) return "";
+  const trimmed = raw.trim().toLowerCase();
+  return CLIENT_CANONICAL_RESPONSES[trimmed] || trimmed;
+}
 
 export function EmployeeLeadsClient({
   initialLeads,
@@ -198,7 +238,7 @@ export function EmployeeLeadsClient({
   const filteredLeads = useMemo(() => {
     return leads.filter((lead) => {
       const leadStatusUpper = (lead.status || "").toUpperCase();
-      const leadResp = (lead.leadResponse || "").toLowerCase();
+      const normalizedLeadResp = normalizeClientResponse(lead.leadResponse);
 
       // Modal multi-selection filter across stages and call responses
       if (modalSelectedStages.length > 0 || modalSelectedResponses.length > 0) {
@@ -211,9 +251,13 @@ export function EmployeeLeadsClient({
           return leadStatusUpper === stage;
         });
 
-        const respMatch = modalSelectedResponses.some(
-          (resp) => resp.toLowerCase() === leadResp
-        );
+        const respMatch = modalSelectedResponses.some((resp) => {
+          const normalizedSelected = normalizeClientResponse(resp);
+          return (
+            normalizedSelected === normalizedLeadResp ||
+            resp.trim().toLowerCase() === (lead.leadResponse || "").trim().toLowerCase()
+          );
+        });
 
         if (modalSelectedStages.length > 0 && modalSelectedResponses.length > 0) {
           if (!stageMatch && !respMatch) return false;
@@ -327,6 +371,7 @@ export function EmployeeLeadsClient({
         status: activeStatus !== "ALL" ? activeStatus : undefined,
         search: searchQuery || undefined,
         pageSize: 100,
+        lastUpdateDateType: filterState.lastUpdateDateType || undefined,
         lastUpdateDate: filterState.lastUpdateDate || undefined,
         startDate: filterState.startDate || undefined,
         endDate: filterState.endDate || undefined,
@@ -336,6 +381,7 @@ export function EmployeeLeadsClient({
         serviceStatus: filterState.serviceStatus || undefined,
         serviceId: filterState.serviceId || undefined,
         createdById: filterState.createdById || undefined,
+        leadAssignment: filterState.leadAssignment || undefined,
         paidRange: filterState.paidRange || undefined,
         recycleCount: filterState.recycleCount || undefined,
         mobile: filterState.mobile || undefined,
@@ -393,6 +439,7 @@ export function EmployeeLeadsClient({
 
     // Sync quick filters into state
     const updatedFilters: EmployeeLeadFiltersState = {
+      lastUpdateDateType: payload.lastUpdateDateType || "",
       lastUpdateDate: payload.lastUpdateDate || "",
       startDate: payload.startDate || "",
       endDate: payload.endDate || "",
@@ -401,7 +448,8 @@ export function EmployeeLeadsClient({
       trialStatus: payload.trialStatus || "",
       serviceStatus: payload.serviceStatus || "",
       serviceId: payload.serviceId || "",
-      createdById: "",
+      createdById: payload.createdById || "",
+      leadAssignment: payload.leadAssignment || "",
       paidRange: payload.paidRange || "",
       recycleCount: payload.leadRecycleCount || "",
       mobile: payload.mobile || "",
@@ -418,6 +466,7 @@ export function EmployeeLeadsClient({
           payload.selectedResponses.length > 0 ? payload.selectedResponses : undefined,
         search: searchQuery || undefined,
         pageSize: 100,
+        lastUpdateDateType: payload.lastUpdateDateType || undefined,
         lastUpdateDate: payload.lastUpdateDate || undefined,
         startDate: payload.startDate || undefined,
         endDate: payload.endDate || undefined,
@@ -426,6 +475,8 @@ export function EmployeeLeadsClient({
         trialStatus: payload.trialStatus || undefined,
         serviceStatus: payload.serviceStatus || undefined,
         serviceId: payload.serviceId || undefined,
+        createdById: payload.createdById || undefined,
+        leadAssignment: payload.leadAssignment || undefined,
         paidRange: payload.paidRange || undefined,
         recycleCount: payload.leadRecycleCount || undefined,
         mobile: payload.mobile || undefined,
@@ -507,6 +558,7 @@ export function EmployeeLeadsClient({
           modalSelectedResponses.length > 0 ? modalSelectedResponses : undefined,
         search: searchQuery || undefined,
         pageSize: 100,
+        lastUpdateDateType: appliedFilters.lastUpdateDateType || undefined,
         lastUpdateDate: appliedFilters.lastUpdateDate || undefined,
         startDate: appliedFilters.startDate || undefined,
         endDate: appliedFilters.endDate || undefined,
@@ -516,6 +568,7 @@ export function EmployeeLeadsClient({
         serviceStatus: appliedFilters.serviceStatus || undefined,
         serviceId: appliedFilters.serviceId || undefined,
         createdById: appliedFilters.createdById || undefined,
+        leadAssignment: appliedFilters.leadAssignment || undefined,
         paidRange: appliedFilters.paidRange || undefined,
         recycleCount: appliedFilters.recycleCount || undefined,
         mobile: appliedFilters.mobile || undefined,
