@@ -213,16 +213,27 @@ export function ConfigurationLandingClient() {
           EMPLOYEE
         </h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {/* Graph Sales (Planned) */}
-          <div className="bg-white dark:bg-[#0c1220] rounded-2xl p-5 border border-slate-200/80 dark:border-white/[0.08] shadow-xs flex items-center justify-between opacity-80 hover:opacity-100 transition-opacity">
+          {/* Graph Sales (Active!) */}
+          <Link
+            href="/admin/settings/configuration/employee-graphs"
+            className="group bg-white dark:bg-[#0c1220] rounded-2xl p-5 border-2 border-emerald-500/30 hover:border-emerald-500 dark:border-emerald-500/40 dark:hover:border-emerald-400 shadow-md hover:shadow-lg transition-all flex items-center justify-between cursor-pointer"
+          >
             <div>
-              <div className="text-sm font-semibold text-slate-800 dark:text-white">Graph</div>
-              <div className="text-xs text-emerald-500 font-medium mt-0.5">Sales</div>
+              <div className="flex items-center gap-1.5">
+                <span className="text-sm font-bold text-slate-900 dark:text-white">Graph</span>
+                <span className="px-1.5 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950/80 text-emerald-700 dark:text-emerald-300 text-[10px] font-bold">
+                  Active
+                </span>
+              </div>
+              <div className="text-xs text-emerald-600 dark:text-emerald-400 font-semibold mt-0.5 flex items-center gap-1 group-hover:translate-x-0.5 transition-transform">
+                <span>Sales</span>
+                <ArrowRight className="size-3" />
+              </div>
             </div>
-            <div className="size-11 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 text-emerald-500 flex items-center justify-center shrink-0">
+            <div className="size-11 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
               <TrendingUp className="size-5" />
             </div>
-          </div>
+          </Link>
         </div>
       </div>
 
