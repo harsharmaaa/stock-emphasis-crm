@@ -10,7 +10,8 @@ import {
   mapStatusToLifecycleKey,
 } from "@/src/lib/utils";
 import { LeadEditTimeline } from "./lead-edit-timeline";
-import { Pencil, Inbox, Clock, X, User } from "lucide-react";
+import { AdminLeadTimelineModal } from "./admin-lead-timeline-modal";
+import { Pencil, Inbox, Clock } from "lucide-react";
 
 interface AdminSearchClientProps {
   initialQuery: string;
@@ -291,116 +292,12 @@ export function AdminSearchClient({
         )}
       </div>
 
-      {/* Lead Timeline Modal (Shows ONLY Created By and Created At timestamps) */}
-      {timelineModalLead && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div
-            className="fixed inset-0 bg-slate-950/60 backdrop-blur-sm transition-opacity"
-            onClick={() => setTimelineModalLead(null)}
-          />
-
-          <div className="relative w-full max-w-md rounded-2xl bg-white dark:bg-[#0c1220] border border-slate-200/90 dark:border-white/[0.12] shadow-2xl overflow-hidden z-10 animate-in fade-in zoom-in-95 duration-150">
-            {/* Modal Header */}
-            <div className="flex items-center justify-between px-5 py-4 border-b border-slate-200/80 dark:border-white/[0.08] bg-slate-50/70 dark:bg-white/[0.02]">
-              <div className="flex items-center gap-2">
-                <div className="p-2 rounded-xl bg-sky-100 dark:bg-sky-950/40 text-[#0284c7] dark:text-sky-400">
-                  <Clock className="size-4" />
-                </div>
-                <div>
-                  <h3 className="text-sm font-bold text-slate-900 dark:text-white">
-                    Lead Timeline
-                  </h3>
-                  <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                    {timelineModalLead.name} ({timelineModalLead.mobile})
-                  </p>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => setTimelineModalLead(null)}
-                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
-                aria-label="Close timeline modal"
-              >
-                <X className="size-4" />
-              </button>
-            </div>
-
-            {/* Modal Body - ONLY Created By and Created At timestamps */}
-            <div className="p-5 space-y-4">
-              <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-900/40 border border-slate-200/70 dark:border-white/[0.06] space-y-3">
-                {/* Created By */}
-                <div className="flex items-start justify-between gap-2">
-                  <div className="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-400">
-                    <User className="size-3.5 text-slate-400" />
-                    <span className="font-medium">Created By:</span>
-                  </div>
-                  <div className="text-right">
-                    <span className="text-xs font-bold text-slate-900 dark:text-white">
-                      {timelineModalLead.createdByName || timelineModalLead.ownerName || "Admin"}
-                    </span>
-                    <span className="ml-1.5 px-1.5 py-0.2 rounded text-[10px] font-semibold uppercase bg-blue-100 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300">
-                      {timelineModalLead.createdByRole || timelineModalLead.ownerRole || "ADMIN"}
-                    </span>
-                  </div>
-                </div>
-
-                {/* Created At Timestamp */}
-                <div className="flex items-start justify-between gap-2 pt-2 border-t border-slate-200/60 dark:border-white/[0.04]">
-                  <div className="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-400">
-                    <Clock className="size-3.5 text-slate-400" />
-                    <span className="font-medium">Created At:</span>
-                  </div>
-                  <div className="text-right">
-                    <span className="text-xs font-mono font-semibold text-slate-900 dark:text-white">
-                      {new Date(timelineModalLead.createdAt).toLocaleString("en-GB", {
-                        day: "2-digit",
-                        month: "short",
-                        year: "numeric",
-                        hour: "2-digit",
-                        minute: "2-digit",
-                        hour12: true,
-                      })}
-                    </span>
-                  </div>
-                </div>
-
-                {/* Last Updated Timestamp */}
-                {timelineModalLead.updatedAt && timelineModalLead.updatedAt !== timelineModalLead.createdAt && (
-                  <div className="flex items-start justify-between gap-2 pt-2 border-t border-slate-200/60 dark:border-white/[0.04]">
-                    <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
-                      <Clock className="size-3.5 text-slate-400" />
-                      <span>Last Updated:</span>
-                    </div>
-                    <div className="text-right">
-                      <span className="text-xs font-mono text-slate-700 dark:text-slate-300">
-                        {new Date(timelineModalLead.updatedAt).toLocaleString("en-GB", {
-                          day: "2-digit",
-                          month: "short",
-                          year: "numeric",
-                          hour: "2-digit",
-                          minute: "2-digit",
-                          hour12: true,
-                        })}
-                      </span>
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Modal Footer */}
-            <div className="px-5 py-3 border-t border-slate-200/80 dark:border-white/[0.08] bg-slate-50/50 dark:bg-white/[0.02] flex justify-end">
-              <button
-                type="button"
-                onClick={() => setTimelineModalLead(null)}
-                className="px-4 py-1.5 rounded-lg bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-semibold transition-colors"
-              >
-                Close
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Lead Timeline Modal */}
+      <AdminLeadTimelineModal
+        lead={timelineModalLead}
+        isOpen={!!timelineModalLead}
+        onClose={() => setTimelineModalLead(null)}
+      />
 
       {/* Footer (Image 2) */}
       <footer className="text-center py-4 text-xs text-slate-400 dark:text-slate-500">

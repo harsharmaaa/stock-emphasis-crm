@@ -14,6 +14,82 @@ import {
 } from "@/src/lib/utils";
 import { revalidatePath } from "next/cache";
 import { type Role, Prisma } from "@prisma/client";
+import type {
+  EmployeeLeadCountFiltersInput,
+  LeadCountSummaryResult,
+  DispositionBreakdownItem,
+} from "@/src/features/employee/lead-actions";
+
+// Canonical responses mapping
+const CANONICAL_RESPONSE_MAP: Record<string, string> = {
+  "call back": "Call Back",
+  "callback": "Call Back",
+  "call_back": "Call Back",
+  "cb": "Call Back",
+  "npc": "NPC",
+  "do not trade": "Do Not Trade",
+  "dnt": "Do Not Trade",
+  "not reachable": "Not Reachable",
+  "not rechable": "Not Reachable",
+  "unreachable": "Not Reachable",
+  "switch off": "Switch Off",
+  "switched off": "Switch Off",
+  "not interested": "Not Interested",
+  "not intrested": "Not Interested",
+  "ni": "Not Interested",
+  "call disconnect": "Call Disconnected",
+  "call disconnected": "Call Disconnected",
+  "call disconnected ": "Call Disconnected",
+  "disconnected": "Call Disconnected",
+  "language issue": "Language Issue",
+  "busy": "Busy",
+  "ft": "FT",
+  "free trial": "FT",
+  "trial": "FT",
+  "interested": "Interested",
+  "intrested": "Interested",
+  "paid": "Paid",
+  "payment": "Paid",
+};
+
+const RESPONSE_VARIANTS_MAP: Record<string, string[]> = {
+  "Call Back": ["Call Back", "callback", "Callback", "CALL BACK", "call_back", "CB", "cb"],
+  "NPC": ["NPC", "npc", "Npc"],
+  "Do Not Trade": ["Do Not Trade", "do not trade", "DNT", "dnt"],
+  "Not Reachable": ["Not Reachable", "not reachable", "Not Rechable", "not rechable", "unreachable", "Unreachable"],
+  "Switch Off": ["Switch Off", "switch off", "Switched Off", "switched off"],
+  "Not Interested": ["Not Interested", "not interested", "Not Intrested", "not intrested", "NI", "ni"],
+  "Call Disconnected": ["Call Disconnected", "call disconnected", "Call Disconnect", "call disconnect", "disconnected"],
+  "Language Issue": ["Language Issue", "language issue"],
+  "Busy": ["Busy", "busy"],
+  "FT": ["FT", "ft", "Free Trial", "free trial", "Trial", "trial"],
+  "Interested": ["Interested", "interested", "Intrested", "intrested"],
+  "Paid": ["Paid", "paid", "Payment", "payment"],
+};
+
+function normalizeCanonicalResponse(resp: string): string {
+  const trimmed = resp.trim();
+  const lower = trimmed.toLowerCase();
+  if (CANONICAL_RESPONSE_MAP[lower]) {
+    return CANONICAL_RESPONSE_MAP[lower];
+  }
+  return trimmed;
+}
+
+function getResponseFilterVariants(canonicalOrRaw: string): string[] {
+  const canonical = normalizeCanonicalResponse(canonicalOrRaw);
+  const variants = RESPONSE_VARIANTS_MAP[canonical];
+  if (variants && variants.length > 0) {
+    return Array.from(new Set([canonical, canonicalOrRaw, ...variants]));
+  }
+  return Array.from(
+    new Set([
+      canonicalOrRaw,
+      canonicalOrRaw.toLowerCase(),
+      canonicalOrRaw.toUpperCase(),
+    ])
+  );
+}
 
 // Safe accessor for Lead model delegate across IDE TypeScript servers
 
@@ -206,9 +282,16 @@ export async function createLeadAction(
       const norm = rawResponse.toUpperCase();
       if (["FT", "FREE TRIAL", "TRIAL"].includes(norm)) {
         initialStatus = "TRIAL";
-      } else if (["DISPOSED", "DISPOSE"].includes(norm)) {
+      } else if (["PAID", "PAYMENT"].includes(norm)) {
+        initialStatus = "CLIENT";
+      } else if (
+        ["DISPOSED", "DISPOSE", "DO NOT TRADE", "DNT", "NOT INTERESTED", "NOT INTRESTED", "NI"].includes(norm)
+      ) {
         initialStatus = "DISPOSED";
-      } else if (["FOLLOW UP", "FOLLOW_UP", "FOLLOWUP"].includes(norm) || input.status === "FOLLOW_UP") {
+      } else if (
+        ["FOLLOW UP", "FOLLOW_UP", "FOLLOWUP", "CALL BACK", "CALLBACK", "CALL_BACK", "CB"].includes(norm) ||
+        input.status === "FOLLOW_UP"
+      ) {
         initialStatus = "FOLLOW_UP";
       } else {
         initialStatus = "READ";
@@ -364,8 +447,255 @@ export interface LeadDetailItem {
 export interface GetLeadsParams {
   search?: string;
   status?: string;
+  statusIn?: string[];
   page?: number;
   pageSize?: number;
+  lastUpdateDateType?: string | null;
+  lastUpdateDate?: string | null;
+  startDate?: string | null;
+  endDate?: string | null;
+  leadSource?: string | null;
+  leadResponse?: string | null;
+  leadResponseIn?: string[];
+  trialStatus?: string | null;
+  serviceStatus?: string | null;
+  serviceId?: string | null;
+  createdById?: string | null;
+  leadOwnerId?: string | null;
+  teamId?: string | null;
+  leadAssignment?: string | null;
+  leadRecycleCount?: string | null;
+  paidRange?: string | null;
+  mobile?: string | null;
+  scopeToAssignedOnly?: boolean;
+}
+
+function buildAdminLeadsWhere(
+  params: GetLeadsParams & {
+    selectedStages?: string[];
+    selectedResponses?: string[];
+    selectedKeys?: string[];
+  }
+): Prisma.LeadWhereInput {
+  const andConditions: Prisma.LeadWhereInput[] = [];
+
+  // 1. Search filter
+  const search = params.search?.trim();
+  if (search) {
+    andConditions.push({
+      OR: [
+        { name: { contains: search, mode: "insensitive" } },
+        { mobile: { contains: search } },
+        { email: { contains: search, mode: "insensitive" } },
+        { city: { contains: search, mode: "insensitive" } },
+      ],
+    });
+  }
+
+  // 2. Status / Stages condition
+  if (params.statusIn && params.statusIn.length > 0) {
+    const expandedStatuses: string[] = [];
+    for (const s of params.statusIn) {
+      if (s === "UNREAD" || s === "UNFOLLOWED") expandedStatuses.push("UNREAD", "UNFOLLOWED");
+      else if (s === "FOLLOW_UP") expandedStatuses.push("FOLLOW_UP", "FOLLOWUPS");
+      else if (s === "TRIAL") expandedStatuses.push("TRIAL", "TRIALS");
+      else if (s === "CLIENT") expandedStatuses.push("CLIENT", "CLIENTS");
+      else if (s === "DISPOSED") expandedStatuses.push("DISPOSED", "DISPOSE");
+      else expandedStatuses.push(s);
+    }
+    andConditions.push({ status: { in: Array.from(new Set(expandedStatuses)) } });
+  } else if (params.status) {
+    const statusFilter = normalizeStatusFilter(params.status);
+    if (statusFilter && statusFilter !== "ALL") {
+      if (statusFilter === "UNREAD" || statusFilter === "UNFOLLOWED") {
+        andConditions.push({ status: { in: ["UNREAD", "UNFOLLOWED"] } });
+      } else if (statusFilter === "FOLLOW_UP") {
+        andConditions.push({ status: { in: ["FOLLOW_UP", "FOLLOWUPS"] } });
+      } else if (statusFilter === "TRIAL") {
+        andConditions.push({ status: { in: ["TRIAL", "TRIALS"] } });
+      } else if (statusFilter === "CLIENT") {
+        andConditions.push({ status: { in: ["CLIENT", "CLIENTS"] } });
+      } else if (statusFilter === "DISPOSED") {
+        andConditions.push({ status: { in: ["DISPOSED", "DISPOSE"] } });
+      } else {
+        andConditions.push({ status: statusFilter });
+      }
+    }
+  }
+
+  // 3. Lead Response condition
+  if (params.leadResponseIn && params.leadResponseIn.length > 0) {
+    const allVariants: string[] = [];
+    for (const resp of params.leadResponseIn) {
+      allVariants.push(...getResponseFilterVariants(resp));
+    }
+    andConditions.push({ leadResponse: { in: Array.from(new Set(allVariants)) } });
+  } else if (params.leadResponse && params.leadResponse.trim()) {
+    const variants = getResponseFilterVariants(params.leadResponse.trim());
+    if (variants.length === 1) {
+      andConditions.push({ leadResponse: variants[0] });
+    } else {
+      andConditions.push({ leadResponse: { in: variants } });
+    }
+  }
+
+  // 4. Source condition
+  if (params.leadSource && params.leadSource.trim()) {
+    andConditions.push({
+      leadSource: {
+        equals: params.leadSource.trim(),
+        mode: "insensitive",
+      },
+    });
+  }
+
+  // 5. Mobile condition
+  if (params.mobile && params.mobile.trim()) {
+    andConditions.push({ mobile: { contains: params.mobile.trim() } });
+  }
+
+  // 6. Creator condition
+  if (params.createdById && params.createdById.trim()) {
+    const cb = params.createdById.trim();
+    if (cb === "ADMIN" || cb === "ADMIN_ROLE") {
+      andConditions.push({ createdBy: { role: "ADMIN" } });
+    } else {
+      andConditions.push({ createdById: cb });
+    }
+  }
+
+  // 7. Lead Owner condition
+  if (params.leadOwnerId && params.leadOwnerId.trim()) {
+    const owner = params.leadOwnerId.trim();
+    if (owner === "DEACTIVATED") {
+      andConditions.push({ allotTo: { isActive: false } });
+    } else {
+      andConditions.push({ allotToId: owner });
+    }
+  }
+
+  // 8. Team condition
+  if (params.teamId && params.teamId.trim()) {
+    andConditions.push({ teamId: params.teamId.trim() });
+  }
+
+  // 9. Lead Assignment condition
+  if (params.leadAssignment && params.leadAssignment.trim()) {
+    const assign = params.leadAssignment.trim();
+    const upper = assign.toUpperCase();
+    if (upper === "UNALLOTED" || upper === "UNALLOTED LEADS" || upper === "UNASSIGNED") {
+      andConditions.push({ allotToId: null });
+    } else {
+      andConditions.push({ allotToId: { not: null } });
+    }
+  } else if (params.scopeToAssignedOnly) {
+    // Default Admin Count modal scope: fetched/assigned leads only
+    andConditions.push({ allotToId: { not: null } });
+  }
+
+  // 10. Date filters
+  const dateType = params.lastUpdateDateType?.trim();
+  if (dateType === "pending callback") {
+    andConditions.push({
+      status: { in: ["FOLLOW_UP", "FOLLOWUPS"] },
+      callbackDate: { lt: new Date(), not: null },
+    });
+  } else if (dateType === "upcomming callback") {
+    andConditions.push({
+      status: { in: ["FOLLOW_UP", "FOLLOWUPS"] },
+      callbackDate: { gte: new Date() },
+    });
+  } else if (dateType === "pending followup") {
+    andConditions.push({
+      status: { in: ["FOLLOW_UP", "FOLLOWUPS"] },
+      callbackDate: null,
+    });
+  }
+
+  const dateCondition: Prisma.DateTimeFilter = {};
+  if (params.startDate?.trim()) {
+    const s = new Date(params.startDate.trim());
+    if (!isNaN(s.getTime())) {
+      s.setHours(0, 0, 0, 0);
+      dateCondition.gte = s;
+    }
+  }
+  if (params.endDate?.trim()) {
+    const e = new Date(params.endDate.trim());
+    if (!isNaN(e.getTime())) {
+      e.setHours(23, 59, 59, 999);
+      dateCondition.lte = e;
+    }
+  }
+  if (!dateCondition.gte && !dateCondition.lte && params.lastUpdateDate?.trim()) {
+    const d = new Date(params.lastUpdateDate.trim());
+    if (!isNaN(d.getTime())) {
+      const s = new Date(d);
+      s.setHours(0, 0, 0, 0);
+      const e = new Date(d);
+      e.setHours(23, 59, 59, 999);
+      dateCondition.gte = s;
+      dateCondition.lte = e;
+    }
+  }
+
+  if (dateCondition.gte || dateCondition.lte) {
+    if (dateType === "Call Back date") {
+      andConditions.push({ callbackDate: dateCondition });
+    } else if (dateType === "Trial added date") {
+      andConditions.push({ trials: { some: { createdAt: dateCondition } } });
+    } else if (dateType === "client conversion date") {
+      andConditions.push({ payments: { some: { createdAt: dateCondition, status: "APPROVED" } } });
+    } else if (dateType === "updated followup" || dateType === "followup added date") {
+      andConditions.push({ updatedAt: dateCondition });
+    } else {
+      andConditions.push({ createdAt: dateCondition });
+    }
+  }
+
+  // 11. Trial status filter
+  if (params.trialStatus && params.trialStatus.trim()) {
+    andConditions.push({ trials: { some: { status: params.trialStatus.trim() } } });
+  }
+
+  // 12. Service status filter
+  if (params.serviceStatus && params.serviceStatus.trim()) {
+    andConditions.push({ invoices: { some: { status: params.serviceStatus.trim() } } });
+  }
+
+  // 13. Service ID filter
+  if (params.serviceId && params.serviceId.trim()) {
+    andConditions.push({ invoices: { some: { productId: params.serviceId.trim() } } });
+  }
+
+  // 14. Paid range filter
+  if (params.paidRange && params.paidRange.trim()) {
+    const parts = params.paidRange
+      .split("-")
+      .map((p) => parseFloat(p.trim()))
+      .filter((n) => !isNaN(n));
+    if (parts.length === 2) {
+      andConditions.push({
+        payments: {
+          some: {
+            status: "APPROVED",
+            amount: { gte: parts[0], lte: parts[1] },
+          },
+        },
+      });
+    } else if (parts.length === 1) {
+      andConditions.push({
+        payments: {
+          some: {
+            status: "APPROVED",
+            amount: { gte: parts[0] },
+          },
+        },
+      });
+    }
+  }
+
+  return andConditions.length > 0 ? { AND: andConditions } : {};
 }
 
 /**
@@ -384,41 +714,7 @@ export async function getLeadsAction(params: GetLeadsParams = {}): Promise<{
 
     const page = Math.max(1, params.page ?? 1);
     const pageSize = Math.max(1, Math.min(100, params.pageSize ?? 15));
-    const search = params.search?.trim();
-    const statusFilter = normalizeStatusFilter(params.status);
-
-    let statusCondition: Prisma.LeadWhereInput = {};
-    if (statusFilter) {
-      if (statusFilter === "UNREAD" || statusFilter === "UNFOLLOWED") {
-        statusCondition = { status: { in: ["UNREAD", "UNFOLLOWED"] } };
-      } else if (statusFilter === "FOLLOW_UP") {
-        statusCondition = { status: { in: ["FOLLOW_UP", "FOLLOWUPS"] } };
-      } else if (statusFilter === "TRIAL") {
-        statusCondition = { status: { in: ["TRIAL", "TRIALS"] } };
-      } else if (statusFilter === "CLIENT") {
-        statusCondition = { status: { in: ["CLIENT", "CLIENTS"] } };
-      } else if (statusFilter === "DISPOSED") {
-        statusCondition = { status: { in: ["DISPOSED", "DISPOSE"] } };
-      } else {
-        statusCondition = { status: statusFilter };
-      }
-    }
-
-    const where: Prisma.LeadWhereInput = {
-      AND: [
-        search
-          ? {
-            OR: [
-              { name: { contains: search, mode: "insensitive" } },
-              { mobile: { contains: search } },
-              { email: { contains: search, mode: "insensitive" } },
-              { city: { contains: search, mode: "insensitive" } },
-            ],
-          }
-          : {},
-        statusCondition,
-      ],
-    };
+    const where = buildAdminLeadsWhere(params);
 
     const [totalCount, rawLeads] = await Promise.all([
       leadModel.count({ where }),
@@ -447,7 +743,7 @@ export async function getLeadsAction(params: GetLeadsParams = {}): Promise<{
           },
           createdAt: true,
         },
-        orderBy: { createdAt: "desc" },
+        orderBy: [{ updatedAt: "desc" }, { createdAt: "desc" }],
         skip: (page - 1) * pageSize,
         take: pageSize,
       }),
@@ -714,35 +1010,56 @@ export async function updateLeadDetailsAction(
     const normalizedResp = chosenResponse
       ? chosenResponse.toUpperCase()
       : isResponseExplicitlyProvided && input.leadResponse
-      ? input.leadResponse.trim().toUpperCase()
-      : "";
+        ? input.leadResponse.trim().toUpperCase()
+        : "";
 
-    if (["FT", "FREE TRIAL", "TRIAL"].includes(normalizedResp)) {
+    const currentStatusUpper = (existingLead.status || "").trim().toUpperCase();
+    const isUnreadOrUnfollowed = ["UNREAD", "UNFOLLOWED"].includes(currentStatusUpper);
+
+    // 1. Trials / FT -> TRIAL
+    if (["FT", "FREE TRIAL", "TRIAL"].includes(normalizedResp) || input.status === "TRIAL") {
       updateData.status = "TRIAL";
-    } else if (["DISPOSED", "DISPOSE"].includes(normalizedResp) || input.status === "DISPOSED") {
+    }
+    // 2. Clients / Paid -> CLIENT
+    else if (["PAID", "PAYMENT"].includes(normalizedResp) || input.status === "CLIENT") {
+      updateData.status = "CLIENT";
+    }
+    // 3. Disposed / Do Not Trade / Not Interested -> DISPOSED
+    else if (
+      ["DISPOSED", "DISPOSE", "DO NOT TRADE", "DNT", "NOT INTERESTED", "NOT INTRESTED", "NI"].includes(normalizedResp) ||
+      input.status === "DISPOSED"
+    ) {
       updateData.status = "DISPOSED";
-    } else if (
+    }
+    // 4. Followups / Call Back -> FOLLOW_UP
+    else if (
       input.status === "FOLLOW_UP" ||
-      ["FOLLOW UP", "FOLLOW_UP", "FOLLOWUP"].includes(normalizedResp)
+      ["FOLLOW UP", "FOLLOW_UP", "FOLLOWUP", "CALL BACK", "CALLBACK", "CALL_BACK", "CB"].includes(normalizedResp)
     ) {
       updateData.status = "FOLLOW_UP";
-    } else if (normalizedResp) {
-      if (isExistingClient) {
-        // Preserve CLIENT status for confirmed paying clients
-        updateData.status = existingLead.status;
-      } else if (
+    }
+    // 5. Preserve existing CLIENT status
+    else if (isExistingClient) {
+      updateData.status = existingLead.status;
+    }
+    // 6. Otherwise (when no specific stage pill applies, e.g. NPC, Not Reachable, Switch Off, Busy, Call Disconnected, Language Issue, Interested, or general note/description update):
+    // Transition status from UNREAD / UNFOLLOWED to "READ" so it moves cleanly out of Unread into Read.
+    else if (normalizedResp || isUnreadOrUnfollowed) {
+      if (
         input.status !== undefined &&
         !["UNFOLLOWED", "UNREAD", "READ"].includes(input.status.trim().toUpperCase())
       ) {
-        // Explicit non-read status from drawer/timeline (e.g. DELETED or TRIAL)
         updateData.status = input.status.trim();
       } else {
-        // Clean fallback to READ for any other disposition
         updateData.status = "READ";
       }
-    } else if (input.status !== undefined) {
+    }
+    // 7. Explicit status fallback if provided
+    else if (input.status !== undefined) {
       updateData.status = input.status.trim() || existingLead.status;
     }
+
+    updateData.updatedAt = new Date();
 
     // 5. Reassign Lead (Allot To)
     if (input.allotToId !== undefined) {
@@ -1606,5 +1923,1360 @@ export async function getActiveLeadResponsesAction(): Promise<{
     return { success: true, leadResponses: filteredResponses };
   } catch {
     return { success: false, leadResponses: [] };
+  }
+}
+
+/**
+ * Retrieves the disposition & stage breakdown counts for Admin Lead Count Modal.
+ * System-wide scope with support for all quick filters.
+ */
+export async function getAdminLeadCountsSummaryAction(
+  filters: EmployeeLeadCountFiltersInput = {}
+): Promise<LeadCountSummaryResult> {
+  try {
+    await requireAdminSession({ redirect: false });
+
+    // In Admin Count modal, default to fetched/assigned leads (allotToId != null)
+    // unless leadAssignment is explicitly specified as "UNALLOTED"
+    const where = buildAdminLeadsWhere({
+      ...filters,
+      scopeToAssignedOnly: true,
+    });
+
+    const [
+      totalCount,
+      responseGroups,
+      statusGroups,
+      activeResponses,
+      activeSources,
+      activeProducts,
+      allUsers,
+      allTeams,
+      distinctSourcesFromLeads,
+    ] = await Promise.all([
+      prisma.lead.count({ where }),
+      prisma.lead.groupBy({
+        by: ["leadResponse"],
+        where,
+        _count: { _all: true },
+      }),
+      prisma.lead.groupBy({
+        by: ["status"],
+        where,
+        _count: { _all: true },
+      }),
+      getActiveLeadResponseNames(),
+      getActiveLeadSourceNames(),
+      prisma.product.findMany({
+        where: { isActive: true },
+        select: { id: true, name: true },
+        orderBy: { name: "asc" },
+      }),
+      prisma.user.findMany({
+        select: { id: true, name: true, role: true, isActive: true },
+        orderBy: [{ role: "asc" }, { name: "asc" }],
+      }),
+      prisma.team.findMany({
+        select: { id: true, name: true },
+        orderBy: { name: "asc" },
+      }),
+      prisma.lead.findMany({
+        select: { leadSource: true },
+        distinct: ["leadSource"],
+        where: { leadSource: { not: null } },
+      }),
+    ]);
+
+    // Build status counts map
+    const statusCountsMap: Record<string, number> = {};
+    for (const sg of statusGroups) {
+      const s = (sg.status || "").toUpperCase();
+      statusCountsMap[s] = (statusCountsMap[s] || 0) + sg._count._all;
+    }
+
+    // Build response counts map aggregated by canonical name
+    const canonicalResponseCounts: Record<string, number> = {};
+    for (const rg of responseGroups) {
+      if (rg.leadResponse) {
+        const canonical = normalizeCanonicalResponse(rg.leadResponse);
+        canonicalResponseCounts[canonical] =
+          (canonicalResponseCounts[canonical] || 0) + rg._count._all;
+      }
+    }
+
+    const unreadCount =
+      (statusCountsMap["UNREAD"] || 0) + (statusCountsMap["UNFOLLOWED"] || 0);
+    const followupCount =
+      (statusCountsMap["FOLLOW_UP"] || 0) + (statusCountsMap["FOLLOWUPS"] || 0);
+    const trialCount =
+      (statusCountsMap["TRIAL"] || 0) + (statusCountsMap["TRIALS"] || 0);
+    const clientCount =
+      (statusCountsMap["CLIENT"] || 0) + (statusCountsMap["CLIENTS"] || 0);
+    const disposedCount =
+      (statusCountsMap["DISPOSED"] || 0) + (statusCountsMap["DISPOSE"] || 0);
+
+    const canonicalResponsesOrder = [
+      "Call Back",
+      "NPC",
+      "Do Not Trade",
+      "Not Reachable",
+      "Switch Off",
+      "Not Interested",
+      "Call Disconnected",
+      "Language Issue",
+      "Busy",
+      "FT",
+      "Interested",
+      "Paid",
+    ];
+
+    const allKnownResponses = Array.from(
+      new Set([
+        ...canonicalResponsesOrder,
+        ...activeResponses.map(normalizeCanonicalResponse),
+        ...Object.keys(canonicalResponseCounts),
+      ])
+    );
+
+    const breakdown: DispositionBreakdownItem[] = [];
+
+    // 1. Stage: Unread Leads
+    breakdown.push({
+      key: "stage:UNREAD",
+      label: "Unread Leads",
+      type: "stage",
+      value: "UNREAD",
+      count: unreadCount,
+      percentage: totalCount > 0 ? Number(((unreadCount / totalCount) * 100).toFixed(1)) : 0,
+    });
+
+    // 2. Call response items
+    for (const resp of allKnownResponses) {
+      const count = canonicalResponseCounts[resp] || 0;
+      breakdown.push({
+        key: `response:${resp}`,
+        label: resp,
+        type: "response",
+        value: resp,
+        count,
+        percentage: totalCount > 0 ? Number(((count / totalCount) * 100).toFixed(1)) : 0,
+      });
+    }
+
+    // 3. Additional stages
+    breakdown.push({
+      key: "stage:FOLLOW_UP",
+      label: "Followups",
+      type: "stage",
+      value: "FOLLOW_UP",
+      count: followupCount,
+      percentage: totalCount > 0 ? Number(((followupCount / totalCount) * 100).toFixed(1)) : 0,
+    });
+
+    breakdown.push({
+      key: "stage:TRIAL",
+      label: "Trials",
+      type: "stage",
+      value: "TRIAL",
+      count: trialCount,
+      percentage: totalCount > 0 ? Number(((trialCount / totalCount) * 100).toFixed(1)) : 0,
+    });
+
+    breakdown.push({
+      key: "stage:CLIENT",
+      label: "Clients",
+      type: "stage",
+      value: "CLIENT",
+      count: clientCount,
+      percentage: totalCount > 0 ? Number(((clientCount / totalCount) * 100).toFixed(1)) : 0,
+    });
+
+    if (disposedCount > 0) {
+      breakdown.push({
+        key: "stage:DISPOSED",
+        label: "Disposed",
+        type: "stage",
+        value: "DISPOSED",
+        count: disposedCount,
+        percentage: totalCount > 0 ? Number(((disposedCount / totalCount) * 100).toFixed(1)) : 0,
+      });
+    }
+
+    // Deduplicate sources case-insensitively
+    const seenSources = new Set<string>();
+    const deduplicatedSources: string[] = [];
+    for (const s of [...activeSources, ...distinctSourcesFromLeads.map((d) => d.leadSource || "")]) {
+      const trimmed = s.trim();
+      if (!trimmed) continue;
+      const lower = trimmed.toLowerCase();
+      if (!seenSources.has(lower)) {
+        seenSources.add(lower);
+        deduplicatedSources.push(trimmed);
+      }
+    }
+
+    const seenResponses = new Set<string>();
+    const deduplicatedResponses: string[] = [];
+    for (const r of [...activeResponses, ...allKnownResponses]) {
+      const trimmed = r.trim();
+      if (!trimmed) continue;
+      const lower = trimmed.toLowerCase();
+      if (!seenResponses.has(lower)) {
+        seenResponses.add(lower);
+        deduplicatedResponses.push(trimmed);
+      }
+    }
+
+    return {
+      success: true,
+      totalCount,
+      breakdown,
+      sources: deduplicatedSources,
+      responses: deduplicatedResponses,
+      products: activeProducts,
+      creators: allUsers.map((u) => ({
+        id: u.id,
+        name: u.name,
+        role: u.role,
+      })),
+      users: allUsers,
+      teams: allTeams,
+    };
+  } catch (err) {
+    return {
+      success: false,
+      totalCount: 0,
+      breakdown: [],
+      sources: [],
+      responses: [],
+      products: [],
+      error: err instanceof Error ? err.message : "Failed to load admin lead count summary.",
+    };
+  }
+}
+
+export type AdminBulkOperationType =
+  | "TRANSFER"
+  | "RECYCLE"
+  | "DISPOSE"
+  | "DELETE"
+  | "DELETE_FOREVER"
+  | "EXPORT";
+
+export interface AdminLeadCountBulkActionInput {
+  operation: AdminBulkOperationType;
+  numberOfLeads?: number;
+  clearPreviousTimeline?: boolean;
+  targetSource?: string;
+  targetUserId?: string | null;
+  targetTeamId?: string | null;
+  selectedStages?: string[];
+  selectedResponses?: string[];
+  selectedKeys?: string[];
+  filters?: EmployeeLeadCountFiltersInput;
+}
+
+export interface AdminLeadCountBulkActionResult {
+  success: boolean;
+  count?: number;
+  message?: string;
+  error?: string;
+  exportData?: Array<{
+    id: string;
+    name: string;
+    mobile: string;
+    email: string | null;
+    city: string | null;
+    state: string | null;
+    status: string;
+    leadSource: string | null;
+    leadResponse: string | null;
+    createdAt: Date;
+  }>;
+}
+
+/**
+ * Executes Admin bulk action from the Lead Count Modal (Transfer, Recycle, Dispose, Delete, Delete Forever, Export).
+ */
+export async function executeAdminLeadCountBulkAction(
+  input: AdminLeadCountBulkActionInput
+): Promise<AdminLeadCountBulkActionResult> {
+  try {
+    const admin = await requireAdminSession({ redirect: false });
+
+    const stages = [...(input.selectedStages || [])];
+    const responses = [...(input.selectedResponses || [])];
+    if (input.selectedKeys && input.selectedKeys.length > 0) {
+      for (const k of input.selectedKeys) {
+        if (k.startsWith("stage:")) {
+          stages.push(k.replace("stage:", ""));
+        } else if (k.startsWith("response:")) {
+          responses.push(k.replace("response:", ""));
+        }
+      }
+    }
+
+    const where = buildAdminLeadsWhere({
+      ...(input.filters || {}),
+      scopeToAssignedOnly: true,
+      statusIn: stages.length > 0 ? Array.from(new Set(stages)) : undefined,
+      leadResponseIn: responses.length > 0 ? Array.from(new Set(responses)) : undefined,
+    });
+
+    const takeLimit = input.numberOfLeads && input.numberOfLeads > 0 ? input.numberOfLeads : undefined;
+
+    const targetLeads = await prisma.lead.findMany({
+      where,
+      take: takeLimit,
+      orderBy: { createdAt: "asc" },
+      select: {
+        id: true,
+        name: true,
+        mobile: true,
+        email: true,
+        city: true,
+        state: true,
+        status: true,
+        leadSource: true,
+        leadResponse: true,
+        createdAt: true,
+      },
+    });
+
+    if (targetLeads.length === 0) {
+      return {
+        success: false,
+        count: 0,
+        error: "No matching leads found for bulk execution.",
+      };
+    }
+
+    const targetIds = targetLeads.map((l) => l.id);
+
+    if (input.operation === "EXPORT") {
+      await logActivity({
+        actorId: admin.id,
+        action: "LEAD_BULK_EXPORT",
+        details: `Exported ${targetLeads.length} lead(s) from lead count modal.`,
+      });
+
+      return {
+        success: true,
+        count: targetLeads.length,
+        message: `Successfully prepared ${targetLeads.length} lead(s) for export.`,
+        exportData: targetLeads,
+      };
+    }
+
+    if (input.operation === "RECYCLE") {
+      const targetSource = input.targetSource?.trim();
+
+      await prisma.$transaction(async (tx) => {
+        await tx.lead.updateMany({
+          where: { id: { in: targetIds } },
+          data: {
+            ...(targetSource ? { leadSource: targetSource } : {}),
+            allotToId: null,
+            teamId: null,
+            status: "UNREAD",
+            leadResponse: null,
+            callbackDate: null,
+            ...(input.clearPreviousTimeline ? { description: null } : {}),
+            updatedAt: new Date(),
+          },
+        });
+
+        if (input.clearPreviousTimeline) {
+          await tx.callLog.deleteMany({
+            where: { leadId: { in: targetIds } },
+          });
+
+          await tx.activityLog.createMany({
+            data: targetIds.map((id) => ({
+              actorId: admin.id,
+              action: "TIMELINE_CLEARED",
+              details: `Lead [${id}] timeline cleared by Admin during RECYCLE.`,
+            })),
+          });
+        }
+      });
+
+      await logActivity({
+        actorId: admin.id,
+        action: "LEAD_BULK_RECYCLE",
+        details: `Bulk RECYCLE executed on ${targetIds.length} lead(s)${targetSource ? ` to source '${targetSource}'` : ""
+          }${input.clearPreviousTimeline ? " [Timeline cleared]" : ""}.`,
+      });
+
+      revalidatePath("/admin/leads");
+      revalidatePath("/admin");
+
+      return {
+        success: true,
+        count: targetIds.length,
+        message: `Successfully recycled ${targetIds.length} lead(s)${targetSource ? ` to source '${targetSource}'` : ""
+          }.`,
+      };
+    }
+
+    if (input.operation === "TRANSFER") {
+      if (!input.targetUserId && !input.targetTeamId) {
+        return {
+          success: false,
+          count: 0,
+          error: "Please select at least a Target User or Target Team for Transfer.",
+        };
+      }
+
+      let resolvedTeamId: string | null = input.targetTeamId || null;
+      let assigneeName = "Unassigned";
+
+      if (input.targetUserId && input.targetUserId.trim()) {
+        const targetUser = await prisma.user.findUnique({
+          where: { id: input.targetUserId.trim() },
+          select: { id: true, name: true, teamId: true },
+        });
+
+        if (targetUser) {
+          assigneeName = targetUser.name;
+          resolvedTeamId = targetUser.teamId || resolvedTeamId;
+        }
+      } else if (input.targetTeamId && input.targetTeamId.trim()) {
+        const team = await prisma.team.findUnique({
+          where: { id: input.targetTeamId.trim() },
+          select: { id: true, name: true },
+        });
+        if (team) {
+          assigneeName = `Team: ${team.name}`;
+        }
+      }
+
+      const targetSource = input.targetSource?.trim();
+
+      await prisma.$transaction(async (tx) => {
+        await tx.lead.updateMany({
+          where: { id: { in: targetIds } },
+          data: {
+            allotToId: input.targetUserId ? input.targetUserId.trim() : null,
+            teamId: resolvedTeamId,
+            ...(targetSource ? { leadSource: targetSource } : {}),
+            status: "UNREAD",
+            leadResponse: null,
+            callbackDate: null,
+            ...(input.clearPreviousTimeline ? { description: null } : {}),
+            updatedAt: new Date(),
+          },
+        });
+
+        if (input.clearPreviousTimeline) {
+          await tx.callLog.deleteMany({
+            where: { leadId: { in: targetIds } },
+          });
+
+          await tx.activityLog.createMany({
+            data: targetIds.map((id) => ({
+              actorId: admin.id,
+              action: "TIMELINE_CLEARED",
+              details: `Lead [${id}] timeline cleared by Admin during TRANSFER to ${assigneeName}.`,
+            })),
+          });
+        }
+      });
+
+      await logActivity({
+        actorId: admin.id,
+        action: "LEAD_BULK_TRANSFER",
+        details: `Bulk TRANSFER executed on ${targetIds.length} lead(s) to ${assigneeName}${targetSource ? ` (Source: '${targetSource}')` : ""
+          }${input.clearPreviousTimeline ? " [Timeline cleared]" : ""}.`,
+      });
+
+      revalidatePath("/admin/leads");
+      revalidatePath("/admin");
+
+      return {
+        success: true,
+        count: targetIds.length,
+        message: `Successfully transferred ${targetIds.length} lead(s) to ${assigneeName}.`,
+      };
+    }
+
+    if (input.operation === "DISPOSE") {
+      await prisma.lead.updateMany({
+        where: { id: { in: targetIds } },
+        data: { status: "DISPOSED" },
+      });
+
+      await logActivity({
+        actorId: admin.id,
+        action: "LEAD_BULK_DISPOSE",
+        details: `Bulk marked ${targetIds.length} lead(s) as DISPOSED.`,
+      });
+
+      revalidatePath("/admin/leads");
+      revalidatePath("/admin");
+
+      return {
+        success: true,
+        count: targetIds.length,
+        message: `Successfully disposed ${targetIds.length} lead(s).`,
+      };
+    }
+
+    if (input.operation === "DELETE") {
+      await prisma.lead.updateMany({
+        where: { id: { in: targetIds } },
+        data: {
+          status: "DELETED",
+          allotToId: null,
+          teamId: null,
+        },
+      });
+
+      await logActivity({
+        actorId: admin.id,
+        action: "LEAD_BULK_DELETE",
+        details: `Bulk marked ${targetIds.length} lead(s) as DELETED.`,
+      });
+
+      revalidatePath("/admin/leads");
+      revalidatePath("/admin");
+
+      return {
+        success: true,
+        count: targetIds.length,
+        message: `Successfully deleted ${targetIds.length} lead(s).`,
+      };
+    }
+
+    if (input.operation === "DELETE_FOREVER") {
+      await prisma.$transaction(async (tx) => {
+        await tx.callLog.deleteMany({
+          where: { leadId: { in: targetIds } },
+        });
+        await tx.lead.deleteMany({
+          where: { id: { in: targetIds } },
+        });
+      });
+
+      await logActivity({
+        actorId: admin.id,
+        action: "LEAD_BULK_DELETE_FOREVER",
+        details: `Permanently deleted ${targetIds.length} lead(s) from database.`,
+      });
+
+      revalidatePath("/admin/leads");
+      revalidatePath("/admin");
+
+      return {
+        success: true,
+        count: targetIds.length,
+        message: `Permanently deleted ${targetIds.length} lead(s).`,
+      };
+    }
+
+    return {
+      success: false,
+      count: 0,
+      error: "Unsupported bulk operation.",
+    };
+  } catch (err) {
+    return {
+      success: false,
+      count: 0,
+      error: err instanceof Error ? err.message : "Failed to execute bulk action.",
+    };
+  }
+}
+
+export type AdminSelectedLeadsBulkOperationType =
+  | "ALLOT_USER_TEAM"
+  | "RECYCLE"
+  | "DISPOSE"
+  | "DELETE"
+  | "DELETE_FOREVER"
+  | "EXPORT";
+
+export interface AdminSelectedLeadsBulkActionInput {
+  leadIds: string[];
+  action: AdminSelectedLeadsBulkOperationType;
+  targetUserId?: string | null;
+  targetTeamId?: string | null;
+  targetSource?: string;
+  clearPreviousTimeline?: boolean;
+}
+
+export interface AdminSelectedLeadsBulkActionResult {
+  success: boolean;
+  count?: number;
+  message?: string;
+  error?: string;
+  exportData?: Array<{
+    id: string;
+    name: string;
+    mobile: string;
+    email: string | null;
+    city: string | null;
+    state: string | null;
+    status: string;
+    leadSource: string | null;
+    leadResponse: string | null;
+    assignedToName: string | null;
+    createdAt: string;
+  }>;
+}
+
+/**
+ * Executes Admin bulk action for explicitly selected lead IDs (checkboxes / Select All).
+ */
+export async function executeAdminSelectedLeadsBulkAction(
+  input: AdminSelectedLeadsBulkActionInput
+): Promise<AdminSelectedLeadsBulkActionResult> {
+  try {
+    const admin = await requireAdminSession({ redirect: false });
+
+    const rawLeadIds = (input.leadIds || []).filter(Boolean);
+    const leadIds = Array.from(new Set(rawLeadIds));
+
+    if (leadIds.length === 0) {
+      return {
+        success: false,
+        count: 0,
+        error: "No leads were selected for bulk action.",
+      };
+    }
+
+    if (input.action === "EXPORT") {
+      const exportRows = await prisma.lead.findMany({
+        where: { id: { in: leadIds } },
+        select: {
+          id: true,
+          name: true,
+          mobile: true,
+          email: true,
+          city: true,
+          state: true,
+          status: true,
+          leadSource: true,
+          leadResponse: true,
+          createdAt: true,
+          allotTo: {
+            select: { name: true },
+          },
+        },
+        orderBy: { createdAt: "desc" },
+      });
+
+      await logActivity({
+        actorId: admin.id,
+        action: "LEAD_BULK_EXPORT",
+        details: `Exported ${exportRows.length} selected lead(s) to CSV.`,
+      });
+
+      return {
+        success: true,
+        count: exportRows.length,
+        message: `Successfully prepared ${exportRows.length} lead(s) for export.`,
+        exportData: exportRows.map((r) => ({
+          id: r.id,
+          name: r.name,
+          mobile: r.mobile,
+          email: r.email,
+          city: r.city,
+          state: r.state,
+          status: r.status,
+          leadSource: r.leadSource,
+          leadResponse: r.leadResponse,
+          assignedToName: r.allotTo?.name || null,
+          createdAt: r.createdAt.toISOString(),
+        })),
+      };
+    }
+
+    if (input.action === "ALLOT_USER_TEAM") {
+      if (!input.targetUserId && !input.targetTeamId) {
+        return {
+          success: false,
+          count: 0,
+          error: "Please select at least a Target User or Target Team for Transfer.",
+        };
+      }
+
+      let resolvedTeamId: string | null = input.targetTeamId || null;
+      let assigneeName = "Unassigned";
+
+      if (input.targetUserId && input.targetUserId.trim()) {
+        const targetUser = await prisma.user.findUnique({
+          where: { id: input.targetUserId.trim() },
+          select: { id: true, name: true, teamId: true },
+        });
+
+        if (targetUser) {
+          assigneeName = targetUser.name;
+          resolvedTeamId = targetUser.teamId || resolvedTeamId;
+        }
+      } else if (input.targetTeamId && input.targetTeamId.trim()) {
+        const team = await prisma.team.findUnique({
+          where: { id: input.targetTeamId.trim() },
+          select: { id: true, name: true },
+        });
+        if (team) {
+          assigneeName = `Team: ${team.name}`;
+        }
+      }
+
+      const targetSource = input.targetSource?.trim();
+
+      await prisma.$transaction(async (tx) => {
+        await tx.lead.updateMany({
+          where: { id: { in: leadIds } },
+          data: {
+            allotToId: input.targetUserId ? input.targetUserId.trim() : null,
+            teamId: resolvedTeamId,
+            ...(targetSource ? { leadSource: targetSource } : {}),
+            status: "UNREAD",
+            leadResponse: null,
+            callbackDate: null,
+            ...(input.clearPreviousTimeline ? { description: null } : {}),
+            updatedAt: new Date(),
+          },
+        });
+
+        if (input.clearPreviousTimeline) {
+          await tx.callLog.deleteMany({
+            where: { leadId: { in: leadIds } },
+          });
+
+          await tx.activityLog.createMany({
+            data: leadIds.map((id) => ({
+              actorId: admin.id,
+              action: "TIMELINE_CLEARED",
+              details: `Lead [${id}] timeline cleared by Admin during ALLOT_USER_TEAM to ${assigneeName}.`,
+            })),
+          });
+        }
+      });
+
+      await logActivity({
+        actorId: admin.id,
+        action: "LEAD_BULK_ALLOT",
+        details: `Bulk allotted/transferred ${leadIds.length} lead(s) to ${assigneeName}${targetSource ? ` (Source: '${targetSource}')` : ""
+          }${input.clearPreviousTimeline ? " [Timeline cleared]" : ""}.`,
+      });
+
+      revalidatePath("/admin/leads");
+      revalidatePath("/admin");
+
+      return {
+        success: true,
+        count: leadIds.length,
+        message: `Successfully allotted/transferred ${leadIds.length} lead(s) to ${assigneeName}.`,
+      };
+    }
+
+    if (input.action === "RECYCLE") {
+      const targetSource = input.targetSource?.trim();
+
+      await prisma.$transaction(async (tx) => {
+        await tx.lead.updateMany({
+          where: { id: { in: leadIds } },
+          data: {
+            ...(targetSource ? { leadSource: targetSource } : {}),
+            allotToId: null,
+            teamId: null,
+            status: "UNREAD",
+            leadResponse: null,
+            callbackDate: null,
+            ...(input.clearPreviousTimeline ? { description: null } : {}),
+            updatedAt: new Date(),
+          },
+        });
+
+        if (input.clearPreviousTimeline) {
+          await tx.callLog.deleteMany({
+            where: { leadId: { in: leadIds } },
+          });
+
+          await tx.activityLog.createMany({
+            data: leadIds.map((id) => ({
+              actorId: admin.id,
+              action: "TIMELINE_CLEARED",
+              details: `Lead [${id}] timeline cleared by Admin during RECYCLE.`,
+            })),
+          });
+        }
+      });
+
+      await logActivity({
+        actorId: admin.id,
+        action: "LEAD_BULK_RECYCLE",
+        details: `Bulk recycled ${leadIds.length} lead(s)${targetSource ? ` to source '${targetSource}'` : ""}${input.clearPreviousTimeline ? " [Timeline cleared]" : ""
+          }.`,
+      });
+
+      revalidatePath("/admin/leads");
+      revalidatePath("/admin");
+
+      return {
+        success: true,
+        count: leadIds.length,
+        message: `Successfully recycled ${leadIds.length} lead(s)${targetSource ? ` to '${targetSource}'` : ""}.`,
+      };
+    }
+
+    if (input.action === "DISPOSE") {
+      await prisma.lead.updateMany({
+        where: { id: { in: leadIds } },
+        data: {
+          status: "DISPOSED",
+          updatedAt: new Date(),
+        },
+      });
+
+      await logActivity({
+        actorId: admin.id,
+        action: "LEAD_BULK_DISPOSE",
+        details: `Bulk marked ${leadIds.length} lead(s) as DISPOSED.`,
+      });
+
+      revalidatePath("/admin/leads");
+      revalidatePath("/admin");
+
+      return {
+        success: true,
+        count: leadIds.length,
+        message: `Successfully disposed ${leadIds.length} lead(s).`,
+      };
+    }
+
+    if (input.action === "DELETE") {
+      await prisma.lead.updateMany({
+        where: { id: { in: leadIds } },
+        data: {
+          status: "DELETED",
+          allotToId: null,
+          teamId: null,
+          updatedAt: new Date(),
+        },
+      });
+
+      await logActivity({
+        actorId: admin.id,
+        action: "LEAD_BULK_DELETE",
+        details: `Bulk marked ${leadIds.length} lead(s) as DELETED.`,
+      });
+
+      revalidatePath("/admin/leads");
+      revalidatePath("/admin");
+
+      return {
+        success: true,
+        count: leadIds.length,
+        message: `Successfully moved ${leadIds.length} lead(s) to Deleted.`,
+      };
+    }
+
+    if (input.action === "DELETE_FOREVER") {
+      await prisma.$transaction(async (tx) => {
+        await tx.callLog.deleteMany({
+          where: { leadId: { in: leadIds } },
+        });
+        await tx.lead.deleteMany({
+          where: { id: { in: leadIds } },
+        });
+      });
+
+      await logActivity({
+        actorId: admin.id,
+        action: "LEAD_BULK_DELETE_FOREVER",
+        details: `Permanently deleted ${leadIds.length} lead(s) from database.`,
+      });
+
+      revalidatePath("/admin/leads");
+      revalidatePath("/admin");
+
+      return {
+        success: true,
+        count: leadIds.length,
+        message: `Permanently deleted ${leadIds.length} lead(s).`,
+      };
+    }
+
+    return {
+      success: false,
+      count: 0,
+      error: "Unsupported bulk operation.",
+    };
+  } catch (err) {
+    return {
+      success: false,
+      count: 0,
+      error: err instanceof Error ? err.message : "Failed to execute bulk action.",
+    };
+  }
+}
+
+export interface AdminFetchSourceItem {
+  source: string;
+  availableLeadsCount: number;
+  remainingLimit: number;
+  totalLimit: number;
+  formattedRemaining: string;
+  poolAvailableCount: number;
+  status: "CAN_FETCH" | "NO_LEADS";
+  batchSize: number;
+}
+
+export interface AdminFetchSourceLeadsInput {
+  sourceName: string;
+  count?: number;
+  targetUserId?: string;
+}
+
+/**
+ * Loads active lead sources and unassigned pool availability for Admin Fetch.
+ */
+export async function getAdminFetchSourcesAction(): Promise<{
+  success: boolean;
+  sources?: AdminFetchSourceItem[];
+  error?: string;
+}> {
+  try {
+    const admin = await requireAdminSession({ redirect: false });
+
+    // 1. Fetch active sources from database & distinct sources from leads
+    const [activeSources, distinctSourcesFromLeads] = await Promise.all([
+      getActiveLeadSourceNames(),
+      prisma.lead.findMany({
+        where: { leadSource: { not: null } },
+        select: { leadSource: true },
+        distinct: ["leadSource"],
+      }),
+    ]);
+
+    // 2. Case-insensitively deduplicate sources
+    const seenSources = new Set<string>();
+    const deduplicatedSources: string[] = [];
+    for (const s of [
+      ...activeSources,
+      ...distinctSourcesFromLeads.map((d) => d.leadSource || ""),
+    ]) {
+      const trimmed = s.trim();
+      if (!trimmed) continue;
+      const lower = trimmed.toLowerCase();
+      if (!seenSources.has(lower)) {
+        seenSources.add(lower);
+        deduplicatedSources.push(trimmed);
+      }
+    }
+
+    // 3. Count pool leads (unalloted) and admin's own unread/unfollowed leads per source
+    const [poolGrouped, adminGrouped] = await Promise.all([
+      prisma.lead.groupBy({
+        by: ["leadSource"],
+        where: {
+          allotToId: null,
+          teamId: null,
+          leadSource: { not: null },
+        },
+        _count: { _all: true },
+      }),
+      prisma.lead.groupBy({
+        by: ["leadSource"],
+        where: {
+          allotToId: admin.id,
+          status: { in: ["UNREAD", "UNFOLLOWED"] },
+          leadSource: { not: null },
+        },
+        _count: { _all: true },
+      }),
+    ]);
+
+    // Build lookup maps (case-insensitive)
+    const poolCountMap = new Map<string, number>();
+    for (const item of poolGrouped) {
+      if (item.leadSource) {
+        const key = item.leadSource.trim().toLowerCase();
+        poolCountMap.set(key, (poolCountMap.get(key) || 0) + item._count._all);
+      }
+    }
+
+    const adminCountMap = new Map<string, number>();
+    for (const item of adminGrouped) {
+      if (item.leadSource) {
+        const key = item.leadSource.trim().toLowerCase();
+        adminCountMap.set(key, (adminCountMap.get(key) || 0) + item._count._all);
+      }
+    }
+
+    const sources: AdminFetchSourceItem[] = deduplicatedSources.map((sourceName) => {
+      const lower = sourceName.toLowerCase();
+      const poolCount = poolCountMap.get(lower) || 0;
+      const availableCount = adminCountMap.get(lower) || 0;
+      const canFetch = poolCount > 0;
+
+      return {
+        source: sourceName,
+        availableLeadsCount: availableCount,
+        remainingLimit: poolCount,
+        totalLimit: poolCount,
+        formattedRemaining: "Unlimited",
+        poolAvailableCount: poolCount,
+        status: canFetch ? "CAN_FETCH" : "NO_LEADS",
+        batchSize: 10,
+      };
+    });
+
+    // Sort: sources with available pool leads first, then alphabetically
+    sources.sort((a, b) => {
+      if (a.poolAvailableCount > 0 && b.poolAvailableCount === 0) return -1;
+      if (a.poolAvailableCount === 0 && b.poolAvailableCount > 0) return 1;
+      return a.source.localeCompare(b.source);
+    });
+
+    return {
+      success: true,
+      sources,
+    };
+  } catch (err) {
+    return handleActionError(err, "Failed to load admin fetch sources.");
+  }
+}
+
+/**
+ * Atomically claims unassigned pool leads for Admin from a specified source.
+ */
+export async function adminFetchSourceLeadsAction(
+  input: AdminFetchSourceLeadsInput
+): Promise<{
+  success: boolean;
+  allocatedCount?: number;
+  source?: string;
+  error?: string;
+}> {
+  try {
+    const admin = await requireAdminSession({ redirect: false });
+    const requestedSource = input.sourceName?.trim();
+    if (!requestedSource) {
+      return { success: false, error: "Please specify a lead source to fetch." };
+    }
+
+    const batchSize = Math.max(1, Math.min(Number(input.count) || 10, 500));
+    const targetAssigneeId = input.targetUserId?.trim() || admin.id;
+
+    // 1. Fetch oldest unassigned pool candidates
+    const candidates = await prisma.lead.findMany({
+      where: {
+        leadSource: { equals: requestedSource, mode: "insensitive" },
+        allotToId: null,
+        teamId: null,
+      },
+      orderBy: [{ createdAt: "asc" }, { id: "asc" }],
+      take: batchSize,
+      select: { id: true },
+    });
+
+    if (candidates.length === 0) {
+      return {
+        success: false,
+        error: `No unassigned leads available in the pool for "${requestedSource}".`,
+      };
+    }
+
+    const candidateIds = candidates.map((c) => c.id);
+
+    // 2. Perform atomic assignment in a transaction
+    const result = await prisma.$transaction(async (tx) => {
+      const updateResult = await tx.lead.updateMany({
+        where: {
+          id: { in: candidateIds },
+          allotToId: null,
+          teamId: null,
+        },
+        data: {
+          allotToId: targetAssigneeId,
+          teamId: null,
+          status: "UNREAD",
+          leadResponse: null,
+          callbackDate: null,
+          updatedAt: new Date(),
+        },
+      });
+
+      if (updateResult.count > 0) {
+        // Record LeadFetchLog
+        await tx.leadFetchLog.create({
+          data: {
+            userId: targetAssigneeId,
+            leadSource: requestedSource,
+            appliedProfile: "Admin",
+            leadsCount: updateResult.count,
+            requestNumber: 1,
+            leadIds: candidateIds.slice(0, updateResult.count),
+          },
+        });
+      }
+
+      return { allocatedCount: updateResult.count };
+    });
+
+    if (!result || result.allocatedCount === 0) {
+      return {
+        success: false,
+        error: `Could not allocate leads from "${requestedSource}". They may have already been claimed.`,
+      };
+    }
+
+    // 3. Log audit activity
+    await logActivity({
+      actorId: admin.id,
+      action: "LEAD_FETCH",
+      details: `Admin fetched ${result.allocatedCount} lead(s) from source "${requestedSource}".`,
+      targetUserId: targetAssigneeId,
+    });
+
+    revalidatePath("/admin/leads");
+    revalidatePath("/admin");
+
+    return {
+      success: true,
+      allocatedCount: result.allocatedCount,
+      source: requestedSource,
+    };
+  } catch (err) {
+    return handleActionError(err, "Failed to fetch leads.");
+  }
+}
+
+export interface AdminLeadTimelineItem {
+  id: string;
+  title: string;
+  details: string;
+  timestamp: string;
+  badge?: string;
+  variant?: "primary" | "info" | "success" | "warning" | "danger";
+  actorName?: string;
+}
+
+/**
+ * Retrieves the activity timeline for a lead in Admin view.
+ * If a "TIMELINE_CLEARED" marker exists, all events dated before that reset
+ * (including original "Lead Registered" and prior allotments/updates) are omitted,
+ * rendering only a fresh reset milestone and events occurring at or after the reset.
+ */
+export async function getAdminLeadTimelineAction(leadId: string): Promise<{
+  success: boolean;
+  lead?: {
+    id: string;
+    name: string;
+    mobile: string;
+    email: string | null;
+    leadSource: string | null;
+    status: string;
+    leadResponse: string | null;
+    callbackDate: string | null;
+    description: string | null;
+    allotToName: string | null;
+    allotToRole: string | null;
+    teamName: string | null;
+    createdAt: string;
+    updatedAt: string;
+  };
+  timeline?: AdminLeadTimelineItem[];
+  timelineClearedAt?: string | null;
+  error?: string;
+}> {
+  try {
+    await requireAdminSession({ redirect: false });
+
+    if (!leadId) {
+      return { success: false, error: "Lead ID is required." };
+    }
+
+    const lead = await prisma.lead.findUnique({
+      where: { id: leadId },
+      include: {
+        allotTo: { select: { id: true, name: true, role: true } },
+        team: { select: { id: true, name: true } },
+      },
+    });
+
+    if (!lead) {
+      return { success: false, error: "Lead not found." };
+    }
+
+    const logs = await prisma.activityLog.findMany({
+      where: {
+        OR: [
+          { details: { contains: lead.id } },
+          { details: { contains: lead.mobile } },
+          { details: { contains: lead.name } },
+        ],
+      },
+      include: {
+        actor: { select: { name: true, email: true } },
+      },
+      orderBy: { createdAt: "desc" },
+    });
+
+    const resetLog = logs.find((l) => l.action === "TIMELINE_CLEARED");
+    const resetAt = resetLog ? resetLog.createdAt : null;
+
+    const timeline: AdminLeadTimelineItem[] = [];
+
+    if (resetLog && resetAt) {
+      const resetAtTime = resetAt.getTime();
+
+      // 1. Anchor the reset event as the base milestone
+      timeline.push({
+        id: `reset-${resetLog.id}`,
+        title: "Timeline Reset & Re-entry",
+        details:
+          resetLog.details ||
+          "Previous timeline, call logs, and remarks were cleared by Admin during Recycle / Transfer.",
+        timestamp: resetAt.toISOString(),
+        badge: "RESET",
+        variant: "warning",
+        actorName: resetLog.actor?.name || "Admin",
+      });
+
+      // 2. Add current state only if lead was allotted or updated AT or AFTER resetAt
+      const leadUpdatedTime = new Date(lead.updatedAt).getTime();
+      if (leadUpdatedTime >= resetAtTime) {
+        if (lead.allotTo) {
+          timeline.push({
+            id: "allotment-post-reset",
+            title: "Team Allotment",
+            details: `Assigned to ${lead.allotTo.name} (${lead.allotTo.role})${
+              lead.team ? ` • ${lead.team.name}` : ""
+            }.`,
+            timestamp: lead.updatedAt.toISOString(),
+            badge: "ASSIGNED",
+            variant: "info",
+            actorName: "Admin",
+          });
+        } else {
+          timeline.push({
+            id: "pool-post-reset",
+            title: "Recycled to Source Pool",
+            details: `Available in source pool "${lead.leadSource || "DIRECT"}".`,
+            timestamp: lead.updatedAt.toISOString(),
+            badge: "POOL",
+            variant: "info",
+            actorName: "Admin",
+          });
+        }
+
+        if (lead.leadResponse && leadUpdatedTime > resetAtTime) {
+          timeline.push({
+            id: "status-post-reset",
+            title: `Current Status: ${lead.status}`,
+            details: `Response tag "${lead.leadResponse}" recorded.${
+              lead.callbackDate
+                ? ` Next callback: ${new Date(lead.callbackDate).toLocaleString("en-GB")}.`
+                : ""
+            }${lead.description ? ` Note: ${lead.description}` : ""}`,
+            timestamp: lead.updatedAt.toISOString(),
+            badge: "RESPONSE",
+            variant: "success",
+          });
+        }
+      }
+
+      // 3. Include ONLY activity logs recorded AT or AFTER resetAt (excluding historical pre-reset logs)
+      for (const log of logs) {
+        if (log.id !== resetLog.id && new Date(log.createdAt).getTime() >= resetAtTime) {
+          timeline.push({
+            id: log.id,
+            title: log.action,
+            details: log.details || "",
+            timestamp: log.createdAt.toISOString(),
+            badge: "ACTIVITY",
+            variant: "primary",
+            actorName: log.actor?.name,
+          });
+        }
+      }
+    } else {
+      // Standard full lifecycle timeline
+      timeline.push({
+        id: "registered",
+        title: "Lead Registered",
+        details: `Prospect created in CRM via source "${lead.leadSource || "DIRECT"}".`,
+        timestamp: lead.createdAt.toISOString(),
+        badge: "CREATED",
+        variant: "primary",
+      });
+
+      if (lead.allotTo) {
+        timeline.push({
+          id: "allotment",
+          title: "Team Allotment",
+          details: `Assigned to ${lead.allotTo.name} (${lead.allotTo.role}) ${lead.team ? `• ${lead.team.name}` : ""
+            }.`,
+          timestamp: lead.updatedAt.toISOString(),
+          badge: "ASSIGNED",
+          variant: "info",
+          actorName: "Admin",
+        });
+      }
+
+      if (lead.leadResponse || lead.status !== "UNREAD") {
+        timeline.push({
+          id: "disposition",
+          title: `Current Status: ${lead.status}`,
+          details: `Response tag "${lead.leadResponse || "Interested"}" recorded.${lead.callbackDate
+            ? ` Next callback: ${new Date(lead.callbackDate).toLocaleString("en-GB")}.`
+            : ""
+            }${lead.description ? ` Note: ${lead.description}` : ""}`,
+          timestamp: lead.updatedAt.toISOString(),
+          badge: "RESPONSE",
+          variant: "success",
+        });
+      }
+
+      for (const log of logs) {
+        timeline.push({
+          id: log.id,
+          title: log.action,
+          details: log.details || "",
+          timestamp: log.createdAt.toISOString(),
+          badge: "ACTIVITY",
+          variant: "primary",
+          actorName: log.actor?.name,
+        });
+      }
+    }
+
+    timeline.sort((a, b) => {
+      const diff = new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime();
+      if (diff !== 0) return diff;
+      if (a.badge === "RESET") return 1;
+      if (b.badge === "RESET") return -1;
+      return 0;
+    });
+
+    return {
+      success: true,
+      lead: {
+        id: lead.id,
+        name: lead.name,
+        mobile: lead.mobile,
+        email: lead.email,
+        leadSource: lead.leadSource,
+        status: lead.status,
+        leadResponse: lead.leadResponse,
+        callbackDate: lead.callbackDate ? lead.callbackDate.toISOString() : null,
+        description: lead.description,
+        allotToName: lead.allotTo?.name || null,
+        allotToRole: lead.allotTo?.role || null,
+        teamName: lead.team?.name || null,
+        createdAt: lead.createdAt.toISOString(),
+        updatedAt: lead.updatedAt.toISOString(),
+      },
+      timeline,
+      timelineClearedAt: resetAt ? resetAt.toISOString() : null,
+    };
+  } catch (err) {
+    return handleActionError(err, "Failed to load lead timeline.");
   }
 }

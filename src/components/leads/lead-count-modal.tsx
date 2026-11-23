@@ -21,6 +21,11 @@ import type {
   LeadCountSummaryResult,
   DispositionBreakdownItem,
 } from "@/src/features/employee/lead-actions";
+import type {
+  AdminBulkOperationType,
+  AdminLeadCountBulkActionInput,
+  AdminLeadCountBulkActionResult,
+} from "@/src/features/leads/actions";
 
 export interface LeadCountFilterApplyPayload {
   selectedKeys: string[];
@@ -42,12 +47,16 @@ export interface LeadCountFilterApplyPayload {
   leadRecycleCount?: string | null;
   paidRange?: string | null;
   mobile?: string | null;
+  scopeToAssignedOnly?: boolean;
 }
 
 export interface LeadCountModalProps {
   isOpen: boolean;
   onClose: () => void;
   mode?: "employee" | "admin";
+  currentStatus?: string;
+  allotmentUsers?: Array<{ id: string; name: string; role?: string; teamName?: string | null }>;
+  teams?: Array<{ id: string; name: string }>;
   fetchCountsAction: (
     filters: EmployeeLeadCountFiltersInput
   ) => Promise<LeadCountSummaryResult>;
@@ -57,6 +66,10 @@ export interface LeadCountModalProps {
   }) => void;
   onApplyFilters?: (filters: LeadCountFilterApplyPayload) => void;
   onResetFilters?: () => void;
+  onExecuteAdminBulkAction?: (
+    payload: AdminLeadCountBulkActionInput
+  ) => Promise<AdminLeadCountBulkActionResult>;
+  onBulkSuccess?: () => void;
 }
 
 const MONTH_NAMES = [
@@ -232,10 +245,15 @@ export function LeadCountModal({
   isOpen,
   onClose,
   mode = "employee",
+  currentStatus,
+  allotmentUsers,
+  teams,
   fetchCountsAction,
   onSelectStageOrResponse,
   onApplyFilters,
   onResetFilters,
+  onExecuteAdminBulkAction,
+  onBulkSuccess,
 }: LeadCountModalProps) {
   if (!isOpen) return null;
 
@@ -243,23 +261,37 @@ export function LeadCountModal({
     <LeadCountModalContent
       onClose={onClose}
       mode={mode}
+      currentStatus={currentStatus}
+      allotmentUsers={allotmentUsers}
+      teams={teams}
       fetchCountsAction={fetchCountsAction}
       onSelectStageOrResponse={onSelectStageOrResponse}
       onApplyFilters={onApplyFilters}
       onResetFilters={onResetFilters}
+      onExecuteAdminBulkAction={onExecuteAdminBulkAction}
+      onBulkSuccess={onBulkSuccess}
     />
   );
 }
 
 function LeadCountModalContent({
   onClose,
+  mode = "employee",
+  currentStatus,
+  allotmentUsers,
+  teams,
   fetchCountsAction,
   onSelectStageOrResponse,
   onApplyFilters,
   onResetFilters,
+  onExecuteAdminBulkAction,
+  onBulkSuccess,
 }: {
   onClose: () => void;
   mode?: "employee" | "admin";
+  currentStatus?: string;
+  allotmentUsers?: Array<{ id: string; name: string; role?: string; teamName?: string | null }>;
+  teams?: Array<{ id: string; name: string }>;
   fetchCountsAction: (
     filters: EmployeeLeadCountFiltersInput
   ) => Promise<LeadCountSummaryResult>;
@@ -269,10 +301,24 @@ function LeadCountModalContent({
   }) => void;
   onApplyFilters?: (filters: LeadCountFilterApplyPayload) => void;
   onResetFilters?: () => void;
+  onExecuteAdminBulkAction?: (
+    payload: AdminLeadCountBulkActionInput
+  ) => Promise<AdminLeadCountBulkActionResult>;
+  onBulkSuccess?: () => void;
 }) {
   const [isPending, startTransition] = useTransition();
   const [data, setData] = useState<LeadCountSummaryResult | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  // Admin Bulk Bar State (strictly active when mode === "admin")
+  const [clearPreviousTimeline, setClearPreviousTimeline] = useState(true);
+  const [customNumberOfLeads, setCustomNumberOfLeads] = useState<number | null>(null);
+  const [selectedOperation, setSelectedOperation] = useState<AdminBulkOperationType>("RECYCLE");
+  const [targetSource, setTargetSource] = useState("");
+  const [targetUserId, setTargetUserId] = useState("");
+  const [targetTeamId, setTargetTeamId] = useState("");
+  const [isExecuting, setIsExecuting] = useState(false);
+  const [bulkMessage, setBulkMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
   // Filters state (Right Column - matching Screenshot (165).jpg)
   const [lastUpdateDateType, setLastUpdateDateType] = useState("");
@@ -518,6 +564,9 @@ function LeadCountModalContent({
     return list;
   })();
 
+  const availableUsersList = (allotmentUsers && allotmentUsers.length > 0) ? allotmentUsers : (data?.users || []);
+  const availableTeamsList = (teams && teams.length > 0) ? teams : (data?.teams || []);
+
   // Handle Select All
   const handleToggleSelectAll = () => {
     if (!uniqueBreakdown.length) return;
@@ -576,6 +625,7 @@ function LeadCountModalContent({
       leadRecycleCount: leadRecycleCount || null,
       paidRange: paidRange || null,
       mobile: mobile || null,
+      scopeToAssignedOnly: mode === "admin",
     };
 
     if (onApplyFilters) {
@@ -601,6 +651,7 @@ function LeadCountModalContent({
     setPaidRange("");
     setMobile("");
     setSelectedKeys(new Set());
+    setCustomNumberOfLeads(null);
     setActivePreset("");
     setTempDateRange({ start: null, end: null });
 
@@ -714,10 +765,14 @@ function LeadCountModalContent({
 
   // 4. Lead Assignment: matching image 3
   const leadAssignmentOptions: SearchableOption[] = [
-    { value: "", label: "-- Lead Assignment --" },
+    {
+      value: "",
+      label: mode === "admin" ? "-- Lead Assignment (Alloted) --" : "-- Lead Assignment --",
+    },
     { value: "Fetched Leads", label: "Fetched Leads" },
     { value: "Alloted Leads", label: "Alloted Leads" },
     { value: "Transferred Leads", label: "Transferred Leads" },
+    ...(mode === "admin" ? [{ value: "UNALLOTED", label: "Unalloted Leads" }] : []),
   ];
 
   // Render Month Calendar helper
@@ -886,6 +941,135 @@ function LeadCountModalContent({
   const isAllSelected =
     uniqueBreakdown.length > 0 && selectedKeys.size === uniqueBreakdown.length;
 
+  const effectiveNumberOfLeads: number | "" =
+    customNumberOfLeads !== null
+      ? customNumberOfLeads
+      : selectedKeys.size > 0
+      ? selectedTotal
+      : (data?.totalCount ?? "");
+
+  const handleExecuteBulk = async () => {
+    if (!onExecuteAdminBulkAction) return;
+
+    if (selectedOperation === "TRANSFER" && !targetUserId && !targetTeamId) {
+      setBulkMessage({
+        type: "error",
+        text: "Please select at least a Target User or Target Team for Transfer.",
+      });
+      return;
+    }
+
+    setIsExecuting(true);
+    setBulkMessage(null);
+
+    try {
+      const stages: string[] = [];
+      const responses: string[] = [];
+      if (uniqueBreakdown.length > 0) {
+        for (const item of uniqueBreakdown) {
+          if (selectedKeys.has(item.key)) {
+            if (item.type === "stage") stages.push(item.value);
+            else if (item.type === "response") responses.push(item.value);
+          }
+        }
+      }
+
+      const res = await onExecuteAdminBulkAction({
+        operation: selectedOperation,
+        numberOfLeads: typeof effectiveNumberOfLeads === "number" ? effectiveNumberOfLeads : undefined,
+        clearPreviousTimeline,
+        targetSource: targetSource.trim() || undefined,
+        targetUserId: targetUserId ? targetUserId.trim() : null,
+        targetTeamId: targetTeamId ? targetTeamId.trim() : null,
+        selectedKeys: Array.from(selectedKeys),
+        selectedStages: stages,
+        selectedResponses: responses,
+        filters: {
+          lastUpdateDateType: lastUpdateDateType || null,
+          startDate: startDate || null,
+          endDate: endDate || null,
+          leadSource: leadSource || null,
+          leadResponse: leadResponse || null,
+          trialStatus: trialStatus || null,
+          serviceStatus: serviceStatus || null,
+          serviceId: serviceId || null,
+          createdById: createdById || null,
+          leadOwnerId: leadOwnerId || null,
+          teamId: teamId || null,
+          leadAssignment: leadAssignment || null,
+          leadRecycleCount: leadRecycleCount || null,
+          paidRange: paidRange || null,
+          mobile: mobile || null,
+        },
+      });
+
+      if (res.success) {
+        setBulkMessage({
+          type: "success",
+          text: res.message || "Bulk operation executed successfully.",
+        });
+
+        // Trigger CSV download if export data is returned
+        if (selectedOperation === "EXPORT" && res.exportData && Array.isArray(res.exportData)) {
+          const headers = [
+            "ID",
+            "Name",
+            "Mobile",
+            "Email",
+            "City",
+            "State",
+            "Status",
+            "Lead Source",
+            "Lead Response",
+            "Created At",
+          ];
+          const rows = (res.exportData || []).map((l: Record<string, unknown>) => [
+            l.id,
+            `"${String(l.name || "").replace(/"/g, '""')}"`,
+            `"${String(l.mobile || "")}"`,
+            `"${String(l.email || "").replace(/"/g, '""')}"`,
+            `"${String(l.city || "").replace(/"/g, '""')}"`,
+            `"${String(l.state || "").replace(/"/g, '""')}"`,
+            `"${String(l.status || "")}"`,
+            `"${String(l.leadSource || "").replace(/"/g, '""')}"`,
+            `"${String(l.leadResponse || "").replace(/"/g, '""')}"`,
+            `"${l.createdAt ? new Date(String(l.createdAt)).toISOString() : ""}"`,
+          ]);
+          const csvContent =
+            "data:text/csv;charset=utf-8," +
+            [headers.join(","), ...rows.map((r: Array<unknown>) => r.join(","))].join("\n");
+          const encodedUri = encodeURI(csvContent);
+          const link = document.createElement("a");
+          link.setAttribute("href", encodedUri);
+          link.setAttribute("download", `leads_export_${new Date().toISOString().slice(0, 10)}.csv`);
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+        }
+
+        // Refresh counts inside modal
+        loadCounts();
+
+        // Refresh background leads table
+        if (onBulkSuccess) {
+          onBulkSuccess();
+        }
+      } else {
+        setBulkMessage({
+          type: "error",
+          text: res.error || "Failed to execute bulk action.",
+        });
+      }
+    } catch {
+      setBulkMessage({
+        type: "error",
+        text: "An unexpected error occurred while executing bulk action.",
+      });
+    } finally {
+      setIsExecuting(false);
+    }
+  };
+
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 overflow-y-auto"
@@ -897,14 +1081,14 @@ function LeadCountModalContent({
         onClick={onClose}
       />
 
-      {/* Main Dialog Card matching Screenshot (165).jpg */}
+      {/* Main Dialog Card matching Screenshot (165).jpg & media_1795410381873_4ff52ae0.jpg */}
       <div className="relative w-full max-w-5xl rounded-2xl bg-white dark:bg-[#0c1220] border border-slate-200/90 dark:border-white/[0.1] shadow-2xl overflow-hidden z-10 animate-in fade-in zoom-in-95 duration-150 flex flex-col max-h-[92vh]">
         {/* Header Bar */}
-        <div className="px-6 py-4 flex items-center justify-between border-b border-slate-200/80 dark:border-white/[0.08] bg-slate-50/50 dark:bg-slate-900/40">
+        <div className="px-6 py-4 flex items-center justify-between border-b border-slate-200/80 dark:border-white/[0.08] bg-slate-50/50 dark:bg-slate-900/40 shrink-0">
           <div className="flex items-center gap-2">
             <TableProperties className="size-5 text-slate-700 dark:text-slate-300" />
             <h2 className="text-base font-bold text-slate-900 dark:text-white tracking-tight">
-              ALL Lead Count
+              {currentStatus && currentStatus !== "ALL" ? `${currentStatus} Lead Count` : "ALL Lead Count"}
             </h2>
           </div>
 
@@ -1027,6 +1211,7 @@ function LeadCountModalContent({
                                   leadRecycleCount: leadRecycleCount || null,
                                   paidRange: paidRange || null,
                                   mobile: mobile || null,
+                                  scopeToAssignedOnly: mode === "admin",
                                 });
                               }
                               onSelectStageOrResponse({
@@ -1386,6 +1571,181 @@ function LeadCountModalContent({
             </div>
           </div>
         </div>
+
+        {/* Admin Bulk Action Bar (Strictly gated behind mode === "admin", matching media_1795410381873_4ff52ae0.jpg) */}
+        {mode === "admin" && (
+          <div className="border-t border-slate-200/90 dark:border-white/[0.08] bg-slate-50/70 dark:bg-slate-900/60 px-6 py-4 space-y-3 shrink-0">
+            {/* Row 1: Clear Previous Timeline Toggle & Number Of Leads Input */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <label className="flex items-center gap-2.5 cursor-pointer select-none">
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={clearPreviousTimeline}
+                  onClick={() => setClearPreviousTimeline((prev) => !prev)}
+                  className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                    clearPreviousTimeline ? "bg-[#00a884]" : "bg-slate-300 dark:bg-slate-700"
+                  }`}
+                >
+                  <span
+                    aria-hidden="true"
+                    className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow-sm ring-0 transition duration-200 ease-in-out ${
+                      clearPreviousTimeline ? "translate-x-4" : "translate-x-0"
+                    }`}
+                  />
+                </button>
+                <span className="text-xs font-semibold text-slate-700 dark:text-slate-200">
+                  Clear Previous Timeline
+                </span>
+              </label>
+
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-semibold text-slate-700 dark:text-slate-200 whitespace-nowrap">
+                  Number Of Leads
+                </span>
+                <input
+                  type="number"
+                  min="1"
+                  value={effectiveNumberOfLeads}
+                  onChange={(e) =>
+                    setCustomNumberOfLeads(e.target.value === "" ? null : Math.max(1, parseInt(e.target.value, 10) || 0))
+                  }
+                  className="w-24 px-2.5 py-1 text-xs font-mono font-bold rounded-lg border border-slate-300 dark:border-white/20 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-teal-500"
+                />
+              </div>
+            </div>
+
+            {/* Row 2: Radio Action Options */}
+            <div className="flex items-center gap-5 flex-wrap text-xs font-medium text-slate-700 dark:text-slate-300 pt-0.5">
+              {[
+                { id: "TRANSFER", label: "Transfer" },
+                { id: "RECYCLE", label: "Recycle" },
+                { id: "DISPOSE", label: "Dispose" },
+                { id: "DELETE", label: "Delete" },
+                { id: "DELETE_FOREVER", label: "Delete Forever" },
+                { id: "EXPORT", label: "Export" },
+              ].map((op) => (
+                <label key={op.id} className="flex items-center gap-1.5 cursor-pointer select-none">
+                  <input
+                    type="radio"
+                    name="adminBulkActionRadio"
+                    value={op.id}
+                    checked={selectedOperation === op.id}
+                    onChange={() => setSelectedOperation(op.id as AdminBulkOperationType)}
+                    className="text-[#00a884] focus:ring-[#00a884] cursor-pointer"
+                  />
+                  <span>{op.label}</span>
+                </label>
+              ))}
+            </div>
+
+            {/* Row 3: Target Selectors for Transfer or Recycle */}
+            {selectedOperation === "TRANSFER" && (
+              <div className="flex items-center gap-3 pt-1 flex-wrap">
+                {/* Target User */}
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-semibold text-slate-700 dark:text-slate-200 shrink-0">
+                    User:
+                  </span>
+                  <select
+                    value={targetUserId}
+                    onChange={(e) => setTargetUserId(e.target.value)}
+                    className="max-w-[200px] px-2.5 py-1.5 text-xs rounded-xl bg-white dark:bg-slate-800 border border-slate-300 dark:border-white/20 text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-1 focus:ring-teal-500 cursor-pointer"
+                  >
+                    <option value="">-- Select Target User --</option>
+                    {availableUsersList.map((u) => (
+                      <option key={u.id} value={u.id}>
+                        {u.name} ({u.role || "USER"}){"teamName" in u && u.teamName ? ` • ${u.teamName}` : ""}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Target Team */}
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-semibold text-slate-700 dark:text-slate-200 shrink-0">
+                    Team:
+                  </span>
+                  <select
+                    value={targetTeamId}
+                    onChange={(e) => setTargetTeamId(e.target.value)}
+                    className="max-w-[180px] px-2.5 py-1.5 text-xs rounded-xl bg-white dark:bg-slate-800 border border-slate-300 dark:border-white/20 text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-1 focus:ring-teal-500 cursor-pointer"
+                  >
+                    <option value="">-- Auto / Select Team --</option>
+                    {availableTeamsList.map((t) => (
+                      <option key={t.id} value={t.id}>
+                        {t.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Target Source (Optional for Transfer) */}
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-semibold text-slate-700 dark:text-slate-200 shrink-0">
+                    Source:
+                  </span>
+                  <select
+                    value={targetSource}
+                    onChange={(e) => setTargetSource(e.target.value)}
+                    className="max-w-[180px] px-2.5 py-1.5 text-xs rounded-xl bg-white dark:bg-slate-800 border border-slate-300 dark:border-white/20 text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-1 focus:ring-teal-500 cursor-pointer"
+                  >
+                    <option value="">-- Keep Current Source --</option>
+                    {uniqueSources.map((s) => (
+                      <option key={s} value={s}>
+                        {s}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+            )}
+
+            {selectedOperation === "RECYCLE" && (
+              <div className="flex items-center gap-3 pt-0.5">
+                <span className="text-xs font-semibold text-slate-700 dark:text-slate-200 w-16 shrink-0">
+                  Source
+                </span>
+                <select
+                  value={targetSource}
+                  onChange={(e) => setTargetSource(e.target.value)}
+                  className="flex-1 max-w-sm px-3 py-1.5 text-xs rounded-xl bg-white dark:bg-slate-800 border border-slate-300 dark:border-white/20 text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-1 focus:ring-teal-500 cursor-pointer"
+                >
+                  <option value="">-- Keep Current / Select Target Source --</option>
+                  {uniqueSources.map((s) => (
+                    <option key={s} value={s}>
+                      {s}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+            {/* Row 4: Centered Execute Button + Feedback Banner */}
+            <div className="flex flex-col items-center gap-2 pt-1.5">
+              {bulkMessage && (
+                <div
+                  className={`px-4 py-1.5 rounded-lg text-xs font-medium ${
+                    bulkMessage.type === "success"
+                      ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20"
+                      : "bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20"
+                  }`}
+                >
+                  {bulkMessage.text}
+                </div>
+              )}
+              <button
+                type="button"
+                disabled={isExecuting}
+                onClick={handleExecuteBulk}
+                className="px-8 py-2 rounded-xl bg-[#00a884] hover:bg-[#008f6f] text-white font-bold text-xs shadow-md shadow-teal-600/20 transition-all cursor-pointer disabled:opacity-50 flex items-center gap-2 active:scale-95"
+              >
+                {isExecuting && <Loader2 className="size-3.5 animate-spin" />}
+                <span>Execute</span>
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
