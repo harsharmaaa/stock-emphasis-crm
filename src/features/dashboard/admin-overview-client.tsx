@@ -182,17 +182,17 @@ export function AdminOverviewClient({ initialData }: AdminOverviewClientProps) {
       charts.knownSources.length > 0
         ? charts.knownSources.slice(0, 10)
         : [
-            "Fresh Lead",
-            "SEO",
-            "Premium Lead",
-            "HNI Lead",
-            "Web Lead",
-            "PMS",
-            "Emphasis",
-            "Digital Marketing",
-            "campegin",
-            "Callback",
-          ];
+          "Fresh Lead",
+          "SEO",
+          "Premium Lead",
+          "HNI Lead",
+          "Web Lead",
+          "PMS",
+          "Emphasis",
+          "Digital Marketing",
+          "campegin",
+          "Callback",
+        ];
 
     return sourcesToShow.map((source) => {
       const counts = fetchedMap.get(source) || { today: 0, total: 0 };
@@ -866,20 +866,18 @@ export function AdminOverviewClient({ initialData }: AdminOverviewClientProps) {
               <div className="flex items-center gap-1 min-w-0">
                 <button
                   onClick={() => setActiveTab("reminders")}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all shrink-0 ${
-                    activeTab === "reminders"
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all shrink-0 ${activeTab === "reminders"
                       ? "bg-[#4F6DF5] text-white shadow-md shadow-[#4F6DF5]/30"
                       : "text-slate-600 dark:text-slate-300 hover:bg-slate-200/60 dark:hover:bg-white/[0.06]"
-                  }`}
+                    }`}
                 >
                   <Bell className="size-3.5" />
                   <span>Lead Reminder</span>
                   <span
-                    className={`px-1.5 py-0.2 rounded-full text-[10px] font-bold ${
-                      activeTab === "reminders"
+                    className={`px-1.5 py-0.2 rounded-full text-[10px] font-bold ${activeTab === "reminders"
                         ? "bg-white/20 text-white"
                         : "bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20"
-                    }`}
+                      }`}
                   >
                     {totalTabReminders}
                   </span>
@@ -887,20 +885,18 @@ export function AdminOverviewClient({ initialData }: AdminOverviewClientProps) {
 
                 <button
                   onClick={() => setActiveTab("payments")}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all shrink-0 ${
-                    activeTab === "payments"
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all shrink-0 ${activeTab === "payments"
                       ? "bg-[#4F6DF5] text-white shadow-md shadow-[#4F6DF5]/30"
                       : "text-slate-600 dark:text-slate-300 hover:bg-slate-200/60 dark:hover:bg-white/[0.06]"
-                  }`}
+                    }`}
                 >
                   <CreditCard className="size-3.5" />
                   <span>Payments</span>
                   <span
-                    className={`px-1.5 py-0.2 rounded-full text-[10px] font-bold ${
-                      activeTab === "payments"
+                    className={`px-1.5 py-0.2 rounded-full text-[10px] font-bold ${activeTab === "payments"
                         ? "bg-white/20 text-white"
                         : "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20"
-                    }`}
+                      }`}
                   >
                     {totalTabPayments}
                   </span>
@@ -908,20 +904,18 @@ export function AdminOverviewClient({ initialData }: AdminOverviewClientProps) {
 
                 <button
                   onClick={() => setActiveTab("events")}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all shrink-0 ${
-                    activeTab === "events"
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all shrink-0 ${activeTab === "events"
                       ? "bg-[#4F6DF5] text-white shadow-md shadow-[#4F6DF5]/30"
                       : "text-slate-600 dark:text-slate-300 hover:bg-slate-200/60 dark:hover:bg-white/[0.06]"
-                  }`}
+                    }`}
                 >
                   <History className="size-3.5" />
                   <span>Event</span>
                   <span
-                    className={`px-1.5 py-0.2 rounded-full text-[10px] font-bold ${
-                      activeTab === "events"
+                    className={`px-1.5 py-0.2 rounded-full text-[10px] font-bold ${activeTab === "events"
                         ? "bg-white/20 text-white"
                         : "bg-slate-500/10 text-slate-600 dark:text-slate-400 border border-slate-500/20"
-                    }`}
+                      }`}
                   >
                     {totalTabEvents}
                   </span>
@@ -930,11 +924,10 @@ export function AdminOverviewClient({ initialData }: AdminOverviewClientProps) {
 
               <button
                 onClick={() => setActiveTab("all")}
-                className={`p-1.5 rounded-lg text-xs transition-colors shrink-0 ${
-                  activeTab === "all"
+                className={`p-1.5 rounded-lg text-xs transition-colors shrink-0 ${activeTab === "all"
                     ? "bg-slate-300 dark:bg-slate-700 text-slate-900 dark:text-white"
                     : "text-slate-400 hover:text-slate-700 dark:hover:text-slate-200"
-                }`}
+                  }`}
                 title={`View All (${allTabsCount})`}
               >
                 <Layers className="size-3.5" />
@@ -1370,8 +1363,8 @@ export function AdminOverviewClient({ initialData }: AdminOverviewClientProps) {
                     pt.todayFetched > 0
                       ? Math.min(100, Math.max(6, (pt.todayFetched / maxFetchVal) * 100))
                       : pt.totalFetched > 0
-                      ? Math.min(100, Math.max(6, (pt.totalFetched / maxFetchVal) * 100))
-                      : 0;
+                        ? Math.min(100, Math.max(6, (pt.totalFetched / maxFetchVal) * 100))
+                        : 0;
 
                   const isHovered = hoveredFetchSource === pt.source;
 
@@ -1758,11 +1751,10 @@ export function AdminOverviewClient({ initialData }: AdminOverviewClientProps) {
         <div className="flex items-center gap-2 overflow-x-auto pb-1">
           <button
             onClick={() => setActiveReportTab("leadReport")}
-            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold transition-all shrink-0 ${
-              activeReportTab === "leadReport"
+            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold transition-all shrink-0 ${activeReportTab === "leadReport"
                 ? "bg-[#4F6DF5] text-white shadow-md shadow-[#4F6DF5]/30"
                 : "bg-white/70 dark:bg-[#0c1322]/70 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/[0.05] border border-slate-200/80 dark:border-white/[0.08]"
-            }`}
+              }`}
           >
             <BarChart3 className="size-3.5" />
             <span>Lead Report</span>
@@ -1770,11 +1762,10 @@ export function AdminOverviewClient({ initialData }: AdminOverviewClientProps) {
 
           <button
             onClick={() => setActiveReportTab("leadRecord")}
-            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold transition-all shrink-0 ${
-              activeReportTab === "leadRecord"
+            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold transition-all shrink-0 ${activeReportTab === "leadRecord"
                 ? "bg-[#4F6DF5] text-white shadow-md shadow-[#4F6DF5]/30"
                 : "bg-white/70 dark:bg-[#0c1322]/70 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/[0.05] border border-slate-200/80 dark:border-white/[0.08]"
-            }`}
+              }`}
           >
             <FileText className="size-3.5" />
             <span>Lead Record</span>
@@ -1782,11 +1773,10 @@ export function AdminOverviewClient({ initialData }: AdminOverviewClientProps) {
 
           <button
             onClick={() => setActiveReportTab("performance")}
-            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold transition-all shrink-0 ${
-              activeReportTab === "performance"
+            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold transition-all shrink-0 ${activeReportTab === "performance"
                 ? "bg-[#4F6DF5] text-white shadow-md shadow-[#4F6DF5]/30"
                 : "bg-white/70 dark:bg-[#0c1322]/70 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/[0.05] border border-slate-200/80 dark:border-white/[0.08]"
-            }`}
+              }`}
           >
             <Award className="size-3.5" />
             <span>Performance Report</span>
@@ -1794,11 +1784,10 @@ export function AdminOverviewClient({ initialData }: AdminOverviewClientProps) {
 
           <button
             onClick={() => setActiveReportTab("leadBalance")}
-            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold transition-all shrink-0 ${
-              activeReportTab === "leadBalance"
+            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold transition-all shrink-0 ${activeReportTab === "leadBalance"
                 ? "bg-[#4F6DF5] text-white shadow-md shadow-[#4F6DF5]/30"
                 : "bg-white/70 dark:bg-[#0c1322]/70 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/[0.05] border border-slate-200/80 dark:border-white/[0.08]"
-            }`}
+              }`}
           >
             <Scale className="size-3.5" />
             <span>Lead Balance Report</span>
@@ -1806,11 +1795,10 @@ export function AdminOverviewClient({ initialData }: AdminOverviewClientProps) {
 
           <button
             onClick={() => setActiveReportTab("monthlySales")}
-            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold transition-all shrink-0 ${
-              activeReportTab === "monthlySales"
+            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold transition-all shrink-0 ${activeReportTab === "monthlySales"
                 ? "bg-[#4F6DF5] text-white shadow-md shadow-[#4F6DF5]/30"
                 : "bg-white/70 dark:bg-[#0c1322]/70 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/[0.05] border border-slate-200/80 dark:border-white/[0.08]"
-            }`}
+              }`}
           >
             <DollarSign className="size-3.5" />
             <span>Monthly Sales Report</span>
@@ -2279,11 +2267,10 @@ function LeaderboardCard({
               <div key={idx} className="w-full flex items-center">
                 <span className="w-12 text-right pr-2 shrink-0">{val}</span>
                 <div
-                  className={`flex-1 border-b ${
-                    val === 0
+                  className={`flex-1 border-b ${val === 0
                       ? "border-slate-200 dark:border-white/[0.1]"
                       : "border-slate-150 dark:border-white/[0.05]"
-                  }`}
+                    }`}
                 />
               </div>
             ))}
@@ -2300,8 +2287,8 @@ function LeaderboardCard({
                 items.length === 1
                   ? "w-28 sm:w-36 max-w-[160px]"
                   : items.length === 2
-                  ? "w-20 sm:w-28 max-w-[120px]"
-                  : "w-14 sm:w-20 max-w-[90px]";
+                    ? "w-20 sm:w-28 max-w-[120px]"
+                    : "w-14 sm:w-20 max-w-[90px]";
 
               return (
                 <div
