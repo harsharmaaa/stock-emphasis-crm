@@ -1,16 +1,13 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Inter } from "next/font/google";
 import "./globals.css";
 import { FloatingOrbs } from "@/src/components/layout/floating-orbs";
+import { ToastProvider } from "@/src/components/ui/Toast";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+const inter = Inter({
+  variable: "--font-sans",
   subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
+  display: "swap",
 });
 
 export const metadata: Metadata = {
@@ -24,7 +21,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       lang="en"
       suppressHydrationWarning
       data-scroll-behavior="smooth"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      className={`${inter.variable} h-full antialiased`}
     >
       <head>
         {/* Synchronous script to prevent theme flash on refresh while preserving user preference */}
@@ -37,7 +34,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       </head>
       <body className="min-h-full flex flex-col relative bg-background text-foreground transition-colors duration-200">
         <FloatingOrbs />
-        <div className="relative z-10 flex-1 flex flex-col min-h-0">{children}</div>
+        <ToastProvider>
+          <div className="relative z-10 flex-1 flex flex-col min-h-0">{children}</div>
+        </ToastProvider>
       </body>
     </html>
   );
