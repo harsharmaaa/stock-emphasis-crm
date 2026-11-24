@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { X, Check, AlertCircle, RefreshCw, Layers, Users, Sliders } from "lucide-react";
+import { SlidersHorizontal, Layers } from "lucide-react";
+import { cn } from "@/src/lib/utils";
 import type {
   FetchLimitRuleItem,
   ProfileRef,
@@ -9,6 +10,15 @@ import type {
   CreateFetchLimitInput,
   UpdateFetchLimitInput,
 } from "./types";
+import {
+  Modal,
+  Button,
+  Badge,
+  Field,
+  Input,
+  Select,
+  Icon,
+} from "@/src/components/ui";
 
 interface FetchLimitModalProps {
   isOpen: boolean;
@@ -31,7 +41,7 @@ export function FetchLimitModal({
   employees,
   leadSources,
 }: FetchLimitModalProps) {
-  const isEdit = !!initialRule;
+  const isEdit = Boolean(initialRule);
 
   // Form State initialized directly from props
   const [availableLimit, setAvailableLimit] = useState<string>(
@@ -84,7 +94,10 @@ export function FetchLimitModal({
       prev.filter((id) => {
         const emp = employees.find((e) => e.id === id);
         if (emp?.role === "MANAGER") return true;
-        return emp?.employeeProfileId && nextProfiles.includes(emp.employeeProfileId);
+        return (
+          emp?.employeeProfileId &&
+          nextProfiles.includes(emp.employeeProfileId)
+        );
       })
     );
   };
@@ -139,7 +152,9 @@ export function FetchLimitModal({
       return;
     }
     if (selectedProfileIds.length === 0 && selectedEmployeeIds.length === 0) {
-      setErrorMsg("Please select at least one Profile or assign at least one Employee/Manager.");
+      setErrorMsg(
+        "Please select at least one Profile or assign at least one Employee/Manager."
+      );
       return;
     }
 
@@ -154,7 +169,9 @@ export function FetchLimitModal({
           leadSource,
           profileIds: selectedProfileIds,
           assignedUserIds: selectedEmployeeIds,
-          resetUsageForUserIds: resetUsage ? initialRule.usages.map((u) => u.userId) : undefined,
+          resetUsageForUserIds: resetUsage
+            ? initialRule.usages.map((u) => u.userId)
+            : undefined,
         };
         const res = await onSave(payload);
         if (!res.success) {
@@ -179,296 +196,289 @@ export function FetchLimitModal({
         }
       }
     } catch (err: unknown) {
-      setErrorMsg(err instanceof Error ? err.message : "An unexpected error occurred.");
+      setErrorMsg(
+        err instanceof Error ? err.message : "An unexpected error occurred."
+      );
     } finally {
       setIsSubmitting(false);
     }
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200">
-      <div className="relative w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-3xl bg-white dark:bg-[#0c1322] border border-slate-200/90 dark:border-white/[0.08] shadow-[0_20px_50px_rgba(0,0,0,0.25)] p-6 sm:p-8 space-y-6">
-        {/* Header */}
-        <div className="flex items-center justify-between pb-4 border-b border-slate-100 dark:border-white/[0.06]">
-          <div className="space-y-0.5">
-            <h2 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
-              <Sliders className="size-5 text-blue-600 dark:text-blue-400" />
-              <span>{isEdit ? "Edit Fetch Limit" : "Add Fetch Limit"}</span>
-            </h2>
-            <p className="text-xs text-slate-500 dark:text-slate-400">
-              Configure profile thresholds, single-request lead limits, and request quotas.
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="p-1.5 rounded-xl text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-white/[0.06] transition-colors cursor-pointer"
-          >
-            <X className="size-5" />
-          </button>
+    <Modal
+      open={isOpen}
+      onClose={onClose}
+      size="lg"
+      title={
+        <div className="flex items-center gap-2">
+          <SlidersHorizontal className="size-4 text-[var(--brand)]" />
+          <span>{isEdit ? "Edit Fetch Limit" : "Add Fetch Limit"}</span>
         </div>
-
+      }
+      description="Configure profile thresholds, single-request lead limits, and request quotas."
+      footer={
+        <div className="flex items-center justify-end gap-2 w-full">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={onClose}
+            disabled={isSubmitting}
+          >
+            Close
+          </Button>
+          <Button
+            type="submit"
+            form="fetch-limit-form"
+            variant="primary"
+            size="sm"
+            loading={isSubmitting}
+            leftIcon="Check"
+            loadingText="Saving..."
+          >
+            Save
+          </Button>
+        </div>
+      }
+    >
+      <form id="fetch-limit-form" onSubmit={handleSubmit} className="space-y-5">
         {/* Error notification */}
         {errorMsg && (
-          <div className="p-3 rounded-2xl bg-rose-500/10 border border-rose-500/20 flex items-start gap-2.5 text-xs text-rose-600 dark:text-rose-400">
-            <AlertCircle className="size-4 shrink-0 mt-0.5" />
+          <div className="p-3 rounded-xl bg-[var(--err-tint)] border border-[var(--err-border)] flex items-start gap-2.5 text-xs text-[var(--err)]">
+            <Icon name="TriangleAlert" size={16} className="shrink-0 mt-0.5" />
             <div className="flex-1 font-medium leading-relaxed">{errorMsg}</div>
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="space-y-5">
-          {/* Form Fields Grid */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {/* Available Limit */}
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
-                Available Limit <span className="text-rose-500">*</span>
-              </label>
-              <input
-                type="number"
-                min="0"
-                step="1"
-                value={availableLimit}
-                onChange={(e) => setAvailableLimit(e.target.value)}
-                placeholder="e.g. 3"
-                required
-                className="w-full px-3 py-2 text-xs rounded-xl border border-slate-250 dark:border-white/[0.1] bg-slate-50/50 dark:bg-slate-800/50 text-slate-900 dark:text-white focus:outline-hidden focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
-              />
-              <p className="text-[11px] text-slate-400 mt-1">
-                Threshold remaining leads when employee can request more.
-              </p>
-            </div>
+        {/* Form Fields Grid */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          {/* Available Limit */}
+          <Field
+            label="Available Limit"
+            required
+            description="Threshold remaining leads when employee can request more."
+          >
+            <Input
+              type="number"
+              min="0"
+              step="1"
+              value={availableLimit}
+              onChange={(e) => setAvailableLimit(e.target.value)}
+              placeholder="e.g. 3"
+              required
+            />
+          </Field>
 
-            {/* Fetch Limit */}
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
-                Fetch Limit <span className="text-rose-500">*</span>
-              </label>
-              <input
-                type="number"
-                min="1"
-                step="1"
-                value={fetchLimit}
-                onChange={(e) => setFetchLimit(e.target.value)}
-                placeholder="e.g. 10"
-                required
-                className="w-full px-3 py-2 text-xs rounded-xl border border-slate-250 dark:border-white/[0.1] bg-slate-50/50 dark:bg-slate-800/50 text-slate-900 dark:text-white focus:outline-hidden focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
-              />
-              <p className="text-[11px] text-slate-400 mt-1">
-                Maximum leads returned per single request.
-              </p>
-            </div>
+          {/* Fetch Limit */}
+          <Field
+            label="Fetch Limit"
+            required
+            description="Maximum leads returned per single request."
+          >
+            <Input
+              type="number"
+              min="1"
+              step="1"
+              value={fetchLimit}
+              onChange={(e) => setFetchLimit(e.target.value)}
+              placeholder="e.g. 10"
+              required
+            />
+          </Field>
 
-            {/* Fetch Count (Configured Max Requests) */}
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
-                Fetch Count <span className="text-rose-500">*</span>
-              </label>
-              <input
-                type="number"
-                min="1"
-                step="1"
-                value={fetchCount}
-                onChange={(e) => setFetchCount(e.target.value)}
-                placeholder="e.g. 60"
-                required
-                className="w-full px-3 py-2 text-xs rounded-xl border border-slate-250 dark:border-white/[0.1] bg-slate-50/50 dark:bg-slate-800/50 text-slate-900 dark:text-white focus:outline-hidden focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
-              />
-              <p className="text-[11px] text-slate-400 mt-1">
-                Maximum allowed successful requests before quota exhaustion.
-              </p>
-            </div>
+          {/* Fetch Count (Configured Max Requests) */}
+          <Field
+            label="Fetch Count"
+            required
+            description="Maximum allowed successful requests before quota exhaustion."
+          >
+            <Input
+              type="number"
+              min="1"
+              step="1"
+              value={fetchCount}
+              onChange={(e) => setFetchCount(e.target.value)}
+              placeholder="e.g. 60"
+              required
+            />
+          </Field>
 
-            {/* Lead Source */}
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
-                Lead Source <span className="text-rose-500">*</span>
-              </label>
-              <select
-                value={leadSource}
-                onChange={(e) => setLeadSource(e.target.value)}
-                className="w-full px-3 py-2 text-xs rounded-xl border border-slate-250 dark:border-white/[0.1] bg-slate-50/50 dark:bg-slate-800/50 text-slate-900 dark:text-white focus:outline-hidden focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
-              >
-                {leadSources.length === 0 ? (
-                  <option value="">No sources configured in Settings</option>
-                ) : (
-                  <>
-                    <option value="">-- Select Source --</option>
-                    {!leadSources.includes(leadSource) && leadSource && (
-                      <option value={leadSource}>{leadSource} (Existing)</option>
-                    )}
-                    {leadSources.map((source) => (
-                      <option key={source} value={source}>
-                        {source}
-                      </option>
-                    ))}
-                  </>
-                )}
-              </select>
-              <p className="text-[11px] text-slate-400 mt-1">
-                Canonical lead source pool to draw leads from.
-              </p>
-            </div>
-          </div>
-
-          {/* Profile Multi-Select Badges */}
-          <div className="space-y-2 pt-2 border-t border-slate-100 dark:border-white/[0.06]">
-            <div className="flex items-center justify-between">
-              <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
-                <Layers className="size-3.5 text-blue-500" />
-                <span>Employee Profiles <span className="text-rose-500">*</span></span>
-              </label>
-              <span className="text-[11px] text-slate-400">
-                {selectedProfileIds.length} profile(s) selected
-              </span>
-            </div>
-
-            <div className="flex flex-wrap gap-2 pt-1">
-              {profiles.map((p) => {
-                const isSelected = selectedProfileIds.includes(p.id);
-                return (
-                  <button
-                    key={p.id}
-                    type="button"
-                    onClick={() => handleToggleProfile(p.id)}
-                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
-                      isSelected
-                        ? "bg-blue-600 text-white shadow-sm shadow-blue-500/25 ring-2 ring-blue-500/30"
-                        : "bg-slate-100 dark:bg-slate-800/80 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 border border-slate-250 dark:border-white/[0.08]"
-                    }`}
-                  >
-                    <span>{p.name}</span>
-                    {isSelected ? (
-                      <X className="size-3.5 stroke-[2.5]" />
-                    ) : (
-                      <span className="text-slate-400">+</span>
-                    )}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* Employee & Manager Selection Checklist */}
-          <div className="space-y-3 pt-2 border-t border-slate-100 dark:border-white/[0.06]">
-            <div className="flex items-center justify-between">
-              <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
-                <Users className="size-3.5 text-indigo-500" />
-                <span>Employees & Managers Selection</span>
-                <span className="text-[11px] text-slate-400 font-normal">
-                  ({selectedEmployeeIds.length} of {eligibleEmployees.length} selected)
-                </span>
-              </label>
-
-              {eligibleEmployees.length > 0 && (
-                <button
-                  type="button"
-                  onClick={handleToggleSelectAllEmployees}
-                  className="text-[11px] font-semibold text-blue-600 dark:text-blue-400 hover:underline cursor-pointer"
-                >
-                  {isAllEligibleSelected ? "Clear All" : "Select All"}
-                </button>
+          {/* Lead Source */}
+          <Field
+            label="Lead Source"
+            required
+            description="Canonical lead source pool to draw leads from."
+          >
+            <Select
+              value={leadSource}
+              onChange={(e) => setLeadSource(e.target.value)}
+            >
+              {leadSources.length === 0 ? (
+                <option value="">No sources configured in Settings</option>
+              ) : (
+                <>
+                  <option value="">-- Select Source --</option>
+                  {!leadSources.includes(leadSource) && leadSource && (
+                    <option value={leadSource}>{leadSource} (Existing)</option>
+                  )}
+                  {leadSources.map((source) => (
+                    <option key={source} value={source}>
+                      {source}
+                    </option>
+                  ))}
+                </>
               )}
-            </div>
+            </Select>
+          </Field>
+        </div>
 
-            {eligibleEmployees.length === 0 ? (
-              <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-900/40 border border-slate-200/60 dark:border-white/[0.06] text-center text-xs text-slate-400">
-                Please select an Employee Profile above to view eligible staff, or active Managers will appear automatically.
-              </div>
-            ) : (
-              <div className="max-h-48 overflow-y-auto p-3 rounded-2xl bg-slate-50/70 dark:bg-slate-900/50 border border-slate-200/70 dark:border-white/[0.06] grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
-                {eligibleEmployees.map((emp) => {
-                  const isChecked = selectedEmployeeIds.includes(emp.id);
-                  const isManager = emp.role === "MANAGER";
-                  return (
-                    <label
-                      key={emp.id}
-                      className={`flex items-center gap-2 p-2 rounded-xl text-xs cursor-pointer border transition-colors ${
-                        isChecked
-                          ? "bg-blue-50/80 dark:bg-blue-950/40 border-blue-200 dark:border-blue-900/60 text-blue-900 dark:text-blue-200 font-medium"
-                          : "bg-white dark:bg-slate-800/40 border-slate-200/60 dark:border-white/[0.04] text-slate-700 dark:text-slate-300 hover:bg-slate-100/60"
-                      }`}
-                    >
-                      <input
-                        type="checkbox"
-                        checked={isChecked}
-                        onChange={() => handleToggleEmployee(emp.id)}
-                        className="size-3.5 rounded text-blue-600 focus:ring-blue-500"
-                      />
-                      <div className="min-w-0 truncate">
-                        <div className="flex items-center gap-1.5 truncate">
-                          <span className="truncate">{emp.name}</span>
-                          {isManager && (
-                            <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-purple-100 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300">
-                              Manager
-                            </span>
-                          )}
-                        </div>
-                        <div className="text-[10px] text-slate-400 truncate">
-                          {isManager ? "Manager" : emp.employeeProfileName || "No Profile"}
-                        </div>
-                      </div>
-                    </label>
-                  );
-                })}
-              </div>
+        {/* Profile Multi-Select Badges */}
+        <div className="space-y-2 pt-3 border-t border-[var(--border)]">
+          <div className="flex items-center justify-between">
+            <label className="text-xs font-semibold text-[var(--text)] flex items-center gap-1.5">
+              <Layers className="size-3.5 text-[var(--brand)]" />
+              <span>
+                Employee Profiles <span className="text-[var(--err)]">*</span>
+              </span>
+            </label>
+            <span className="text-[11px] text-[var(--muted)]">
+              {selectedProfileIds.length} profile(s) selected
+            </span>
+          </div>
+
+          <div className="flex flex-wrap gap-2 pt-1">
+            {profiles.map((p) => {
+              const isSelected = selectedProfileIds.includes(p.id);
+              return (
+                <button
+                  key={p.id}
+                  type="button"
+                  onClick={() => handleToggleProfile(p.id)}
+                  className={cn(
+                    "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer",
+                    isSelected
+                      ? "bg-[var(--brand)] text-white shadow-xs ring-2 ring-[var(--brand-border)]"
+                      : "bg-[var(--surface)] text-[var(--text)] hover:bg-[var(--subtle)] border border-[var(--border)]"
+                  )}
+                >
+                  <span>{p.name}</span>
+                  {isSelected ? (
+                    <Icon name="X" size={14} className="stroke-[2.5]" />
+                  ) : (
+                    <span className="text-[var(--muted)]">+</span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Employee & Manager Selection Checklist */}
+        <div className="space-y-3 pt-3 border-t border-[var(--border)]">
+          <div className="flex items-center justify-between">
+            <label className="text-xs font-semibold text-[var(--text)] flex items-center gap-1.5">
+              <Icon name="Users" size={14} className="text-[var(--brand)]" />
+              <span>Employees &amp; Managers Selection</span>
+              <span className="text-[11px] text-[var(--muted)] font-normal">
+                ({selectedEmployeeIds.length} of {eligibleEmployees.length}{" "}
+                selected)
+              </span>
+            </label>
+
+            {eligibleEmployees.length > 0 && (
+              <button
+                type="button"
+                onClick={handleToggleSelectAllEmployees}
+                className="text-[11px] font-semibold text-[var(--brand)] hover:underline cursor-pointer"
+              >
+                {isAllEligibleSelected ? "Clear All" : "Select All"}
+              </button>
             )}
           </div>
 
-          {/* Edit Mode: Usage Counter & Reset Option */}
-          {isEdit && initialRule && initialRule.usages.length > 0 && (
-            <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200/80 dark:border-white/[0.06] space-y-2 text-xs">
-              <div className="flex items-center justify-between font-semibold text-slate-700 dark:text-slate-300">
-                <span className="flex items-center gap-1.5">
-                  <RefreshCw className="size-3.5 text-blue-500" />
-                  <span>Current Request Usage</span>
-                </span>
-                <span className="text-slate-500 font-normal">
-                  {initialRule.totalFetchesUsed} / {initialRule.fetchCount} requests used
-                </span>
-              </div>
-              <label className="flex items-center gap-2 pt-1 text-slate-600 dark:text-slate-400 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={resetUsage}
-                  onChange={(e) => setResetUsage(e.target.checked)}
-                  className="size-3.5 rounded text-blue-600 focus:ring-blue-500"
-                />
-                <span>Reset request usage counter to 0 upon saving (preserves audit logs)</span>
-              </label>
+          {eligibleEmployees.length === 0 ? (
+            <div className="p-4 rounded-xl bg-[var(--subtle)] border border-[var(--border)] text-center text-xs text-[var(--muted)]">
+              Please select an Employee Profile above to view eligible staff, or
+              active Managers will appear automatically.
+            </div>
+          ) : (
+            <div className="max-h-48 overflow-y-auto p-3 rounded-2xl bg-[var(--subtle)] border border-[var(--border)] grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
+              {eligibleEmployees.map((emp) => {
+                const isChecked = selectedEmployeeIds.includes(emp.id);
+                const isManager = emp.role === "MANAGER";
+                return (
+                  <label
+                    key={emp.id}
+                    className={cn(
+                      "flex items-center gap-2 p-2 rounded-xl text-xs cursor-pointer border transition-colors",
+                      isChecked
+                        ? "bg-[var(--brand-tint)] border-[var(--brand-border)] text-[var(--text)] font-medium"
+                        : "bg-[var(--surface)] border-[var(--border)] text-[var(--text)] hover:bg-[var(--subtle)]"
+                    )}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={isChecked}
+                      onChange={() => handleToggleEmployee(emp.id)}
+                      className="size-3.5 rounded text-[var(--brand)] focus:ring-[var(--brand)]"
+                    />
+                    <div className="min-w-0 truncate">
+                      <div className="flex items-center gap-1.5 truncate">
+                        <span className="truncate">{emp.name}</span>
+                        {isManager && (
+                          <Badge
+                            tone="info"
+                            className="text-[9px] px-1.5 py-0"
+                          >
+                            Manager
+                          </Badge>
+                        )}
+                      </div>
+                      <div className="text-[10px] text-[var(--muted)] truncate">
+                        {isManager
+                          ? "Manager"
+                          : emp.employeeProfileName || "No Profile"}
+                      </div>
+                    </div>
+                  </label>
+                );
+              })}
             </div>
           )}
+        </div>
 
-          {/* Action Buttons */}
-          <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-100 dark:border-white/[0.06]">
-            <button
-              type="button"
-              onClick={onClose}
-              disabled={isSubmitting}
-              className="px-5 py-2.5 rounded-2xl border border-rose-200 dark:border-rose-900/40 bg-rose-50 dark:bg-rose-950/30 text-rose-600 dark:text-rose-400 hover:bg-rose-100 text-xs font-semibold transition-all cursor-pointer"
-            >
-              Close
-            </button>
-            <button
-              type="submit"
-              disabled={isSubmitting}
-              className="px-6 py-2.5 rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white text-xs font-semibold shadow-md shadow-emerald-500/25 transition-all cursor-pointer flex items-center gap-2 disabled:opacity-50"
-            >
-              {isSubmitting ? (
-                <>
-                  <RefreshCw className="size-3.5 animate-spin" />
-                  <span>Saving...</span>
-                </>
-              ) : (
-                <>
-                  <Check className="size-3.5 stroke-[2.5]" />
-                  <span>Save</span>
-                </>
-              )}
-            </button>
+        {/* Edit Mode: Usage Counter & Reset Option */}
+        {isEdit && initialRule && initialRule.usages.length > 0 && (
+          <div className="p-3.5 rounded-xl bg-[var(--subtle)] border border-[var(--border)] space-y-2 text-xs">
+            <div className="flex items-center justify-between font-semibold text-[var(--text)]">
+              <span className="flex items-center gap-1.5">
+                <Icon
+                  name="RefreshCw"
+                  size={14}
+                  className="text-[var(--brand)]"
+                />
+                <span>Current Request Usage</span>
+              </span>
+              <span className="text-[var(--muted)] font-normal">
+                {initialRule.totalFetchesUsed} / {initialRule.fetchCount}{" "}
+                requests used
+              </span>
+            </div>
+            <label className="flex items-center gap-2 pt-1 text-[var(--muted)] cursor-pointer">
+              <input
+                type="checkbox"
+                checked={resetUsage}
+                onChange={(e) => setResetUsage(e.target.checked)}
+                className="size-3.5 rounded text-[var(--brand)] focus:ring-[var(--brand)]"
+              />
+              <span>
+                Reset request usage counter to 0 upon saving (preserves audit
+                logs)
+              </span>
+            </label>
           </div>
-        </form>
-      </div>
-    </div>
+        )}
+      </form>
+    </Modal>
   );
 }
