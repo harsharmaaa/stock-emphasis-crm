@@ -26,6 +26,9 @@ import {
   DollarSign,
   RotateCcw,
 } from "lucide-react";
+import { Card } from "@/src/components/ui/Card";
+import { Badge } from "@/src/components/ui/Badge";
+import { Button } from "@/src/components/ui/Button";
 import type { AdminOverviewStep1Data } from "./actions";
 
 interface AdminOverviewClientProps {
@@ -471,54 +474,57 @@ export function AdminOverviewClient({ initialData }: AdminOverviewClientProps) {
   return (
     <div className="space-y-6 animate-in fade-in duration-300">
       {/* Executive Welcome & Telemetry Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-6 sm:p-7 rounded-3xl bg-gradient-to-r from-violet-950/80 via-slate-900/80 to-indigo-950/80 dark:from-[#0c1224]/90 dark:via-[#14122e]/80 dark:to-[#09152a]/90 backdrop-blur-2xl border border-violet-500/25 shadow-2xl relative overflow-hidden text-white">
-        <div className="absolute top-0 right-0 -mt-8 -mr-8 size-64 rounded-full bg-violet-500/20 blur-3xl pointer-events-none" />
-        <div className="absolute bottom-0 left-1/3 -mb-10 size-48 rounded-full bg-cyan-500/15 blur-3xl pointer-events-none" />
+      <Card className="p-6 sm:p-7 relative overflow-hidden text-slate-900 dark:text-white border border-slate-200/80 dark:border-white/[0.08] shadow-sm">
+        <div className="absolute top-0 right-0 -mt-8 -mr-8 size-64 rounded-full bg-[#4F6DF5]/10 blur-3xl pointer-events-none" />
+        <div className="absolute bottom-0 left-1/3 -mb-10 size-48 rounded-full bg-[#60A5FA]/10 blur-3xl pointer-events-none" />
 
-        <div className="relative z-10 space-y-1">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-violet-500/20 text-violet-300 text-xs font-semibold border border-violet-500/30 backdrop-blur-sm">
-            <ShieldCheck className="size-3.5 text-violet-400" />
-            <span>Admin Control Center</span>
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 relative z-10">
+          <div className="space-y-1">
+            <Badge tone="info">
+              <ShieldCheck className="size-3.5 mr-1 inline" />
+              Admin Control Center
+            </Badge>
+            <h1 className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white tracking-tight">
+              Welcome back, {adminName}
+            </h1>
+            <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 max-w-xl leading-relaxed">
+              Live operational dashboard with real-time Prisma metrics. Monitor financial milestones, lead activity, and pending client callbacks.
+            </p>
           </div>
-          <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight">
-            Welcome back, {adminName}
-          </h1>
-          <p className="text-xs sm:text-sm text-slate-300 max-w-xl leading-relaxed">
-            Live operational dashboard with real-time Prisma metrics. Monitor financial milestones, lead activity, and pending client callbacks.
-          </p>
-        </div>
 
-        <div className="relative z-10 flex items-center gap-2.5">
-          <button
-            onClick={handleRefresh}
-            disabled={isPending}
-            className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold text-slate-200 bg-white/10 hover:bg-white/15 border border-white/10 backdrop-blur-md transition-all hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50"
-            title="Refresh database metrics"
-          >
-            <RefreshCw className={`size-3.5 ${isPending ? "animate-spin text-violet-400" : ""}`} />
-            <span>{isPending ? "Syncing..." : "Sync DB"}</span>
-          </button>
-          <Link
-            href="/admin/leads"
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold text-white bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 shadow-lg shadow-violet-600/30 transition-all hover:scale-[1.02] active:scale-[0.98]"
-          >
-            <span>All Leads</span>
-            <ArrowRight className="size-3.5" />
-          </Link>
+          <div className="flex items-center gap-2.5 shrink-0">
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={handleRefresh}
+              disabled={isPending}
+              loading={isPending}
+              icon="RefreshCw"
+            >
+              {isPending ? "Syncing..." : "Sync DB"}
+            </Button>
+            <Link
+              href="/admin/leads"
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold text-white bg-gradient-to-r from-[#4F6DF5] to-[#60A5FA] hover:opacity-90 shadow-md shadow-[#4F6DF5]/25 transition-all hover:scale-[1.02] active:scale-[0.98]"
+            >
+              <span>All Leads</span>
+              <ArrowRight className="size-3.5" />
+            </Link>
+          </div>
         </div>
-      </div>
+      </Card>
 
       {/* Main Split Layout: Left 2 Columns (Target, 2x2 KPIs, Today Activity) + Right 1 Column (Reminders / Payments / Events Tab Box & Status Strip) */}
       <div className="grid grid-cols-1 xl:grid-cols-12 gap-6">
         {/* Left Section (7 of 12 cols on XL) */}
         <div className="xl:col-span-7 space-y-6">
           {/* 1. Target & Achieved Card */}
-          <div className="p-5 sm:p-6 rounded-2xl bg-white/75 dark:bg-[#0c1322]/70 backdrop-blur-xl border border-slate-200/80 dark:border-white/[0.08] shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-[0_8px_30px_rgb(0,0,0,0.25)] hover:border-violet-500/40 transition-all">
+          <Card className="p-5 sm:p-6 hover:border-[#4F6DF5]/40 transition-all">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               {/* Achieved Left */}
               <div className="flex items-center gap-3.5">
-                <div className="p-3 rounded-2xl bg-gradient-to-br from-violet-500/15 to-indigo-500/15 text-violet-600 dark:text-violet-400 border border-violet-500/25 shrink-0 shadow-sm">
-                  <Target className="size-6 text-violet-600 dark:text-violet-400" />
+                <div className="p-3 rounded-2xl bg-[#4F6DF5]/12 text-[#4F6DF5] dark:text-[#60A5FA] border border-[#4F6DF5]/25 shrink-0 shadow-xs">
+                  <Target className="size-6 text-[#4F6DF5] dark:text-[#60A5FA]" />
                 </div>
                 <div>
                   <div className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white tracking-tight flex items-center gap-1">
@@ -534,10 +540,10 @@ export function AdminOverviewClient({ initialData }: AdminOverviewClientProps) {
               {/* Center Progress Information */}
               <div className="flex-1 max-w-xs mx-auto w-full space-y-2">
                 <div className="flex items-center justify-between text-xs font-bold">
-                  <span className="px-2 py-0.5 rounded-full bg-violet-500/10 text-violet-600 dark:text-violet-400 border border-violet-500/20 text-[11px]">
+                  <Badge tone="info">
                     {target.achievementPercent}%
-                  </span>
-                  <span className="text-rose-500 dark:text-rose-400 font-semibold text-[11px] flex items-center gap-1">
+                  </Badge>
+                  <span className="text-amber-500 dark:text-amber-400 font-semibold text-[11px] flex items-center gap-1">
                     <Clock className="size-3" />
                     <span>
                       {target.daysLeftInMonth} Day{target.daysLeftInMonth === 1 ? "" : "s"} Left
@@ -547,7 +553,7 @@ export function AdminOverviewClient({ initialData }: AdminOverviewClientProps) {
                 {/* Visual Progress Bar */}
                 <div className="h-2.5 w-full rounded-full bg-slate-150 dark:bg-slate-800/80 overflow-hidden p-0.5">
                   <div
-                    className="h-full rounded-full bg-gradient-to-r from-violet-600 via-indigo-500 to-cyan-400 transition-all duration-700 shadow-sm"
+                    className="h-full rounded-full bg-gradient-to-r from-[#4F6DF5] to-[#60A5FA] transition-all duration-700 shadow-sm"
                     style={{ width: `${Math.max(3, target.achievementPercent)}%` }}
                   />
                 </div>
@@ -564,12 +570,12 @@ export function AdminOverviewClient({ initialData }: AdminOverviewClientProps) {
                 </span>
               </div>
             </div>
-          </div>
+          </Card>
 
           {/* 2. 2x2 Main KPI Grid */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-5">
             {/* Payment KPI Card */}
-            <div className="p-5 rounded-2xl bg-white/75 dark:bg-[#0c1322]/70 backdrop-blur-xl border border-slate-200/80 dark:border-white/[0.08] shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-[0_8px_30px_rgb(0,0,0,0.25)] flex flex-col justify-between hover:border-emerald-500/40 transition-all group">
+            <Card className="p-5 flex flex-col justify-between hover:border-emerald-500/40 transition-all group">
               <div className="flex items-start justify-between gap-3">
                 <div className="p-2.5 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
                   <IndianRupee className="size-5" />
@@ -597,10 +603,10 @@ export function AdminOverviewClient({ initialData }: AdminOverviewClientProps) {
                   {payment.totalApprovedCount} approved
                 </span>
               </div>
-            </div>
+            </Card>
 
             {/* Clients KPI Card (with donut visual) */}
-            <div className="p-5 rounded-2xl bg-white/75 dark:bg-[#0c1322]/70 backdrop-blur-xl border border-slate-200/80 dark:border-white/[0.08] shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-[0_8px_30px_rgb(0,0,0,0.25)] flex flex-col justify-between hover:border-cyan-500/40 transition-all group">
+            <Card className="p-5 flex flex-col justify-between hover:border-cyan-500/40 transition-all group">
               <div className="flex items-start justify-between gap-3">
                 <div className="p-2.5 rounded-xl bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 border border-cyan-500/20">
                   <UserCheck className="size-5" />
@@ -673,10 +679,10 @@ export function AdminOverviewClient({ initialData }: AdminOverviewClientProps) {
                   {clients.totalClients} Total
                 </span>
               </div>
-            </div>
+            </Card>
 
             {/* Callback KPI Card */}
-            <div className="p-5 rounded-2xl bg-white/75 dark:bg-[#0c1322]/70 backdrop-blur-xl border border-slate-200/80 dark:border-white/[0.08] shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-[0_8px_30px_rgb(0,0,0,0.25)] flex flex-col justify-between hover:border-amber-500/40 transition-all group">
+            <Card className="p-5 flex flex-col justify-between hover:border-amber-500/40 transition-all group">
               <div className="flex items-start justify-between gap-3">
                 <div className="p-2.5 rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
                   <Bell className="size-5" />
@@ -718,12 +724,12 @@ export function AdminOverviewClient({ initialData }: AdminOverviewClientProps) {
                   {callbacks.totalCallbacks} Scheduled
                 </span>
               </div>
-            </div>
+            </Card>
 
             {/* Followups KPI Card (with donut visual) */}
-            <div className="p-5 rounded-2xl bg-white/75 dark:bg-[#0c1322]/70 backdrop-blur-xl border border-slate-200/80 dark:border-white/[0.08] shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-[0_8px_30px_rgb(0,0,0,0.25)] flex flex-col justify-between hover:border-violet-500/40 transition-all group">
+            <Card className="p-5 flex flex-col justify-between hover:border-[#4F6DF5]/40 transition-all group">
               <div className="flex items-start justify-between gap-3">
-                <div className="p-2.5 rounded-xl bg-violet-500/10 text-violet-600 dark:text-violet-400 border border-violet-500/20">
+                <div className="p-2.5 rounded-xl bg-[#4F6DF5]/10 text-[#4F6DF5] dark:text-[#60A5FA] border border-[#4F6DF5]/20">
                   <Calendar className="size-5" />
                 </div>
 
@@ -772,7 +778,7 @@ export function AdminOverviewClient({ initialData }: AdminOverviewClientProps) {
                         cy="18"
                         r="15.5"
                         fill="none"
-                        className="stroke-amber-500 transition-all duration-500"
+                        className="stroke-[#4F6DF5] transition-all duration-500"
                         strokeWidth="3.5"
                         strokeDasharray={calculateCircleDash(
                           followups.pendingFollowups,
@@ -794,11 +800,11 @@ export function AdminOverviewClient({ initialData }: AdminOverviewClientProps) {
                   {followups.totalFollowups} Total
                 </span>
               </div>
-            </div>
+            </Card>
           </div>
 
           {/* 3. Today Activity Strip */}
-          <div className="p-5 rounded-2xl bg-white/75 dark:bg-[#0c1322]/70 backdrop-blur-xl border border-slate-200/80 dark:border-white/[0.08] shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-[0_8px_30px_rgb(0,0,0,0.25)] flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <Card className="p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div className="flex items-center gap-3 shrink-0">
               <div className="p-2.5 rounded-xl bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20">
                 <Activity className="size-5" />
@@ -839,7 +845,7 @@ export function AdminOverviewClient({ initialData }: AdminOverviewClientProps) {
                 </span>
               </div>
               <div className="sm:pl-4">
-                <div className="text-xl font-black text-indigo-600 dark:text-indigo-400">
+                <div className="text-xl font-black text-[#4F6DF5] dark:text-[#60A5FA]">
                   {todayActivity.updatedToday}
                 </div>
                 <span className="text-[11px] font-medium text-slate-500 dark:text-slate-400">
@@ -847,13 +853,14 @@ export function AdminOverviewClient({ initialData }: AdminOverviewClientProps) {
                 </span>
               </div>
             </div>
-          </div>
+          </Card>
         </div>
 
         {/* Right Section (5 of 12 cols on XL): Tabs & Lead Status Strip */}
+        {/* Right Section (5 of 12 cols on XL): Tabs & Lead Status Strip */}
         <div className="xl:col-span-5 space-y-6">
           {/* Interactive Reminders / Payments / Events Tab Panel */}
-          <div className="rounded-2xl bg-white/75 dark:bg-[#0c1322]/70 backdrop-blur-xl border border-slate-200/80 dark:border-white/[0.08] shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-[0_8px_30px_rgb(0,0,0,0.25)] overflow-hidden flex flex-col h-[340px]">
+          <Card className="overflow-hidden flex flex-col h-[340px]">
             {/* Tab Navigation Bar */}
             <div className="p-2 sm:p-2.5 bg-slate-100/70 dark:bg-white/[0.03] border-b border-slate-200/80 dark:border-white/[0.06] flex items-center justify-between gap-1 overflow-x-auto">
               <div className="flex items-center gap-1 min-w-0">
@@ -861,7 +868,7 @@ export function AdminOverviewClient({ initialData }: AdminOverviewClientProps) {
                   onClick={() => setActiveTab("reminders")}
                   className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all shrink-0 ${
                     activeTab === "reminders"
-                      ? "bg-violet-600 text-white shadow-md shadow-violet-600/30"
+                      ? "bg-[#4F6DF5] text-white shadow-md shadow-[#4F6DF5]/30"
                       : "text-slate-600 dark:text-slate-300 hover:bg-slate-200/60 dark:hover:bg-white/[0.06]"
                   }`}
                 >
@@ -882,7 +889,7 @@ export function AdminOverviewClient({ initialData }: AdminOverviewClientProps) {
                   onClick={() => setActiveTab("payments")}
                   className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all shrink-0 ${
                     activeTab === "payments"
-                      ? "bg-violet-600 text-white shadow-md shadow-violet-600/30"
+                      ? "bg-[#4F6DF5] text-white shadow-md shadow-[#4F6DF5]/30"
                       : "text-slate-600 dark:text-slate-300 hover:bg-slate-200/60 dark:hover:bg-white/[0.06]"
                   }`}
                 >
@@ -903,7 +910,7 @@ export function AdminOverviewClient({ initialData }: AdminOverviewClientProps) {
                   onClick={() => setActiveTab("events")}
                   className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all shrink-0 ${
                     activeTab === "events"
-                      ? "bg-violet-600 text-white shadow-md shadow-violet-600/30"
+                      ? "bg-[#4F6DF5] text-white shadow-md shadow-[#4F6DF5]/30"
                       : "text-slate-600 dark:text-slate-300 hover:bg-slate-200/60 dark:hover:bg-white/[0.06]"
                   }`}
                 >
@@ -955,11 +962,11 @@ export function AdminOverviewClient({ initialData }: AdminOverviewClientProps) {
                       >
                         <div className="min-w-0 space-y-0.5">
                           <div className="flex items-center gap-2">
-                            <span className="text-xs font-bold text-slate-900 dark:text-slate-100 truncate group-hover:text-violet-600 dark:group-hover:text-violet-400">
+                            <span className="text-xs font-bold text-slate-900 dark:text-slate-100 truncate group-hover:text-[#4F6DF5] dark:group-hover:text-[#60A5FA]">
                               {reminder.name}
                             </span>
                             {reminder.leadResponse && (
-                              <span className="px-2 py-0.2 rounded-full text-[10px] font-semibold bg-violet-500/10 text-violet-700 dark:text-violet-300 border border-violet-500/20">
+                              <span className="px-2 py-0.2 rounded-full text-[10px] font-semibold bg-[#4F6DF5]/10 text-[#4F6DF5] dark:text-[#60A5FA] border border-[#4F6DF5]/20">
                                 {reminder.leadResponse}
                               </span>
                             )}
@@ -1070,17 +1077,17 @@ export function AdminOverviewClient({ initialData }: AdminOverviewClientProps) {
                 </>
               )}
             </div>
-          </div>
+          </Card>
 
           {/* Lead Status Strip (5 Segments with direct quick filters) */}
-          <div className="p-4 sm:p-5 rounded-2xl bg-white/75 dark:bg-[#0c1322]/70 backdrop-blur-xl border border-slate-200/80 dark:border-white/[0.08] shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-[0_8px_30px_rgb(0,0,0,0.25)]">
+          <Card className="p-4 sm:p-5">
             <div className="grid grid-cols-5 gap-2 text-center divide-x divide-slate-200 dark:divide-white/[0.06]">
               {/* Unread */}
               <Link
                 href="/admin/leads?status=UNREAD"
                 className="group flex flex-col items-center hover:opacity-80 transition-opacity"
               >
-                <div className="text-base sm:text-xl font-black text-slate-900 dark:text-white group-hover:text-violet-600 transition-colors">
+                <div className="text-base sm:text-xl font-black text-slate-900 dark:text-white group-hover:text-[#4F6DF5] transition-colors">
                   {leadStatusStrip.unreadCount}
                 </div>
                 <span className="text-[10px] sm:text-xs font-semibold text-slate-500 dark:text-slate-400">
@@ -1093,7 +1100,7 @@ export function AdminOverviewClient({ initialData }: AdminOverviewClientProps) {
                 href="/admin/leads?status=READ"
                 className="group flex flex-col items-center pl-1 hover:opacity-80 transition-opacity"
               >
-                <div className="text-base sm:text-xl font-black text-slate-900 dark:text-white group-hover:text-blue-600 transition-colors">
+                <div className="text-base sm:text-xl font-black text-slate-900 dark:text-white group-hover:text-[#4F6DF5] transition-colors">
                   {leadStatusStrip.readCount}
                 </div>
                 <span className="text-[10px] sm:text-xs font-semibold text-slate-500 dark:text-slate-400">
@@ -1132,7 +1139,7 @@ export function AdminOverviewClient({ initialData }: AdminOverviewClientProps) {
                 href="/admin/leads"
                 className="group flex flex-col items-center pl-1 hover:opacity-80 transition-opacity"
               >
-                <div className="text-base sm:text-xl font-black text-slate-900 dark:text-white group-hover:text-violet-600 transition-colors">
+                <div className="text-base sm:text-xl font-black text-slate-900 dark:text-white group-hover:text-[#4F6DF5] transition-colors">
                   {leadStatusStrip.totalLeadsCount}
                 </div>
                 <span className="text-[10px] sm:text-xs font-bold text-slate-700 dark:text-slate-300">
@@ -1140,14 +1147,14 @@ export function AdminOverviewClient({ initialData }: AdminOverviewClientProps) {
                 </span>
               </Link>
             </div>
-          </div>
+          </Card>
         </div>
       </div>
 
       {/* STEP 2: 2-Column Reports Row (New Followup Report & Lead Fetch Report) */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* CARD 1: New Followup Report */}
-        <div className="p-5 sm:p-6 rounded-2xl bg-white/75 dark:bg-[#0c1322]/70 backdrop-blur-xl border border-slate-200/80 dark:border-white/[0.08] shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-[0_8px_30px_rgb(0,0,0,0.25)] flex flex-col justify-between">
+        <Card className="p-5 sm:p-6 flex flex-col justify-between">
           <div>
             {/* Card Header matching Admin Dash1.jpg */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-slate-200/80 dark:border-white/[0.06]">
@@ -1163,7 +1170,7 @@ export function AdminOverviewClient({ initialData }: AdminOverviewClientProps) {
                 <select
                   value={followupEmployeeFilter}
                   onChange={(e) => setFollowupEmployeeFilter(e.target.value)}
-                  className="text-xs px-2.5 py-1.5 rounded-xl bg-slate-100 dark:bg-white/[0.05] border border-slate-200 dark:border-white/[0.08] text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-1 focus:ring-violet-500"
+                  className="text-xs px-2.5 py-1.5 rounded-xl bg-slate-100 dark:bg-white/[0.05] border border-slate-200 dark:border-white/[0.08] text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-1 focus:ring-[#4F6DF5]"
                 >
                   <option value="ALL">Employee (All)</option>
                   {charts.employees.map((emp) => (
@@ -1176,7 +1183,7 @@ export function AdminOverviewClient({ initialData }: AdminOverviewClientProps) {
                 <select
                   value={followupTeamFilter}
                   onChange={(e) => setFollowupTeamFilter(e.target.value)}
-                  className="text-xs px-2.5 py-1.5 rounded-xl bg-slate-100 dark:bg-white/[0.05] border border-slate-200 dark:border-white/[0.08] text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-1 focus:ring-violet-500"
+                  className="text-xs px-2.5 py-1.5 rounded-xl bg-slate-100 dark:bg-white/[0.05] border border-slate-200 dark:border-white/[0.08] text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-1 focus:ring-[#4F6DF5]"
                 >
                   <option value="ALL">Team Wise</option>
                   {charts.teams.map((tm) => (
@@ -1252,7 +1259,7 @@ export function AdminOverviewClient({ initialData }: AdminOverviewClientProps) {
 
                         {/* Bar */}
                         <div
-                          className="w-full rounded-t-md bg-blue-600 dark:bg-blue-500 hover:bg-blue-500 dark:hover:bg-blue-400 transition-all duration-300 shadow-sm"
+                          className="w-full rounded-t-md bg-[#4F6DF5] hover:bg-[#3d5bd9] dark:hover:bg-[#60A5FA] transition-all duration-300 shadow-sm"
                           style={{ height: `${heightPercent}%` }}
                         />
 
@@ -1270,14 +1277,14 @@ export function AdminOverviewClient({ initialData }: AdminOverviewClientProps) {
 
           <div className="pt-3 border-t border-slate-200/80 dark:border-white/[0.06] flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-400">
             <span>Real-time follow-up chronology</span>
-            <span className="font-semibold text-blue-600 dark:text-blue-400">
+            <span className="font-semibold text-[#4F6DF5] dark:text-[#60A5FA]">
               {filteredFollowupPoints.reduce((acc, curr) => acc + curr.count, 0)} total logged
             </span>
           </div>
-        </div>
+        </Card>
 
         {/* CARD 2: Lead Fetch Report */}
-        <div className="p-5 sm:p-6 rounded-2xl bg-white/75 dark:bg-[#0c1322]/70 backdrop-blur-xl border border-slate-200/80 dark:border-white/[0.08] shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-[0_8px_30px_rgb(0,0,0,0.25)] flex flex-col justify-between">
+        <Card className="p-5 sm:p-6 flex flex-col justify-between">
           <div>
             {/* Card Header matching Admin Dash1.jpg */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-slate-200/80 dark:border-white/[0.06]">
@@ -1293,7 +1300,7 @@ export function AdminOverviewClient({ initialData }: AdminOverviewClientProps) {
                 <select
                   value={fetchEmployeeFilter}
                   onChange={(e) => setFetchEmployeeFilter(e.target.value)}
-                  className="text-xs px-2.5 py-1.5 rounded-xl bg-slate-100 dark:bg-white/[0.05] border border-slate-200 dark:border-white/[0.08] text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-1 focus:ring-violet-500"
+                  className="text-xs px-2.5 py-1.5 rounded-xl bg-slate-100 dark:bg-white/[0.05] border border-slate-200 dark:border-white/[0.08] text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-1 focus:ring-[#4F6DF5]"
                 >
                   <option value="ALL">Employee (All)</option>
                   {charts.employees.map((emp) => (
@@ -1306,7 +1313,7 @@ export function AdminOverviewClient({ initialData }: AdminOverviewClientProps) {
                 <select
                   value={fetchTeamFilter}
                   onChange={(e) => setFetchTeamFilter(e.target.value)}
-                  className="text-xs px-2.5 py-1.5 rounded-xl bg-slate-100 dark:bg-white/[0.05] border border-slate-200 dark:border-white/[0.08] text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-1 focus:ring-violet-500"
+                  className="text-xs px-2.5 py-1.5 rounded-xl bg-slate-100 dark:bg-white/[0.05] border border-slate-200 dark:border-white/[0.08] text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-1 focus:ring-[#4F6DF5]"
                 >
                   <option value="ALL">Team Wise</option>
                   {charts.teams.map((tm) => (
@@ -1379,7 +1386,7 @@ export function AdminOverviewClient({ initialData }: AdminOverviewClientProps) {
                       {isHovered && (
                         <div className="absolute -top-12 z-30 px-2 py-1 rounded-lg bg-slate-900 text-white dark:bg-white dark:text-slate-900 text-[10px] font-bold shadow-xl whitespace-nowrap animate-in fade-in zoom-in-95 pointer-events-none">
                           <p className="underline">{pt.source}</p>
-                          <p className="text-blue-400 dark:text-blue-600">Limit: {pt.fetchLimit}</p>
+                          <p className="text-[#4F6DF5] dark:text-[#60A5FA]">Limit: {pt.fetchLimit}</p>
                           <p className="text-cyan-400 dark:text-cyan-600">
                             Today: {pt.todayFetched} | Total: {pt.totalFetched}
                           </p>
@@ -1390,7 +1397,7 @@ export function AdminOverviewClient({ initialData }: AdminOverviewClientProps) {
                       <div className="w-full flex items-end justify-center gap-0.5 h-full">
                         {/* Bar 1: Fetch Limit */}
                         <div
-                          className="w-1/2 rounded-t-xs bg-blue-600 dark:bg-blue-500 hover:brightness-110 transition-all duration-300"
+                          className="w-1/2 rounded-t-xs bg-[#4F6DF5] hover:brightness-110 transition-all duration-300"
                           style={{ height: `${limitHeight}%` }}
                         />
                         {/* Bar 2: Fetched Count */}
@@ -1413,7 +1420,7 @@ export function AdminOverviewClient({ initialData }: AdminOverviewClientProps) {
             {/* Bottom Legend matching Admin Dash1.jpg */}
             <div className="pt-2 flex items-center justify-center gap-5 text-xs text-slate-600 dark:text-slate-300">
               <div className="flex items-center gap-1.5">
-                <span className="size-2.5 rounded-xs bg-blue-600 dark:bg-blue-500" />
+                <span className="size-2.5 rounded-xs bg-[#4F6DF5]" />
                 <span className="text-[11px] font-medium">Fetch Limit</span>
               </div>
               <div className="flex items-center gap-1.5">
@@ -1429,13 +1436,13 @@ export function AdminOverviewClient({ initialData }: AdminOverviewClientProps) {
               {charts.fetchRecords.length} fetch requests logged
             </span>
           </div>
-        </div>
+        </Card>
       </div>
 
       {/* STEP 3: 2-Column Reports Row (Payment Daily Report & Calling Report) */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* CARD 1: Payment Daily Report */}
-        <div className="p-5 sm:p-6 rounded-2xl bg-white/75 dark:bg-[#0c1322]/70 backdrop-blur-xl border border-slate-200/80 dark:border-white/[0.08] shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-[0_8px_30px_rgb(0,0,0,0.25)] flex flex-col justify-between">
+        <Card className="p-5 sm:p-6 flex flex-col justify-between">
           <div>
             {/* Card Header matching Admin Dash2.jpg */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-slate-200/80 dark:border-white/[0.06]">
@@ -1451,7 +1458,7 @@ export function AdminOverviewClient({ initialData }: AdminOverviewClientProps) {
                 <select
                   value={paymentEmployeeFilter}
                   onChange={(e) => setPaymentEmployeeFilter(e.target.value)}
-                  className="text-xs px-2.5 py-1.5 rounded-xl bg-slate-100 dark:bg-white/[0.05] border border-slate-200 dark:border-white/[0.08] text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-1 focus:ring-violet-500"
+                  className="text-xs px-2.5 py-1.5 rounded-xl bg-slate-100 dark:bg-white/[0.05] border border-slate-200 dark:border-white/[0.08] text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-1 focus:ring-[#4F6DF5]"
                 >
                   <option value="ALL">Employee (All)</option>
                   {charts.employees.map((emp) => (
@@ -1464,7 +1471,7 @@ export function AdminOverviewClient({ initialData }: AdminOverviewClientProps) {
                 <select
                   value={paymentTeamFilter}
                   onChange={(e) => setPaymentTeamFilter(e.target.value)}
-                  className="text-xs px-2.5 py-1.5 rounded-xl bg-slate-100 dark:bg-white/[0.05] border border-slate-200 dark:border-white/[0.08] text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-1 focus:ring-violet-500"
+                  className="text-xs px-2.5 py-1.5 rounded-xl bg-slate-100 dark:bg-white/[0.05] border border-slate-200 dark:border-white/[0.08] text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-1 focus:ring-[#4F6DF5]"
                 >
                   <option value="ALL">Team Wise</option>
                   {charts.teams.map((tm) => (
@@ -1540,7 +1547,7 @@ export function AdminOverviewClient({ initialData }: AdminOverviewClientProps) {
 
                         {/* Bar */}
                         <div
-                          className="w-full rounded-t-md bg-blue-600 dark:bg-blue-500 hover:bg-blue-500 dark:hover:bg-blue-400 transition-all duration-300 shadow-sm"
+                          className="w-full rounded-t-md bg-[#4F6DF5] hover:bg-[#3d5bd9] dark:hover:bg-[#60A5FA] transition-all duration-300 shadow-sm"
                           style={{ height: `${heightPercent}%` }}
                         />
 
@@ -1558,7 +1565,7 @@ export function AdminOverviewClient({ initialData }: AdminOverviewClientProps) {
 
           {/* Bottom Summary Bar matching Admin Dash2.jpg */}
           <div className="pt-4 border-t border-slate-200/80 dark:border-white/[0.06] flex flex-col sm:flex-row items-center justify-between gap-2.5">
-            <div className="w-full sm:w-auto px-3.5 py-1.5 rounded-xl bg-blue-500/10 border border-blue-500/20 text-blue-700 dark:text-blue-300 text-xs font-semibold text-center">
+            <div className="w-full sm:w-auto px-3.5 py-1.5 rounded-xl bg-[#4F6DF5]/10 border border-[#4F6DF5]/20 text-[#4F6DF5] dark:text-[#60A5FA] text-xs font-semibold text-center">
               Target : Rs.{formatINR(target.targetAmount)}/-
             </div>
             <div className="w-full sm:w-auto px-4 py-1.5 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-700 dark:text-rose-300 text-xs font-bold text-center">
@@ -1568,10 +1575,10 @@ export function AdminOverviewClient({ initialData }: AdminOverviewClientProps) {
               Achieved : Rs.{formatINR(target.achievedAmount)}/-
             </div>
           </div>
-        </div>
+        </Card>
 
         {/* CARD 2: Calling Report */}
-        <div className="p-5 sm:p-6 rounded-2xl bg-white/75 dark:bg-[#0c1322]/70 backdrop-blur-xl border border-slate-200/80 dark:border-white/[0.08] shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-[0_8px_30px_rgb(0,0,0,0.25)] flex flex-col justify-between">
+        <Card className="p-5 sm:p-6 flex flex-col justify-between">
           <div>
             {/* Card Header matching Admin Dash2.jpg */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-slate-200/80 dark:border-white/[0.06]">
@@ -1587,7 +1594,7 @@ export function AdminOverviewClient({ initialData }: AdminOverviewClientProps) {
                 <select
                   value={callingEmployeeFilter}
                   onChange={(e) => setCallingEmployeeFilter(e.target.value)}
-                  className="text-xs px-2.5 py-1.5 rounded-xl bg-slate-100 dark:bg-white/[0.05] border border-slate-200 dark:border-white/[0.08] text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-1 focus:ring-violet-500 min-w-[130px]"
+                  className="text-xs px-2.5 py-1.5 rounded-xl bg-slate-100 dark:bg-white/[0.05] border border-slate-200 dark:border-white/[0.08] text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-1 focus:ring-[#4F6DF5] min-w-[130px]"
                 >
                   <option value="ALL">All Callers / Admins</option>
                   {charts.employees.map((emp) => (
@@ -1738,11 +1745,11 @@ export function AdminOverviewClient({ initialData }: AdminOverviewClientProps) {
 
           <div className="pt-3 border-t border-slate-200/80 dark:border-white/[0.06] flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-400">
             <span>Telecalling system registry</span>
-            <span className="font-semibold text-violet-600 dark:text-violet-400">
+            <span className="font-semibold text-[#4F6DF5] dark:text-[#60A5FA]">
               {charts.callingRecords.length} total call logs
             </span>
           </div>
-        </div>
+        </Card>
       </div>
 
       {/* STEP 4: Interactive Lead Report Section with Tab Switching (Admin Dash2/Dash3) */}
@@ -1753,7 +1760,7 @@ export function AdminOverviewClient({ initialData }: AdminOverviewClientProps) {
             onClick={() => setActiveReportTab("leadReport")}
             className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold transition-all shrink-0 ${
               activeReportTab === "leadReport"
-                ? "bg-blue-600 text-white shadow-md shadow-blue-600/30"
+                ? "bg-[#4F6DF5] text-white shadow-md shadow-[#4F6DF5]/30"
                 : "bg-white/70 dark:bg-[#0c1322]/70 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/[0.05] border border-slate-200/80 dark:border-white/[0.08]"
             }`}
           >
@@ -1765,7 +1772,7 @@ export function AdminOverviewClient({ initialData }: AdminOverviewClientProps) {
             onClick={() => setActiveReportTab("leadRecord")}
             className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold transition-all shrink-0 ${
               activeReportTab === "leadRecord"
-                ? "bg-blue-600 text-white shadow-md shadow-blue-600/30"
+                ? "bg-[#4F6DF5] text-white shadow-md shadow-[#4F6DF5]/30"
                 : "bg-white/70 dark:bg-[#0c1322]/70 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/[0.05] border border-slate-200/80 dark:border-white/[0.08]"
             }`}
           >
@@ -1777,7 +1784,7 @@ export function AdminOverviewClient({ initialData }: AdminOverviewClientProps) {
             onClick={() => setActiveReportTab("performance")}
             className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold transition-all shrink-0 ${
               activeReportTab === "performance"
-                ? "bg-blue-600 text-white shadow-md shadow-blue-600/30"
+                ? "bg-[#4F6DF5] text-white shadow-md shadow-[#4F6DF5]/30"
                 : "bg-white/70 dark:bg-[#0c1322]/70 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/[0.05] border border-slate-200/80 dark:border-white/[0.08]"
             }`}
           >
@@ -1789,7 +1796,7 @@ export function AdminOverviewClient({ initialData }: AdminOverviewClientProps) {
             onClick={() => setActiveReportTab("leadBalance")}
             className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold transition-all shrink-0 ${
               activeReportTab === "leadBalance"
-                ? "bg-blue-600 text-white shadow-md shadow-blue-600/30"
+                ? "bg-[#4F6DF5] text-white shadow-md shadow-[#4F6DF5]/30"
                 : "bg-white/70 dark:bg-[#0c1322]/70 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/[0.05] border border-slate-200/80 dark:border-white/[0.08]"
             }`}
           >
@@ -1801,7 +1808,7 @@ export function AdminOverviewClient({ initialData }: AdminOverviewClientProps) {
             onClick={() => setActiveReportTab("monthlySales")}
             className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold transition-all shrink-0 ${
               activeReportTab === "monthlySales"
-                ? "bg-blue-600 text-white shadow-md shadow-blue-600/30"
+                ? "bg-[#4F6DF5] text-white shadow-md shadow-[#4F6DF5]/30"
                 : "bg-white/70 dark:bg-[#0c1322]/70 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/[0.05] border border-slate-200/80 dark:border-white/[0.08]"
             }`}
           >
@@ -1812,7 +1819,7 @@ export function AdminOverviewClient({ initialData }: AdminOverviewClientProps) {
 
         {/* TAB 1: Lead Report (Horizontal Bar Chart + Left Filter Panel) */}
         {activeReportTab === "leadReport" && (
-          <div className="p-5 sm:p-6 rounded-2xl bg-white/75 dark:bg-[#0c1322]/70 backdrop-blur-xl border border-slate-200/80 dark:border-white/[0.08] shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-[0_8px_30px_rgb(0,0,0,0.25)]">
+          <Card className="p-5 sm:p-6">
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
               {/* Left Filter Panel (3 of 12 cols) */}
               <div className="lg:col-span-3 space-y-4 p-4 rounded-xl bg-slate-50/80 dark:bg-white/[0.02] border border-slate-200/70 dark:border-white/[0.06]">
@@ -1839,7 +1846,7 @@ export function AdminOverviewClient({ initialData }: AdminOverviewClientProps) {
                   <select
                     value={reportSourceFilter}
                     onChange={(e) => setReportSourceFilter(e.target.value)}
-                    className="w-full text-xs px-3 py-2 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/[0.08] text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    className="w-full text-xs px-3 py-2 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/[0.08] text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-1 focus:ring-[#4F6DF5]"
                   >
                     <option value="ALL">All Source</option>
                     {charts.knownSources.map((src) => (
@@ -1861,14 +1868,14 @@ export function AdminOverviewClient({ initialData }: AdminOverviewClientProps) {
                       value={reportStartDate}
                       onChange={(e) => setReportStartDate(e.target.value)}
                       placeholder="From"
-                      className="w-full text-xs px-2 py-1.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/[0.08] text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                      className="w-full text-xs px-2 py-1.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/[0.08] text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-1 focus:ring-[#4F6DF5]"
                     />
                     <input
                       type="date"
                       value={reportEndDate}
                       onChange={(e) => setReportEndDate(e.target.value)}
                       placeholder="To"
-                      className="w-full text-xs px-2 py-1.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/[0.08] text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                      className="w-full text-xs px-2 py-1.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/[0.08] text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-1 focus:ring-[#4F6DF5]"
                     />
                   </div>
                 </div>
@@ -1881,7 +1888,7 @@ export function AdminOverviewClient({ initialData }: AdminOverviewClientProps) {
                   <select
                     value={reportEmployeeFilter}
                     onChange={(e) => setReportEmployeeFilter(e.target.value)}
-                    className="w-full text-xs px-3 py-2 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/[0.08] text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    className="w-full text-xs px-3 py-2 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/[0.08] text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-1 focus:ring-[#4F6DF5]"
                   >
                     <option value="ALL">All Employee</option>
                     {charts.employees.map((emp) => (
@@ -1900,7 +1907,7 @@ export function AdminOverviewClient({ initialData }: AdminOverviewClientProps) {
                   <select
                     value={reportTeamFilter}
                     onChange={(e) => setReportTeamFilter(e.target.value)}
-                    className="w-full text-xs px-3 py-2 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/[0.08] text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    className="w-full text-xs px-3 py-2 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/[0.08] text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-1 focus:ring-[#4F6DF5]"
                   >
                     <option value="ALL">All Teams</option>
                     {charts.teams.map((tm) => (
@@ -1916,7 +1923,7 @@ export function AdminOverviewClient({ initialData }: AdminOverviewClientProps) {
               <div className="lg:col-span-9 space-y-4">
                 <div className="flex items-center justify-between pb-2 border-b border-slate-200/80 dark:border-white/[0.06]">
                   <h3 className="text-sm font-bold text-slate-900 dark:text-white">
-                    Total Leads: <span className="text-blue-600 dark:text-blue-400">{filteredReportLeads.length}</span>
+                    Total Leads: <span className="text-[#4F6DF5] dark:text-[#60A5FA]">{filteredReportLeads.length}</span>
                   </h3>
                   <span className="text-[11px] text-slate-400 font-mono">
                     Live Disposition Breakdown
@@ -1944,7 +1951,7 @@ export function AdminOverviewClient({ initialData }: AdminOverviewClientProps) {
                         {/* Bar Track & Fill */}
                         <div className="flex-1 h-3.5 bg-slate-100 dark:bg-slate-800/80 rounded-r-md overflow-hidden relative">
                           <div
-                            className="h-full bg-blue-600 dark:bg-blue-500 group-hover:bg-blue-500 dark:group-hover:bg-blue-400 rounded-r-md transition-all duration-500 shadow-sm"
+                            className="h-full bg-[#4F6DF5] group-hover:bg-[#60A5FA] rounded-r-md transition-all duration-500 shadow-sm"
                             style={{ width: `${widthPercent}%` }}
                           />
                         </div>
@@ -1979,18 +1986,18 @@ export function AdminOverviewClient({ initialData }: AdminOverviewClientProps) {
                 </div>
               </div>
             </div>
-          </div>
+          </Card>
         )}
 
         {/* TAB 2: Lead Record */}
         {activeReportTab === "leadRecord" && (
-          <div className="p-5 sm:p-6 rounded-2xl bg-white/75 dark:bg-[#0c1322]/70 backdrop-blur-xl border border-slate-200/80 dark:border-white/[0.08] shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-[0_8px_30px_rgb(0,0,0,0.25)] space-y-4">
+          <Card className="p-5 sm:p-6 space-y-4">
             <div className="flex items-center justify-between pb-3 border-b border-slate-200/80 dark:border-white/[0.06]">
               <div>
                 <h3 className="text-sm font-bold text-slate-900 dark:text-white">Lead Record Registry</h3>
                 <p className="text-[11px] text-slate-500">Real database records matching filter parameters</p>
               </div>
-              <span className="text-xs font-semibold text-blue-600 dark:text-blue-400">
+              <span className="text-xs font-semibold text-[#4F6DF5] dark:text-[#60A5FA]">
                 {filteredReportLeads.length} leads
               </span>
             </div>
@@ -2015,7 +2022,7 @@ export function AdminOverviewClient({ initialData }: AdminOverviewClientProps) {
                       <td className="py-2.5 font-mono text-slate-500">{l.mobile}</td>
                       <td className="py-2.5 text-slate-600 dark:text-slate-300">{l.leadSource || "DIRECT"}</td>
                       <td className="py-2.5">
-                        <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-blue-500/10 text-blue-700 dark:text-blue-300 border border-blue-500/20">
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-[#4F6DF5]/10 text-[#4F6DF5] dark:text-[#60A5FA] border border-[#4F6DF5]/20">
                           {l.status}
                         </span>
                       </td>
@@ -2031,18 +2038,18 @@ export function AdminOverviewClient({ initialData }: AdminOverviewClientProps) {
                 </tbody>
               </table>
             </div>
-          </div>
+          </Card>
         )}
 
         {/* TAB 3: Performance Report */}
         {activeReportTab === "performance" && (
-          <div className="p-5 sm:p-6 rounded-2xl bg-white/75 dark:bg-[#0c1322]/70 backdrop-blur-xl border border-slate-200/80 dark:border-white/[0.08] shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-[0_8px_30px_rgb(0,0,0,0.25)] space-y-4">
+          <Card className="p-5 sm:p-6 space-y-4">
             <div className="flex items-center justify-between pb-3 border-b border-slate-200/80 dark:border-white/[0.06]">
               <div>
                 <h3 className="text-sm font-bold text-slate-900 dark:text-white">Employee Performance Matrix</h3>
                 <p className="text-[11px] text-slate-500">Activity and conversion metrics per operator</p>
               </div>
-              <span className="text-xs font-semibold text-blue-600 dark:text-blue-400">
+              <span className="text-xs font-semibold text-[#4F6DF5] dark:text-[#60A5FA]">
                 {leadReport.performance.length} active staff
               </span>
             </div>
@@ -2081,12 +2088,12 @@ export function AdminOverviewClient({ initialData }: AdminOverviewClientProps) {
                 </tbody>
               </table>
             </div>
-          </div>
+          </Card>
         )}
 
         {/* TAB 4: Lead Balance Report */}
         {activeReportTab === "leadBalance" && (
-          <div className="p-5 sm:p-6 rounded-2xl bg-white/75 dark:bg-[#0c1322]/70 backdrop-blur-xl border border-slate-200/80 dark:border-white/[0.08] shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-[0_8px_30px_rgb(0,0,0,0.25)] space-y-5">
+          <Card className="p-5 sm:p-6 space-y-5">
             <div className="pb-3 border-b border-slate-200/80 dark:border-white/[0.06]">
               <h3 className="text-sm font-bold text-slate-900 dark:text-white">Lead Balance & Quota Report</h3>
               <p className="text-[11px] text-slate-500">Allotment reserves, unassigned pools, and fetch quotas</p>
@@ -2109,11 +2116,11 @@ export function AdminOverviewClient({ initialData }: AdminOverviewClientProps) {
                 </div>
               </div>
 
-              <div className="p-4 rounded-xl bg-blue-500/10 border border-blue-500/20">
-                <span className="text-[10px] font-bold uppercase text-blue-700 dark:text-blue-300">
+              <div className="p-4 rounded-xl bg-[#4F6DF5]/10 border border-[#4F6DF5]/20">
+                <span className="text-[10px] font-bold uppercase text-[#4F6DF5] dark:text-[#60A5FA]">
                   Allotted Staff Leads
                 </span>
-                <div className="text-2xl font-black text-blue-600 dark:text-blue-400 mt-1">
+                <div className="text-2xl font-black text-[#4F6DF5] dark:text-[#60A5FA] mt-1">
                   {leadReport.balance.allottedLeads}
                 </div>
               </div>
@@ -2127,12 +2134,12 @@ export function AdminOverviewClient({ initialData }: AdminOverviewClientProps) {
                 </div>
               </div>
             </div>
-          </div>
+          </Card>
         )}
 
         {/* TAB 5: Monthly Sales Report */}
         {activeReportTab === "monthlySales" && (
-          <div className="p-5 sm:p-6 rounded-2xl bg-white/75 dark:bg-[#0c1322]/70 backdrop-blur-xl border border-slate-200/80 dark:border-white/[0.08] shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-[0_8px_30px_rgb(0,0,0,0.25)] space-y-5">
+          <Card className="p-5 sm:p-6 space-y-5">
             <div className="pb-3 border-b border-slate-200/80 dark:border-white/[0.06] flex items-center justify-between">
               <div>
                 <h3 className="text-sm font-bold text-slate-900 dark:text-white">Monthly Sales & Revenue Report</h3>
@@ -2144,9 +2151,9 @@ export function AdminOverviewClient({ initialData }: AdminOverviewClientProps) {
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <div className="p-4 rounded-xl bg-blue-500/10 border border-blue-500/20">
-                <span className="text-[10px] font-bold uppercase text-blue-700 dark:text-blue-300">Target</span>
-                <div className="text-2xl font-black text-blue-600 dark:text-blue-400 mt-1">
+              <div className="p-4 rounded-xl bg-[#4F6DF5]/10 border border-[#4F6DF5]/20">
+                <span className="text-[10px] font-bold uppercase text-[#4F6DF5] dark:text-[#60A5FA]">Target</span>
+                <div className="text-2xl font-black text-[#4F6DF5] dark:text-[#60A5FA] mt-1">
                   ₹{formatINR(target.targetAmount)}
                 </div>
               </div>
@@ -2167,7 +2174,7 @@ export function AdminOverviewClient({ initialData }: AdminOverviewClientProps) {
                 </div>
               </div>
             </div>
-          </div>
+          </Card>
         )}
       </div>
 
@@ -2241,7 +2248,7 @@ function LeaderboardCard({
   ];
 
   return (
-    <div className="p-5 sm:p-6 rounded-2xl bg-white/75 dark:bg-[#0c1322]/70 backdrop-blur-xl border border-slate-200/80 dark:border-white/[0.08] shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-[0_8px_30px_rgb(0,0,0,0.25)] flex flex-col justify-between">
+    <Card className="p-5 sm:p-6 flex flex-col justify-between">
       {/* Card Header matching Admin4.jpg & Admin5.jpg */}
       <div className="flex items-center justify-between pb-3 border-b border-slate-200/80 dark:border-white/[0.06]">
         <h3 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white">
@@ -2303,7 +2310,7 @@ function LeaderboardCard({
                 >
                   {/* Hover Tooltip */}
                   <div className="absolute bottom-full mb-2 opacity-0 group-hover:opacity-100 transition-all duration-200 pointer-events-none z-30 min-w-[160px] p-2.5 rounded-xl bg-slate-900/95 dark:bg-[#080d19]/95 text-white border border-white/10 shadow-2xl backdrop-blur-md text-[11px] space-y-1">
-                    <div className="font-bold text-xs text-blue-400">{item.displayName}</div>
+                    <div className="font-bold text-xs text-[#60A5FA]">{item.displayName}</div>
                     {item.subTitle && (
                       <div className="text-[10px] text-slate-400">{item.subTitle}</div>
                     )}
@@ -2321,7 +2328,7 @@ function LeaderboardCard({
                     </div>
                     <div className="flex justify-between">
                       <span className="text-slate-400">Achievement:</span>
-                      <span className="font-bold text-blue-400">
+                      <span className="font-bold text-[#60A5FA]">
                         {item.achievementPercent}%
                       </span>
                     </div>
@@ -2333,7 +2340,7 @@ function LeaderboardCard({
 
                   {/* Vertical Bar */}
                   <div
-                    className={`${barWidthClass} rounded-t-md bg-blue-600 dark:bg-blue-500 hover:bg-blue-500 dark:hover:bg-blue-400 transition-all duration-300 shadow-sm`}
+                    className={`${barWidthClass} rounded-t-md bg-gradient-to-t from-[#4F6DF5] to-[#60A5FA] hover:opacity-90 transition-all duration-300 shadow-sm`}
                     style={{ height: `${heightPercent}%` }}
                   />
                 </div>
@@ -2355,6 +2362,6 @@ function LeaderboardCard({
           </div>
         </div>
       )}
-    </div>
+    </Card>
   );
 }
