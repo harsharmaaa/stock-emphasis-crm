@@ -33,6 +33,7 @@ import {
   UserCheck2,
   SlidersHorizontal,
 } from "lucide-react";
+import { Badge } from "@/src/components/ui/Badge";
 
 interface AdminNavProps {
   isOpen: boolean;
@@ -257,7 +258,7 @@ export function AdminNav({
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [isOpen, onClose]);
 
-  // Clear notice after 3 seconds
+  // Clear notice after 3.5 seconds
   useEffect(() => {
     if (!activeNotice) return;
     const timer = setTimeout(() => setActiveNotice(null), 3500);
@@ -298,21 +299,21 @@ export function AdminNav({
   };
 
   const navContent = (
-    <div className="flex h-full flex-col justify-between bg-white/75 dark:bg-[#080d19]/80 backdrop-blur-2xl border-r border-slate-200/70 dark:border-white/[0.08] text-slate-800 dark:text-slate-100 transition-colors duration-200">
+    <div className="flex h-full flex-col justify-between bg-white/80 dark:bg-[#080d19]/85 backdrop-blur-2xl border-r border-slate-200/80 dark:border-white/[0.08] text-slate-800 dark:text-slate-100 transition-colors duration-200">
       <div className="flex-1 flex flex-col min-h-0">
         {/* Brand Header */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-slate-200/70 dark:border-white/[0.08]">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-slate-200/80 dark:border-white/[0.08]">
           <Link
             href="/admin"
-            className="flex items-center gap-3 group focus:outline-none"
+            className="flex items-center gap-3 group focus:outline-none focus-visible:ring-2 focus-visible:ring-[#4F6DF5] rounded-xl"
             onClick={onClose}
           >
-            <div className="flex items-center justify-center size-9 rounded-xl bg-gradient-to-br from-violet-600 via-indigo-600 to-cyan-500 text-white shadow-md shadow-violet-500/25 group-hover:scale-105 transition-transform shrink-0">
+            <div className="flex items-center justify-center size-9 rounded-xl bg-gradient-to-br from-[#4F6DF5] to-[#60A5FA] text-white shadow-md shadow-[#4F6DF5]/25 group-hover:scale-105 transition-transform shrink-0">
               <Boxes className="size-5" />
             </div>
             {!isCollapsed && (
               <div className="min-w-0">
-                <span className="block text-[10px] font-bold uppercase tracking-widest text-violet-600 dark:text-violet-400">
+                <span className="block text-[10px] font-bold uppercase tracking-widest text-[#4F6DF5] dark:text-[#60A5FA]">
                   Stock Emphasis
                 </span>
                 <h2 className="text-sm font-extrabold text-slate-900 dark:text-white tracking-tight truncate">
@@ -334,17 +335,17 @@ export function AdminNav({
 
         {/* Notice Banner for upcoming items */}
         {activeNotice && !isCollapsed && (
-          <div className="mx-3 mt-3 p-2.5 rounded-xl bg-violet-500/10 dark:bg-violet-500/15 border border-violet-500/20 dark:border-violet-500/30 text-violet-900 dark:text-violet-200 text-xs flex items-start gap-2 animate-in fade-in slide-in-from-top-1 duration-200">
-            <Sparkles className="size-4 text-violet-600 dark:text-violet-400 shrink-0 mt-0.5" />
+          <div className="mx-3 mt-3 p-2.5 rounded-xl bg-[#4F6DF5]/10 dark:bg-[#4F6DF5]/15 border border-[#4F6DF5]/25 dark:border-[#4F6DF5]/30 text-slate-900 dark:text-slate-100 text-xs flex items-start gap-2 animate-in fade-in slide-in-from-top-1 duration-200">
+            <Sparkles className="size-4 text-[#4F6DF5] dark:text-[#60A5FA] shrink-0 mt-0.5" />
             <div className="flex-1">
-              <p className="font-semibold text-[11px]">Roadmap Module</p>
-              <p className="text-[11px] text-violet-700 dark:text-violet-300/90 mt-0.5">
+              <p className="font-semibold text-[11px] text-[#4F6DF5] dark:text-[#60A5FA]">Roadmap Module</p>
+              <p className="text-[11px] text-slate-600 dark:text-slate-300 mt-0.5 leading-relaxed">
                 {activeNotice}
               </p>
             </div>
             <button
               onClick={() => setActiveNotice(null)}
-              className="text-violet-400 hover:text-violet-600 p-0.5"
+              className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-0.5 rounded transition-colors"
               aria-label="Dismiss notice"
             >
               <X className="size-3.5" />
@@ -388,7 +389,7 @@ export function AdminNav({
                 {!isGroupCollapsed && (
                   <nav className="space-y-1">
                     {group.items.map((item) => {
-                      const Icon = item.icon;
+                      const IconComponent = item.icon;
 
                       if (item.status === "active" && item.href) {
                         const active = isLinkActive(item);
@@ -400,24 +401,27 @@ export function AdminNav({
                             prefetch={true}
                             onClick={onClose}
                             title={isCollapsed ? item.title : undefined}
-                            className={`group relative flex items-center ${isCollapsed ? "justify-center px-2 py-2.5" : "justify-between px-3.5 py-2.5"
-                              } rounded-xl text-xs font-medium transition-all ${active
-                                ? "bg-violet-500/15 dark:bg-violet-500/20 text-violet-700 dark:text-violet-200 border border-violet-500/30 dark:border-violet-400/40 shadow-xs"
+                            className={`group relative flex items-center ${
+                              isCollapsed ? "justify-center px-2 py-2.5" : "justify-between px-3.5 py-2.5"
+                            } rounded-xl text-xs font-medium transition-all ${
+                              active
+                                ? "bg-[#4F6DF5]/12 dark:bg-[#4F6DF5]/20 text-[#4F6DF5] dark:text-[#60A5FA] border border-[#4F6DF5]/30 dark:border-[#4F6DF5]/40 font-semibold shadow-2xs"
                                 : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 hover:bg-slate-100/70 dark:hover:bg-white/[0.06] border border-transparent"
-                              }`}
+                            }`}
                           >
                             <div className="flex items-center gap-3 min-w-0">
-                              <Icon
-                                className={`size-4.5 shrink-0 transition-colors ${active
-                                    ? "text-violet-600 dark:text-violet-400"
+                              <IconComponent
+                                className={`size-4.5 shrink-0 transition-colors ${
+                                  active
+                                    ? "text-[#4F6DF5] dark:text-[#60A5FA]"
                                     : "text-slate-500 dark:text-slate-400 group-hover:text-slate-800 dark:group-hover:text-slate-200"
-                                  }`}
+                                }`}
                               />
                               {!isCollapsed && <span className="truncate">{item.title}</span>}
                             </div>
 
                             {active && !isCollapsed && (
-                              <div className="absolute right-0 top-1/2 -translate-y-1/2 w-1 h-5 rounded-l-full bg-violet-600 dark:bg-violet-400 shadow-[0_0_8px_rgba(139,92,246,0.6)]" />
+                              <div className="absolute right-0 top-1/2 -translate-y-1/2 w-1 h-5 rounded-l-full bg-[#4F6DF5] dark:bg-[#60A5FA] shadow-[0_0_8px_rgba(79,109,245,0.6)]" />
                             )}
                           </Link>
                         );
@@ -430,19 +434,20 @@ export function AdminNav({
                           type="button"
                           onClick={() => setActiveNotice(item.tooltip || `${item.title} is scheduled for Phase 2 development.`)}
                           title={isCollapsed ? `${item.title} (Upcoming)` : item.tooltip}
-                          className={`w-full group relative flex items-center ${isCollapsed ? "justify-center px-2 py-2.5" : "justify-between px-3.5 py-2"
-                            } rounded-xl text-xs font-medium text-slate-400 dark:text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-900/60 transition-all border border-transparent cursor-pointer`}
+                          className={`w-full group relative flex items-center ${
+                            isCollapsed ? "justify-center px-2 py-2.5" : "justify-between px-3.5 py-2"
+                          } rounded-xl text-xs font-medium text-slate-400 dark:text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-900/60 transition-all border border-transparent cursor-pointer`}
                           aria-disabled="true"
                         >
                           <div className="flex items-center gap-3 min-w-0">
-                            <Icon className="size-4 shrink-0 text-slate-400 dark:text-slate-400 group-hover:text-slate-500 dark:group-hover:text-slate-400 transition-colors" />
+                            <IconComponent className="size-4 shrink-0 text-slate-400 dark:text-slate-400 group-hover:text-slate-500 dark:group-hover:text-slate-400 transition-colors" />
                             {!isCollapsed && <span className="truncate text-slate-500 dark:text-slate-400">{item.title}</span>}
                           </div>
 
                           {!isCollapsed && item.badge && (
-                            <span className="px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider rounded-md bg-slate-100 dark:bg-slate-800/80 text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-700/60">
+                            <Badge tone="info">
                               {item.badge}
-                            </span>
+                            </Badge>
                           )}
                         </button>
                       );
@@ -456,10 +461,14 @@ export function AdminNav({
       </div>
 
       {/* Admin Identity & Collapse Footer */}
-      <div className="p-3 border-t border-slate-200/70 dark:border-white/[0.08] bg-slate-50/60 dark:bg-white/[0.02] space-y-2">
+      <div className="p-3 border-t border-slate-200/80 dark:border-white/[0.08] bg-slate-50/60 dark:bg-white/[0.02] space-y-2">
         {/* Identity preview */}
-        <div className={`flex items-center ${isCollapsed ? "justify-center p-2" : "gap-3 p-2.5"} rounded-xl bg-white/70 dark:bg-white/[0.04] border border-slate-200/80 dark:border-white/[0.08] shadow-2xs`}>
-          <div className="flex items-center justify-center size-8 rounded-lg bg-violet-500/20 text-violet-700 dark:text-violet-300 font-bold text-xs border border-violet-500/30 shrink-0">
+        <div
+          className={`flex items-center ${
+            isCollapsed ? "justify-center p-2" : "gap-3 p-2.5"
+          } rounded-xl bg-white/70 dark:bg-white/[0.04] border border-slate-200/80 dark:border-white/[0.08] shadow-2xs`}
+        >
+          <div className="flex items-center justify-center size-8 rounded-lg bg-[#4F6DF5]/15 text-[#4F6DF5] dark:text-[#60A5FA] font-bold text-xs border border-[#4F6DF5]/25 shrink-0">
             {adminName.slice(0, 2).toUpperCase()}
           </div>
           {!isCollapsed && (
@@ -468,10 +477,10 @@ export function AdminNav({
                 <span className="text-xs font-bold text-slate-900 dark:text-white truncate">
                   {adminName}
                 </span>
-                <span className="px-1 py-0.2 text-[9px] font-mono font-semibold rounded bg-violet-500/10 text-violet-600 dark:text-violet-300 border border-violet-500/20">
+                <Badge tone="info">
                   {adminRole}
-                </span>
-                <ShieldCheck className="size-3 text-violet-600 dark:text-violet-400 shrink-0" />
+                </Badge>
+                <ShieldCheck className="size-3 text-[#4F6DF5] dark:text-[#60A5FA] shrink-0" />
               </div>
               <p className="text-[10px] font-mono text-slate-500 dark:text-slate-400 truncate">
                 {adminEmail}
@@ -485,7 +494,7 @@ export function AdminNav({
           <button
             type="button"
             onClick={onToggleCollapse}
-            className="hidden lg:flex w-full items-center justify-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800/80 border border-transparent transition-colors focus:outline-none"
+            className="hidden lg:flex w-full items-center justify-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800/80 border border-transparent transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#4F6DF5]"
             aria-label={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
             title={isCollapsed ? "Expand sidebar (w-64)" : "Collapse sidebar (w-20)"}
           >
@@ -507,8 +516,9 @@ export function AdminNav({
     <>
       {/* Desktop Persistent Sidebar */}
       <aside
-        className={`hidden lg:block shrink-0 h-screen sticky top-0 z-30 transition-all duration-200 ${isCollapsed ? "w-20" : "w-64"
-          }`}
+        className={`hidden lg:block shrink-0 h-screen sticky top-0 z-30 transition-all duration-200 ${
+          isCollapsed ? "w-20" : "w-64"
+        }`}
       >
         {navContent}
       </aside>

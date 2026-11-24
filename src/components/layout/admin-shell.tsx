@@ -10,17 +10,15 @@ import {
   ShieldCheck,
   Search,
   Bell,
-  BellOff,
   Sun,
   Moon,
   LogOut,
   Loader2,
-  ChevronDown,
+  ChevronDown,
   Users,
-  Layers,
   History,
-  Settings,
-  X,
+  Settings,
+  X,
   Smile,
   EyeOff,
   Eye,
@@ -31,12 +29,12 @@ import {
   Upload,
   Share2,
   SlidersHorizontal,
-  UserCheck2,
-  Building2,
   UserPlus,
   UserCog,
   Network,
 } from "lucide-react";
+import { Badge } from "@/src/components/ui/Badge";
+import { EmptyState } from "@/src/components/ui/EmptyState";
 
 interface AdminShellProps {
   adminName: string;
@@ -121,7 +119,7 @@ export function AdminShell({
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
 
-  // Header search input state (Image 2 & 3)
+  // Header search input state
   const searchParams = useSearchParams();
   const [headerSearch, setHeaderSearch] = useState("");
   const headerSearchInputRef = useRef<HTMLInputElement>(null);
@@ -164,7 +162,7 @@ export function AdminShell({
     themeListeners.forEach((listener) => listener());
   };
 
-  // Submits search directly to Status Header Mapping page (Image 2)
+  // Submits search directly to Status Header Mapping page
   const handleHeaderSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const trimmed = headerSearch.trim();
@@ -231,7 +229,7 @@ export function AdminShell({
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col min-w-0">
         {/* Top Header Bar */}
-        <header className="sticky top-0 z-20 h-14 border-b border-slate-200/70 dark:border-white/[0.08] bg-white/70 dark:bg-[#090e1c]/75 backdrop-blur-xl px-3 sm:px-5 flex items-center justify-between gap-2 sm:gap-4 transition-colors duration-200 shadow-xs">
+        <header className="sticky top-0 z-20 h-14 border-b border-slate-200/80 dark:border-white/[0.08] bg-white/75 dark:bg-[#090e1c]/80 backdrop-blur-xl px-3 sm:px-5 flex items-center justify-between gap-2 sm:gap-4 transition-colors duration-200 shadow-xs">
           {/* Left section: Hamburger, Search capsule, Leads dropdown, Settings dropdown, Chat, Email, Tips */}
           <div className="flex items-center gap-1.5 sm:gap-2.5 min-w-0">
             {/* Hamburger menu button */}
@@ -243,31 +241,31 @@ export function AdminShell({
                   setIsSidebarCollapsed((prev) => !prev);
                 }
               }}
-              className="p-1.5 rounded-lg text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors shrink-0"
+              className="p-1.5 rounded-lg text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors shrink-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#4F6DF5]"
               aria-label="Toggle sidebar menu"
               title="Toggle sidebar navigation"
             >
               <Menu className="size-4.5" />
             </button>
 
-            {/* Header Global Search Input (Matches Image 2 & 3) */}
+            {/* Header Global Search Input */}
             <form onSubmit={handleHeaderSearchSubmit} className="relative shrink-0">
-              <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-100/70 dark:bg-white/[0.05] border border-slate-200/80 dark:border-white/[0.08] text-slate-500 dark:text-slate-400 focus-within:border-blue-500 focus-within:ring-1 focus-within:ring-blue-500 w-36 sm:w-56 text-xs transition-all shadow-xs">
+              <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-100/70 dark:bg-white/[0.05] border border-slate-200/80 dark:border-white/[0.08] text-slate-500 dark:text-slate-400 focus-within:border-[#4F6DF5] focus-within:ring-1 focus-within:ring-[#4F6DF5] w-36 sm:w-56 text-xs transition-all shadow-xs">
                 <button type="submit" className="focus:outline-none cursor-pointer" aria-label="Submit search">
-                  <Search className="size-3.5 text-slate-400 hover:text-blue-500 transition-colors shrink-0" />
+                  <Search className="size-3.5 text-slate-400 hover:text-[#4F6DF5] transition-colors shrink-0" />
                 </button>
                 <input
                   ref={headerSearchInputRef}
                   type="text"
                   value={headerSearch}
                   onChange={(e) => setHeaderSearch(e.target.value)}
-                  placeholder="Search..."
+                  placeholder="Search leads, phone..."
                   className="w-full bg-transparent text-xs text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none"
                 />
               </div>
             </form>
 
-            {/* Leads Dropdown Button + Hover Mega Menu (Image 1 & 2) */}
+            {/* Leads Dropdown Button + Hover Mega Menu */}
             <div
               className="relative"
               onMouseEnter={handleLeadsMouseEnter}
@@ -280,10 +278,11 @@ export function AdminShell({
                   if (leadsMenuTimeoutRef.current) clearTimeout(leadsMenuTimeoutRef.current);
                   setIsLeadsMenuOpen(false);
                 }}
-                className={`flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all shadow-2xs cursor-pointer ${pathname.startsWith("/admin/leads") || isLeadsMenuOpen
-                    ? "bg-violet-500/10 text-violet-700 dark:text-violet-300 border border-violet-500/30"
+                className={`flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all shadow-2xs cursor-pointer ${
+                  pathname.startsWith("/admin/leads") || isLeadsMenuOpen
+                    ? "bg-[#4F6DF5]/12 text-[#4F6DF5] dark:text-[#60A5FA] border border-[#4F6DF5]/30 font-semibold"
                     : "text-slate-700 dark:text-slate-300 hover:bg-white/70 dark:hover:bg-white/[0.06] border border-transparent"
-                  }`}
+                }`}
                 aria-expanded={isLeadsMenuOpen}
                 aria-haspopup="true"
                 title="Click for All Leads, Hover for options"
@@ -292,10 +291,10 @@ export function AdminShell({
                 <ChevronDown className={`size-3 transition-transform duration-150 ${isLeadsMenuOpen ? "rotate-180" : ""}`} />
               </Link>
 
-              {/* Leads Hover Mega Dropdown Menu (Image 1) */}
+              {/* Leads Hover Mega Dropdown Menu */}
               {isLeadsMenuOpen && (
                 <div
-                  className="absolute left-0 top-full mt-1.5 w-[560px] sm:w-[620px] rounded-2xl bg-white/90 dark:bg-[#0c1220]/95 backdrop-blur-2xl border border-slate-200/90 dark:border-white/[0.12] shadow-2xl p-4 z-50 animate-in fade-in zoom-in-95 duration-150"
+                  className="absolute left-0 top-full mt-1.5 w-[560px] sm:w-[620px] rounded-2xl bg-white/95 dark:bg-[#0c1220]/95 backdrop-blur-2xl border border-slate-200/90 dark:border-white/[0.12] shadow-2xl p-4 z-50 animate-in fade-in zoom-in-95 duration-150"
                   onMouseEnter={handleLeadsMouseEnter}
                   onMouseLeave={handleLeadsMouseLeave}
                 >
@@ -307,7 +306,7 @@ export function AdminShell({
                         onClick={() => setIsLeadsMenuOpen(false)}
                         className="flex items-center gap-3 p-2 rounded-xl text-slate-700 dark:text-slate-300 hover:bg-slate-100/80 dark:hover:bg-slate-800 transition-colors group"
                       >
-                        <div className="size-8 rounded-lg bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-600 dark:text-slate-400 group-hover:text-blue-600 dark:group-hover:text-blue-400 group-hover:bg-blue-50 dark:group-hover:bg-blue-950/40 transition-colors shrink-0">
+                        <div className="size-8 rounded-lg bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-600 dark:text-slate-400 group-hover:text-[#4F6DF5] dark:group-hover:text-[#60A5FA] group-hover:bg-[#4F6DF5]/10 dark:group-hover:bg-[#4F6DF5]/15 transition-colors shrink-0">
                           <Smile className="size-4" />
                         </div>
                         <span className="text-xs font-medium truncate">Add Lead</span>
@@ -317,7 +316,7 @@ export function AdminShell({
                         onClick={() => setIsLeadsMenuOpen(false)}
                         className="flex items-center gap-3 p-2 rounded-xl text-slate-700 dark:text-slate-300 hover:bg-slate-100/80 dark:hover:bg-slate-800 transition-colors group"
                       >
-                        <div className="size-8 rounded-lg bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-600 dark:text-slate-400 group-hover:text-blue-600 dark:group-hover:text-blue-400 group-hover:bg-blue-50 dark:group-hover:bg-blue-950/40 transition-colors shrink-0">
+                        <div className="size-8 rounded-lg bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-600 dark:text-slate-400 group-hover:text-[#4F6DF5] dark:group-hover:text-[#60A5FA] group-hover:bg-[#4F6DF5]/10 dark:group-hover:bg-[#4F6DF5]/15 transition-colors shrink-0">
                           <EyeOff className="size-4" />
                         </div>
                         <span className="text-xs font-medium truncate">Unread Leads</span>
@@ -327,7 +326,7 @@ export function AdminShell({
                         onClick={() => setIsLeadsMenuOpen(false)}
                         className="flex items-center gap-3 p-2 rounded-xl text-slate-700 dark:text-slate-300 hover:bg-slate-100/80 dark:hover:bg-slate-800 transition-colors group"
                       >
-                        <div className="size-8 rounded-lg bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-600 dark:text-slate-400 group-hover:text-blue-600 dark:group-hover:text-blue-400 group-hover:bg-blue-50 dark:group-hover:bg-blue-950/40 transition-colors shrink-0">
+                        <div className="size-8 rounded-lg bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-600 dark:text-slate-400 group-hover:text-[#4F6DF5] dark:group-hover:text-[#60A5FA] group-hover:bg-[#4F6DF5]/10 dark:group-hover:bg-[#4F6DF5]/15 transition-colors shrink-0">
                           <Eye className="size-4" />
                         </div>
                         <span className="text-xs font-medium truncate">Read Leads</span>
@@ -337,7 +336,7 @@ export function AdminShell({
                         onClick={() => setIsLeadsMenuOpen(false)}
                         className="flex items-center gap-3 p-2 rounded-xl text-slate-700 dark:text-slate-300 hover:bg-slate-100/80 dark:hover:bg-slate-800 transition-colors group"
                       >
-                        <div className="size-8 rounded-lg bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-600 dark:text-slate-400 group-hover:text-blue-600 dark:group-hover:text-blue-400 group-hover:bg-blue-50 dark:group-hover:bg-blue-950/40 transition-colors shrink-0">
+                        <div className="size-8 rounded-lg bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-600 dark:text-slate-400 group-hover:text-[#4F6DF5] dark:group-hover:text-[#60A5FA] group-hover:bg-[#4F6DF5]/10 dark:group-hover:bg-[#4F6DF5]/15 transition-colors shrink-0">
                           <CalendarClock className="size-4" />
                         </div>
                         <span className="text-xs font-medium truncate">Followups</span>
@@ -351,7 +350,7 @@ export function AdminShell({
                         onClick={() => setIsLeadsMenuOpen(false)}
                         className="flex items-center gap-3 p-2 rounded-xl text-slate-700 dark:text-slate-300 hover:bg-slate-100/80 dark:hover:bg-slate-800 transition-colors group"
                       >
-                        <div className="size-8 rounded-lg bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-600 dark:text-slate-400 group-hover:text-blue-600 dark:group-hover:text-blue-400 group-hover:bg-blue-50 dark:group-hover:bg-blue-950/40 transition-colors shrink-0">
+                        <div className="size-8 rounded-lg bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-600 dark:text-slate-400 group-hover:text-[#4F6DF5] dark:group-hover:text-[#60A5FA] group-hover:bg-[#4F6DF5]/10 dark:group-hover:bg-[#4F6DF5]/15 transition-colors shrink-0">
                           <ScrollText className="size-4" />
                         </div>
                         <span className="text-xs font-medium truncate">Trials</span>
@@ -361,7 +360,7 @@ export function AdminShell({
                         onClick={() => setIsLeadsMenuOpen(false)}
                         className="flex items-center gap-3 p-2 rounded-xl text-slate-700 dark:text-slate-300 hover:bg-slate-100/80 dark:hover:bg-slate-800 transition-colors group"
                       >
-                        <div className="size-8 rounded-lg bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-600 dark:text-slate-400 group-hover:text-blue-600 dark:group-hover:text-blue-400 group-hover:bg-blue-50 dark:group-hover:bg-blue-950/40 transition-colors shrink-0">
+                        <div className="size-8 rounded-lg bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-600 dark:text-slate-400 group-hover:text-[#4F6DF5] dark:group-hover:text-[#60A5FA] group-hover:bg-[#4F6DF5]/10 dark:group-hover:bg-[#4F6DF5]/15 transition-colors shrink-0">
                           <Contact className="size-4" />
                         </div>
                         <span className="text-xs font-medium truncate">Clients</span>
@@ -371,7 +370,7 @@ export function AdminShell({
                         onClick={() => setIsLeadsMenuOpen(false)}
                         className="flex items-center gap-3 p-2 rounded-xl text-slate-700 dark:text-slate-300 hover:bg-slate-100/80 dark:hover:bg-slate-800 transition-colors group"
                       >
-                        <div className="size-8 rounded-lg bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-600 dark:text-slate-400 group-hover:text-blue-600 dark:group-hover:text-blue-400 group-hover:bg-blue-50 dark:group-hover:bg-blue-950/40 transition-colors shrink-0">
+                        <div className="size-8 rounded-lg bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-600 dark:text-slate-400 group-hover:text-[#4F6DF5] dark:group-hover:text-[#60A5FA] group-hover:bg-[#4F6DF5]/10 dark:group-hover:bg-[#4F6DF5]/15 transition-colors shrink-0">
                           <CircleOff className="size-4" />
                         </div>
                         <span className="text-xs font-medium truncate">Disposed</span>
@@ -385,7 +384,7 @@ export function AdminShell({
                         onClick={() => setIsLeadsMenuOpen(false)}
                         className="flex items-center gap-3 p-2 rounded-xl text-slate-700 dark:text-slate-300 hover:bg-slate-100/80 dark:hover:bg-slate-800 transition-colors group"
                       >
-                        <div className="size-8 rounded-lg bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-600 dark:text-slate-400 group-hover:text-blue-600 dark:group-hover:text-blue-400 group-hover:bg-blue-50 dark:group-hover:bg-blue-950/40 transition-colors shrink-0">
+                        <div className="size-8 rounded-lg bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-600 dark:text-slate-400 group-hover:text-[#4F6DF5] dark:group-hover:text-[#60A5FA] group-hover:bg-[#4F6DF5]/10 dark:group-hover:bg-[#4F6DF5]/15 transition-colors shrink-0">
                           <Upload className="size-4" />
                         </div>
                         <span className="text-xs font-medium truncate">Upload Leads</span>
@@ -395,7 +394,7 @@ export function AdminShell({
                         onClick={() => setIsLeadsMenuOpen(false)}
                         className="flex items-center gap-3 p-2 rounded-xl text-slate-700 dark:text-slate-300 hover:bg-slate-100/80 dark:hover:bg-slate-800 transition-colors group"
                       >
-                        <div className="size-8 rounded-lg bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-600 dark:text-slate-400 group-hover:text-blue-600 dark:group-hover:text-blue-400 group-hover:bg-blue-50 dark:group-hover:bg-blue-950/40 transition-colors shrink-0">
+                        <div className="size-8 rounded-lg bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-600 dark:text-slate-400 group-hover:text-[#4F6DF5] dark:group-hover:text-[#60A5FA] group-hover:bg-[#4F6DF5]/10 dark:group-hover:bg-[#4F6DF5]/15 transition-colors shrink-0">
                           <Share2 className="size-4" />
                         </div>
                         <span className="text-xs font-medium truncate">Allot Leads</span>
@@ -405,7 +404,7 @@ export function AdminShell({
                         onClick={() => setIsLeadsMenuOpen(false)}
                         className="flex items-center gap-3 p-2 rounded-xl text-slate-700 dark:text-slate-300 hover:bg-slate-100/80 dark:hover:bg-slate-800 transition-colors group"
                       >
-                        <div className="size-8 rounded-lg bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-600 dark:text-slate-400 group-hover:text-blue-600 dark:group-hover:text-blue-400 group-hover:bg-blue-50 dark:group-hover:bg-blue-950/40 transition-colors shrink-0">
+                        <div className="size-8 rounded-lg bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-600 dark:text-slate-400 group-hover:text-[#4F6DF5] dark:group-hover:text-[#60A5FA] group-hover:bg-[#4F6DF5]/10 dark:group-hover:bg-[#4F6DF5]/15 transition-colors shrink-0">
                           <SlidersHorizontal className="size-4" />
                         </div>
                         <span className="text-xs font-medium truncate">Fetch Limit</span>
@@ -425,7 +424,11 @@ export function AdminShell({
               <button
                 type="button"
                 onClick={() => setIsSettingsMenuOpen((prev) => !prev)}
-                className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                  isSettingsMenuOpen
+                    ? "bg-[#4F6DF5]/12 text-[#4F6DF5] dark:text-[#60A5FA]"
+                    : "text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
+                }`}
                 aria-expanded={isSettingsMenuOpen}
                 aria-haspopup="true"
               >
@@ -446,13 +449,13 @@ export function AdminShell({
                       <Link
                         href="/admin/users/add"
                         onClick={() => setIsSettingsMenuOpen(false)}
-                        className="flex items-start gap-3 p-2.5 rounded-xl text-slate-700 dark:text-slate-300 hover:bg-slate-100/80 dark:hover:bg-slate-800/60 transition-colors group cursor-pointer"
+                        className="flex items-start gap-3 p-2.5 rounded-xl text-slate-700 dark:text-slate-300 hover:bg-[#4F6DF5]/10 dark:hover:bg-[#4F6DF5]/15 transition-colors group cursor-pointer"
                       >
-                        <div className="size-10 rounded-2xl bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-100 dark:border-indigo-900/40 flex items-center justify-center text-indigo-600 dark:text-indigo-400 shrink-0">
+                        <div className="size-10 rounded-2xl bg-[#4F6DF5]/10 dark:bg-[#4F6DF5]/20 border border-[#4F6DF5]/20 dark:border-[#4F6DF5]/30 flex items-center justify-center text-[#4F6DF5] dark:text-[#60A5FA] shrink-0">
                           <UserPlus className="size-5" />
                         </div>
                         <div className="min-w-0">
-                          <div className="text-xs font-semibold text-slate-900 dark:text-slate-100 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
+                          <div className="text-xs font-semibold text-slate-900 dark:text-slate-100 group-hover:text-[#4F6DF5] dark:group-hover:text-[#60A5FA] transition-colors">
                             Add Employee
                           </div>
                           <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate">
@@ -465,32 +468,36 @@ export function AdminShell({
                       <Link
                         href="/admin/users"
                         onClick={() => setIsSettingsMenuOpen(false)}
-                        className="flex items-start gap-3 p-2.5 rounded-xl text-slate-700 dark:text-slate-300 hover:bg-slate-100/80 dark:hover:bg-slate-800/60 transition-colors group cursor-pointer"
+                        className="flex items-start gap-3 p-2.5 rounded-xl text-slate-700 dark:text-slate-300 hover:bg-[#4F6DF5]/10 dark:hover:bg-[#4F6DF5]/15 transition-colors group cursor-pointer"
                       >
-                        <div className="size-10 rounded-2xl bg-blue-50 dark:bg-blue-950/40 border border-blue-100 dark:border-blue-900/40 flex items-center justify-center text-blue-600 dark:text-blue-400 shrink-0">
+                        <div className="size-10 rounded-2xl bg-blue-50 dark:bg-blue-950/40 border border-blue-100 dark:border-blue-900/40 flex items-center justify-center text-[#4F6DF5] dark:text-[#60A5FA] shrink-0">
                           <Users className="size-5" />
                         </div>
                         <div className="min-w-0">
-                          <div className="text-xs font-semibold text-slate-900 dark:text-slate-100 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
+                          <div className="text-xs font-semibold text-slate-900 dark:text-slate-100 group-hover:text-[#4F6DF5] dark:group-hover:text-[#60A5FA] transition-colors">
                             Employee List
                           </div>
                           <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate">
-                            List of all user...
+                            List of all users...
                           </p>
                         </div>
                       </Link>
 
-                      {/* Team */}
-                      <div className="flex items-start gap-3 p-2.5 rounded-xl text-slate-700 dark:text-slate-300 hover:bg-slate-100/80 dark:hover:bg-slate-800/60 transition-colors group cursor-pointer">
-                        <div className="size-10 rounded-2xl bg-cyan-50 dark:bg-cyan-950/40 border border-cyan-100 dark:border-cyan-900/40 flex items-center justify-center text-cyan-600 dark:text-cyan-400 shrink-0">
+                      {/* Team (Placeholder - Non-functional) */}
+                      <div
+                        className="flex items-start gap-3 p-2.5 rounded-xl text-slate-400 dark:text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors group cursor-not-allowed"
+                        title="Team management is accessible via Governance > Teams in the sidebar."
+                      >
+                        <div className="size-10 rounded-2xl bg-slate-100 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/50 flex items-center justify-center text-slate-400 dark:text-slate-500 shrink-0">
                           <Network className="size-5" />
                         </div>
                         <div className="min-w-0">
-                          <div className="text-xs font-semibold text-slate-900 dark:text-slate-100">
-                            Team
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-xs font-semibold text-slate-600 dark:text-slate-400">Team</span>
+                            <span className="text-[9px] px-1 py-0.2 rounded bg-slate-100 dark:bg-slate-800 text-slate-400">Nav</span>
                           </div>
-                          <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate">
-                            Create team of employees...
+                          <p className="text-[11px] text-slate-400 dark:text-slate-500 truncate">
+                            Use Teams in sidebar...
                           </p>
                         </div>
                       </div>
@@ -502,13 +509,13 @@ export function AdminShell({
                       <Link
                         href="/admin/profiles"
                         onClick={() => setIsSettingsMenuOpen(false)}
-                        className="flex items-start gap-3 p-2.5 rounded-xl text-slate-700 dark:text-slate-300 hover:bg-blue-50/80 dark:hover:bg-blue-950/40 transition-colors group cursor-pointer"
+                        className="flex items-start gap-3 p-2.5 rounded-xl text-slate-700 dark:text-slate-300 hover:bg-[#4F6DF5]/10 dark:hover:bg-[#4F6DF5]/15 transition-colors group cursor-pointer"
                       >
                         <div className="size-10 rounded-2xl bg-sky-50 dark:bg-sky-950/40 border border-sky-100 dark:border-sky-900/40 flex items-center justify-center text-sky-600 dark:text-sky-400 group-hover:scale-105 transition-transform shrink-0">
                           <UserCog className="size-5" />
                         </div>
                         <div className="min-w-0">
-                          <div className="text-xs font-semibold text-slate-900 dark:text-slate-100 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
+                          <div className="text-xs font-semibold text-slate-900 dark:text-slate-100 group-hover:text-[#4F6DF5] dark:group-hover:text-[#60A5FA] transition-colors">
                             Profile
                           </div>
                           <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate">
@@ -517,16 +524,20 @@ export function AdminShell({
                         </div>
                       </Link>
 
-                      {/* Permissions */}
-                      <div className="flex items-start gap-3 p-2.5 rounded-xl text-slate-700 dark:text-slate-300 hover:bg-slate-100/80 dark:hover:bg-slate-800/60 transition-colors group cursor-pointer">
-                        <div className="size-10 rounded-2xl bg-teal-50 dark:bg-teal-950/40 border border-teal-100 dark:border-teal-900/40 flex items-center justify-center text-teal-600 dark:text-teal-400 shrink-0">
+                      {/* Permissions (Placeholder - Non-functional) */}
+                      <div
+                        className="flex items-start gap-3 p-2.5 rounded-xl text-slate-400 dark:text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors group cursor-not-allowed"
+                        title="Permission rules managed per role and Fetch Limits."
+                      >
+                        <div className="size-10 rounded-2xl bg-slate-100 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/50 flex items-center justify-center text-slate-400 dark:text-slate-500 shrink-0">
                           <ShieldCheck className="size-5" />
                         </div>
                         <div className="min-w-0">
-                          <div className="text-xs font-semibold text-slate-900 dark:text-slate-100">
-                            Permissions
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-xs font-semibold text-slate-600 dark:text-slate-400">Permissions</span>
+                            <span className="text-[9px] px-1 py-0.2 rounded bg-slate-100 dark:bg-slate-800 text-slate-400">Fixed</span>
                           </div>
-                          <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate">
+                          <p className="text-[11px] text-slate-400 dark:text-slate-500 truncate">
                             User permission allotment..
                           </p>
                         </div>
@@ -537,7 +548,7 @@ export function AdminShell({
                         <Link
                           href="/admin/settings/configuration"
                           onClick={() => setIsSettingsMenuOpen(false)}
-                          className="px-6 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white text-xs font-semibold shadow-sm shadow-blue-500/25 transition-all inline-block text-center cursor-pointer"
+                          className="px-6 py-2 rounded-xl bg-[#4F6DF5] hover:bg-[#435dd4] active:bg-[#384fc0] text-white text-xs font-semibold shadow-sm shadow-[#4F6DF5]/25 transition-all inline-block text-center cursor-pointer"
                         >
                           More
                         </Link>
@@ -548,38 +559,38 @@ export function AdminShell({
               )}
             </div>
 
-            {/* Chat (0) */}
+            {/* Chat Placeholder */}
             <button
               type="button"
               className="hidden md:flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
-              title="Chat channel"
+              title="Chat channel (Upcoming)"
             >
               <span>Chat</span>
-              <span className="px-1.5 py-0.2 rounded-full bg-orange-500 text-white text-[10px] font-bold leading-tight">
+              <span className="px-1.5 py-0.2 rounded-full bg-[#4F6DF5]/15 text-[#4F6DF5] dark:text-[#60A5FA] border border-[#4F6DF5]/25 text-[10px] font-bold leading-tight">
                 0
               </span>
             </button>
 
-            {/* Email (0) */}
+            {/* Email Placeholder */}
             <button
               type="button"
               className="hidden md:flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
-              title="Email updates"
+              title="Email updates (Upcoming)"
             >
               <span>Email</span>
-              <span className="px-1.5 py-0.2 rounded-full bg-orange-500 text-white text-[10px] font-bold leading-tight">
+              <span className="px-1.5 py-0.2 rounded-full bg-[#4F6DF5]/15 text-[#4F6DF5] dark:text-[#60A5FA] border border-[#4F6DF5]/25 text-[10px] font-bold leading-tight">
                 0
               </span>
             </button>
 
-            {/* Tips (31) */}
+            {/* Tips Placeholder */}
             <button
               type="button"
               className="hidden sm:flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
-              title="Advisory tips"
+              title="Advisory tips (31)"
             >
               <span>Tips</span>
-              <span className="px-1.5 py-0.2 rounded-full bg-orange-500 text-white text-[10px] font-bold leading-tight">
+              <span className="px-1.5 py-0.2 rounded-full bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/25 text-[10px] font-bold leading-tight">
                 31
               </span>
             </button>
@@ -591,7 +602,7 @@ export function AdminShell({
             <button
               type="button"
               onClick={handleToggleTheme}
-              className="p-2 rounded-xl text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+              className="p-2 rounded-xl text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#4F6DF5]"
               aria-label={
                 theme === "dark"
                   ? "Switch to light theme"
@@ -610,7 +621,7 @@ export function AdminShell({
               )}
             </button>
 
-            {/* Notifications Popover with blue badge 31 */}
+            {/* Notifications Popover */}
             <div className="relative" ref={notificationsRef}>
               <button
                 type="button"
@@ -618,31 +629,32 @@ export function AdminShell({
                   setIsNotificationsOpen((prev) => !prev);
                   setIsProfileOpen(false);
                 }}
-                className={`relative p-2 rounded-xl transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 ${isNotificationsOpen
-                  ? "bg-violet-500/15 text-violet-700 dark:text-violet-300 border border-violet-500/30"
-                  : "text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white hover:bg-white/70 dark:hover:bg-white/[0.06] border border-transparent"
-                  }`}
+                className={`relative p-2 rounded-xl transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-[#4F6DF5] ${
+                  isNotificationsOpen
+                    ? "bg-[#4F6DF5]/15 text-[#4F6DF5] dark:text-[#60A5FA] border border-[#4F6DF5]/30"
+                    : "text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white hover:bg-white/70 dark:hover:bg-white/[0.06] border border-transparent"
+                }`}
                 aria-label="Notifications"
                 aria-expanded={isNotificationsOpen}
                 aria-haspopup="true"
               >
                 <Bell className="size-4.5" />
-                <span className="absolute -top-0.5 -right-0.5 size-4 rounded-full bg-violet-600 text-white text-[9px] font-bold flex items-center justify-center shadow-xs">
+                <span className="absolute -top-0.5 -right-0.5 size-4 rounded-full bg-[#4F6DF5] text-white text-[9px] font-bold flex items-center justify-center shadow-xs">
                   31
                 </span>
               </button>
 
               {/* Notifications Dropdown */}
               {isNotificationsOpen && (
-                <div className="absolute right-0 mt-2 w-80 sm:w-96 rounded-2xl bg-white/90 dark:bg-[#0c1220]/95 backdrop-blur-2xl border border-slate-200/90 dark:border-white/[0.12] shadow-2xl p-4 z-40 animate-in fade-in zoom-in-95 duration-150">
+                <div className="absolute right-0 mt-2 w-80 sm:w-96 rounded-2xl bg-white/95 dark:bg-[#0c1220]/95 backdrop-blur-2xl border border-slate-200/90 dark:border-white/[0.12] shadow-2xl p-4 z-40 animate-in fade-in zoom-in-95 duration-150">
                   <div className="flex items-center justify-between pb-3 border-b border-slate-200/70 dark:border-white/[0.08]">
                     <div className="flex items-center gap-2">
                       <h3 className="text-sm font-bold text-slate-900 dark:text-white">
                         Notifications
                       </h3>
-                      <span className="px-1.5 py-0.5 text-[10px] font-semibold rounded bg-slate-100 dark:bg-white/[0.06] text-slate-600 dark:text-slate-300">
+                      <Badge tone="info">
                         0 Unread
-                      </span>
+                      </Badge>
                     </div>
                     <button
                       onClick={() => setIsNotificationsOpen(false)}
@@ -653,24 +665,19 @@ export function AdminShell({
                     </button>
                   </div>
 
-                  {/* Proper Empty State */}
-                  <div className="py-8 px-4 text-center space-y-2">
-                    <div className="inline-flex items-center justify-center size-10 rounded-full bg-slate-100 dark:bg-white/[0.06] text-slate-400">
-                      <BellOff className="size-5" />
-                    </div>
-                    <p className="text-xs font-semibold text-slate-800 dark:text-slate-200">
-                      All caught up
-                    </p>
-                    <p className="text-[11px] text-slate-500 dark:text-slate-400 max-w-xs mx-auto leading-relaxed">
-                      No pending system alerts or security warnings. Real-time administrator activities are logged in the audit trail.
-                    </p>
-                  </div>
+                  {/* UI Kit Empty State component */}
+                  <EmptyState
+                    title="All caught up"
+                    description="No pending system alerts or security warnings. Real-time administrator activities are logged in the audit trail."
+                    icon="Bell"
+                    className="py-4 border-0 shadow-none bg-transparent"
+                  />
 
                   <div className="pt-3 border-t border-slate-200/70 dark:border-white/[0.08] flex items-center justify-between text-xs">
                     <Link
                       href="/admin/activity"
                       onClick={() => setIsNotificationsOpen(false)}
-                      className="text-[11px] font-medium text-violet-600 dark:text-violet-400 hover:underline"
+                      className="text-[11px] font-medium text-[#4F6DF5] dark:text-[#60A5FA] hover:underline"
                     >
                       View Activity Log →
                     </Link>
@@ -690,22 +697,23 @@ export function AdminShell({
                   setIsProfileOpen((prev) => !prev);
                   setIsNotificationsOpen(false);
                 }}
-                className={`flex items-center gap-2 p-1.5 sm:px-2.5 sm:py-1.5 rounded-xl border transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 ${isProfileOpen
-                  ? "bg-violet-500/15 border-violet-500/30 text-violet-800 dark:text-violet-200"
-                  : "bg-white/70 dark:bg-white/[0.05] border-slate-200/80 dark:border-white/[0.08] hover:border-slate-300 dark:hover:border-white/[0.15]"
-                  }`}
+                className={`flex items-center gap-2 p-1.5 sm:px-2.5 sm:py-1.5 rounded-xl border transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-[#4F6DF5] ${
+                  isProfileOpen
+                    ? "bg-[#4F6DF5]/12 border-[#4F6DF5]/30 text-[#4F6DF5] dark:text-[#60A5FA]"
+                    : "bg-white/70 dark:bg-white/[0.05] border-slate-200/80 dark:border-white/[0.08] hover:border-slate-300 dark:hover:border-white/[0.15]"
+                }`}
                 aria-label="Admin profile menu"
                 aria-expanded={isProfileOpen}
                 aria-haspopup="true"
               >
-                <div className="flex items-center justify-center size-7 rounded-lg bg-gradient-to-br from-violet-600 via-indigo-600 to-cyan-500 text-white font-bold text-xs shadow-xs">
+                <div className="flex items-center justify-center size-7 rounded-lg bg-gradient-to-br from-[#4F6DF5] to-[#60A5FA] text-white font-bold text-xs shadow-xs">
                   {adminName.slice(0, 2).toUpperCase()}
                 </div>
                 <div className="hidden md:flex flex-col text-left">
                   <span className="text-xs font-bold text-slate-800 dark:text-slate-200 max-w-[110px] truncate leading-tight">
                     {adminName}
                   </span>
-                  <span className="text-[10px] font-mono text-violet-600 dark:text-violet-400 leading-tight">
+                  <span className="text-[10px] font-mono text-[#4F6DF5] dark:text-[#60A5FA] leading-tight">
                     {adminRole}
                   </span>
                 </div>
@@ -714,17 +722,17 @@ export function AdminShell({
 
               {/* Profile Dropdown Menu */}
               {isProfileOpen && (
-                <div className="absolute right-0 mt-2 w-72 rounded-2xl bg-white/90 dark:bg-[#0c1220]/95 backdrop-blur-2xl border border-slate-200/90 dark:border-white/[0.12] shadow-2xl p-3 z-40 animate-in fade-in zoom-in-95 duration-150">
+                <div className="absolute right-0 mt-2 w-72 rounded-2xl bg-white/95 dark:bg-[#0c1220]/95 backdrop-blur-2xl border border-slate-200/90 dark:border-white/[0.12] shadow-2xl p-3 z-40 animate-in fade-in zoom-in-95 duration-150">
                   {/* Authenticated Identity Details */}
                   <div className="p-2.5 rounded-xl bg-slate-50/80 dark:bg-white/[0.04] border border-slate-200/80 dark:border-white/[0.08] space-y-1.5">
                     <div className="flex items-center justify-between">
                       <span className="text-xs font-bold text-slate-900 dark:text-white truncate">
                         {adminName}
                       </span>
-                      <span className="inline-flex items-center gap-1 px-1.5 py-0.5 text-[9px] font-bold rounded-md bg-purple-500/10 text-purple-600 dark:text-purple-300 border border-purple-500/20">
-                        <ShieldCheck className="size-2.5" />
+                      <Badge tone="info">
+                        <ShieldCheck className="size-2.5 mr-1 inline" />
                         {adminRole}
-                      </span>
+                      </Badge>
                     </div>
                     <p className="text-[11px] font-mono text-slate-500 dark:text-slate-400 truncate">
                       {adminEmail}
@@ -761,7 +769,7 @@ export function AdminShell({
                       type="button"
                       onClick={handleSignOut}
                       disabled={isSigningOut}
-                      className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 border border-transparent hover:border-rose-200 dark:hover:border-rose-900/40 transition-colors disabled:opacity-50"
+                      className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 border border-transparent hover:border-rose-200 dark:hover:border-rose-900/40 transition-colors disabled:opacity-50 cursor-pointer"
                     >
                       {isSigningOut ? (
                         <>
