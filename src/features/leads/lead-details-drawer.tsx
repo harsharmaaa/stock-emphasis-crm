@@ -1,9 +1,10 @@
 "use client";
-import { getActiveLeadSourcesAction, getActiveLeadResponsesAction } from "./actions";
 
 import { useState, useEffect, useCallback, useTransition } from "react";
 import Link from "next/link";
 import {
+  getActiveLeadSourcesAction,
+  getActiveLeadResponsesAction,
   getLeadByIdAction,
   updateLeadDetailsAction,
   type LeadDetailItem,
@@ -12,7 +13,18 @@ import {
 import {
   LEAD_PROFILE_OPTIONS,
   LEAD_EXPERIENCE_OPTIONS,
+  cn,
 } from "@/src/lib/utils";
+import {
+  Button,
+  Badge,
+  Card,
+  Field,
+  Select,
+  Textarea,
+  ConfirmDialog,
+  useToast,
+} from "@/src/components/ui";
 import {
   Pencil,
   X,
@@ -23,11 +35,9 @@ import {
   CheckCircle2,
   AlertCircle,
   Loader2,
-  Save,
   Clock,
   ChevronDown,
   CircleOff,
-  AlertTriangle,
 } from "lucide-react";
 
 interface LeadDetailsDrawerProps {
@@ -45,6 +55,7 @@ export function LeadDetailsDrawer({
   onLeadUpdated,
   allotmentUsers,
 }: LeadDetailsDrawerProps) {
+  const toast = useToast();
   const [lead, setLead] = useState<LeadDetailItem | null>(null);
   const [loading, setLoading] = useState(false);
   const [fetchError, setFetchError] = useState<string | null>(null);
@@ -54,8 +65,16 @@ export function LeadDetailsDrawer({
   const [editSource, setEditSource] = useState<string>("");
   const [activeSources, setActiveSources] = useState<string[]>([]);
   const [activeResponses, setActiveResponses] = useState<string[]>([]);
-  useEffect(() => { getActiveLeadResponsesAction().then(res => { if (res.success) setActiveResponses(res.leadResponses); }); }, []);
-  useEffect(() => { getActiveLeadSourcesAction().then(res => { if (res.success) setActiveSources(res.leadSources); }); }, []);
+  useEffect(() => {
+    getActiveLeadResponsesAction().then((res) => {
+      if (res.success && res.leadResponses) setActiveResponses(res.leadResponses);
+    });
+  }, []);
+  useEffect(() => {
+    getActiveLeadSourcesAction().then((res) => {
+      if (res.success && res.leadSources) setActiveSources(res.leadSources);
+    });
+  }, []);
   const [editProfile, setEditProfile] = useState<string>("");
   const [editExperience, setEditExperience] = useState<string>("");
   const [editCallbackDate, setEditCallbackDate] = useState<string>("");
@@ -67,14 +86,16 @@ export function LeadDetailsDrawer({
   const [saveSuccess, setSaveSuccess] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
 
-  // Feature 1: Expandable Lead Details disclosure state
+  // Expandable Lead Details disclosure state
   const [isDetailsExpanded, setIsDetailsExpanded] = useState(false);
 
-  // Feature 2: Mark as Disposed state
+  // Mark as Disposed state
   const [isConfirmingDispose, setIsConfirmingDispose] = useState(false);
   const [isDisposing, setIsDisposing] = useState(false);
 
-  const isCurrentClient = lead?.status?.toUpperCase() === "CLIENT" || lead?.status?.toUpperCase() === "CLIENTS";
+  const isCurrentClient =
+    lead?.status?.toUpperCase() === "CLIENT" ||
+    lead?.status?.toUpperCase() === "CLIENTS";
 
   const handleResponseChange = (newResp: string) => {
     setEditResponse(newResp);
@@ -183,47 +204,50 @@ export function LeadDetailsDrawer({
 
         if (!res.success) {
           setSaveError(res.error || "Failed to update lead details.");
+          toast?.error(res.error || "Failed to update lead details.");
           return;
         }
 
         setSaveSuccess("Lead details and allotment updated successfully!");
+        toast?.success("Lead details updated successfully!");
 
         // Update local lead record view
         setLead((prev) =>
           prev
             ? {
-              ...prev,
-              leadResponse: editResponse,
-              leadSource: editSource || null,
-              profile: editProfile || null,
-              experience: editExperience || null,
-              callbackDate: editCallbackDate || null,
-              description: editDescription,
-              allotToId: editAllotToId || null,
-              status: editStatus,
-              allotTo: editAllotToId
-                ? allotmentUsers.find((u) => u.id === editAllotToId)
-                  ? {
-                    id: editAllotToId,
-                    name: allotmentUsers.find((u) => u.id === editAllotToId)!.name,
-                    email: allotmentUsers.find((u) => u.id === editAllotToId)!.email,
-                    role: allotmentUsers.find((u) => u.id === editAllotToId)!.role,
-                    teamName: allotmentUsers.find((u) => u.id === editAllotToId)!.teamName,
-                  }
-                  : null
-                : null,
-            }
+                ...prev,
+                leadResponse: editResponse,
+                leadSource: editSource || null,
+                profile: editProfile || null,
+                experience: editExperience || null,
+                callbackDate: editCallbackDate || null,
+                description: editDescription,
+                allotToId: editAllotToId || null,
+                status: editStatus,
+                allotTo: editAllotToId
+                  ? allotmentUsers.find((u) => u.id === editAllotToId)
+                    ? {
+                        id: editAllotToId,
+                        name: allotmentUsers.find((u) => u.id === editAllotToId)!.name,
+                        email: allotmentUsers.find((u) => u.id === editAllotToId)!.email,
+                        role: allotmentUsers.find((u) => u.id === editAllotToId)!.role,
+                        teamName: allotmentUsers.find((u) => u.id === editAllotToId)!.teamName,
+                      }
+                    : null
+                  : null,
+              }
             : null
         );
 
         onLeadUpdated();
       } catch {
         setSaveError("An unexpected network error occurred.");
+        toast?.error("An unexpected network error occurred.");
       }
     });
   };
 
-  // Feature 2: Execute Dispose Action
+  // Execute Dispose Action
   const handleExecuteDispose = async () => {
     if (!leadId) return;
     setIsDisposing(true);
@@ -238,6 +262,7 @@ export function LeadDetailsDrawer({
 
       if (!res.success) {
         setSaveError(res.error || "Failed to mark lead as disposed.");
+        toast?.error(res.error || "Failed to mark lead as disposed.");
         setIsConfirmingDispose(false);
         return;
       }
@@ -246,9 +271,11 @@ export function LeadDetailsDrawer({
       setEditStatus("DISPOSED");
       setIsConfirmingDispose(false);
       setSaveSuccess("Lead has been successfully marked as Disposed.");
+      toast?.success("Lead marked as disposed.");
       onLeadUpdated();
     } catch {
       setSaveError("An unexpected error occurred while disposing lead.");
+      toast?.error("An unexpected error occurred while disposing lead.");
       setIsConfirmingDispose(false);
     } finally {
       setIsDisposing(false);
@@ -266,19 +293,19 @@ export function LeadDetailsDrawer({
       />
 
       {/* Slide-over Drawer Panel */}
-      <div className="relative w-full max-w-2xl bg-white/95 dark:bg-[#0a0f1d]/95 backdrop-blur-2xl border-l border-slate-200/90 dark:border-white/[0.10] shadow-[0_0_50px_rgba(0,0,0,0.35)] h-full flex flex-col z-10 overflow-hidden animate-in slide-in-from-right duration-200">
+      <div className="relative w-full max-w-2xl bg-[var(--panel-solid)] backdrop-blur-2xl border-l border-[var(--border)] shadow-[0_0_50px_rgba(0,0,0,0.35)] h-full flex flex-col z-10 overflow-hidden animate-in slide-in-from-right duration-200">
         {/* Drawer Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200/80 dark:border-white/[0.08] bg-slate-50/70 dark:bg-white/[0.02] shrink-0">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-[var(--border)] bg-[var(--glass-stroke)] shrink-0">
           <div className="flex items-center gap-2.5 min-w-0">
-            <div className="flex items-center justify-center size-9 rounded-xl bg-violet-500/10 text-violet-700 dark:text-violet-300 font-bold border border-violet-500/20 shrink-0">
+            <div className="flex items-center justify-center size-9 rounded-xl bg-[var(--brand)]/15 text-[var(--brand)] font-bold border border-[var(--brand)]/30 shrink-0">
               {lead ? lead.name.slice(0, 2).toUpperCase() : <User className="size-4.5" />}
             </div>
             <div className="min-w-0">
-              <h2 className="text-base font-extrabold text-slate-900 dark:text-white truncate">
+              <h2 className="text-base font-extrabold text-[var(--text)] truncate">
                 {lead ? lead.name : "Lead Details"}
               </h2>
               {lead && (
-                <p className="text-xs font-mono text-violet-600 dark:text-violet-400">
+                <p className="text-xs font-mono text-[var(--brand)]">
                   {lead.mobile}
                 </p>
               )}
@@ -298,25 +325,22 @@ export function LeadDetailsDrawer({
               </Link>
             )}
             {lead && (
-              <button
+              <Button
                 type="button"
+                variant={lead.status === "DISPOSED" ? "secondary" : "danger"}
+                size="sm"
                 disabled={lead.status === "DISPOSED" || isDisposing}
                 onClick={() => setIsConfirmingDispose(true)}
-                className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-xl border transition-all ${
-                  lead.status === "DISPOSED"
-                    ? "bg-slate-100 dark:bg-slate-800/60 text-slate-400 dark:text-slate-500 border-slate-200 dark:border-slate-750 cursor-not-allowed"
-                    : "bg-rose-50 hover:bg-rose-100/80 dark:bg-rose-950/40 dark:hover:bg-rose-900/50 text-rose-700 dark:text-rose-300 border-rose-200/90 dark:border-rose-800/70 shadow-xs active:scale-95"
-                }`}
                 title={lead.status === "DISPOSED" ? "Lead is already marked as Disposed" : "Mark Lead as Disposed"}
               >
                 <CircleOff className="size-3.5" />
                 <span>{lead.status === "DISPOSED" ? "Disposed" : "Mark as Disposed"}</span>
-              </button>
+              </Button>
             )}
 
             <button
               onClick={handleCloseDrawer}
-              className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-200/60 dark:hover:bg-slate-800 transition-colors"
+              className="p-1.5 rounded-lg text-[var(--muted)] hover:text-[var(--text)] hover:bg-[var(--glass-stroke)] transition-colors cursor-pointer"
               aria-label="Close details drawer"
             >
               <X className="size-5" />
@@ -328,71 +352,26 @@ export function LeadDetailsDrawer({
         <div className="flex-1 overflow-y-auto p-6 space-y-6 scrollbar-thin">
           {loading ? (
             <div className="py-20 text-center space-y-3">
-              <Loader2 className="size-8 animate-spin text-purple-600 mx-auto" />
-              <p className="text-xs text-slate-500">Loading lead record...</p>
+              <Loader2 className="size-8 animate-spin text-[var(--brand)] mx-auto" />
+              <p className="text-xs text-[var(--muted)]">Loading lead record...</p>
             </div>
           ) : fetchError ? (
-            <div className="p-4 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 text-rose-700 dark:text-rose-300 text-xs flex items-center gap-2">
+            <Card className="p-4 border-rose-500/30 bg-rose-500/10 text-rose-600 dark:text-rose-400 text-xs flex items-center gap-2">
               <AlertCircle className="size-4 shrink-0" />
               <span>{fetchError}</span>
-            </div>
+            </Card>
           ) : lead ? (
             <>
-              {/* Feature 2: Confirmation Banner for Mark as Disposed */}
-              {isConfirmingDispose && (
-                <div className="p-4 rounded-2xl bg-amber-50/90 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-700/80 text-amber-900 dark:text-amber-200 text-xs space-y-3 animate-in fade-in">
-                  <div className="flex items-start gap-2.5">
-                    <AlertTriangle className="size-4.5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
-                    <div className="flex-1">
-                      <div className="font-bold text-slate-900 dark:text-white">
-                        Mark this lead as Disposed?
-                      </div>
-                      <p className="text-[11px] text-amber-800 dark:text-amber-300/90 mt-0.5 leading-relaxed">
-                        Setting the status to DISPOSED will mark this lead as disposed in the system, log an activity log entry, and refresh the active leads pipeline.
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex items-center justify-end gap-2 pt-1">
-                    <button
-                      type="button"
-                      disabled={isDisposing}
-                      onClick={() => setIsConfirmingDispose(false)}
-                      className="px-3 py-1.5 rounded-xl text-xs font-semibold bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-750 transition-colors"
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      type="button"
-                      disabled={isDisposing}
-                      onClick={handleExecuteDispose}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-rose-600 hover:bg-rose-700 text-white transition-colors shadow-xs disabled:opacity-50"
-                    >
-                      {isDisposing ? (
-                        <>
-                          <Loader2 className="size-3 animate-spin" />
-                          <span>Disposing...</span>
-                        </>
-                      ) : (
-                        <>
-                          <CircleOff className="size-3" />
-                          <span>Confirm Dispose</span>
-                        </>
-                      )}
-                    </button>
-                  </div>
-                </div>
-              )}
-
               {/* Status & Feedback Banners */}
               {saveSuccess && (
-                <div className="p-3.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-200 text-xs flex items-center gap-2 animate-in fade-in">
+                <div className="p-3.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-700 dark:text-emerald-300 text-xs flex items-center gap-2 animate-in fade-in">
                   <CheckCircle2 className="size-4 text-emerald-600 shrink-0" />
                   <span>{saveSuccess}</span>
                 </div>
               )}
 
               {saveError && (
-                <div className="p-3.5 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 text-rose-800 dark:text-rose-200 text-xs flex items-center gap-2 animate-in fade-in">
+                <div className="p-3.5 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-700 dark:text-rose-300 text-xs flex items-center gap-2 animate-in fade-in">
                   <AlertCircle className="size-4 text-rose-600 shrink-0" />
                   <span>{saveError}</span>
                 </div>
@@ -400,16 +379,16 @@ export function LeadDetailsDrawer({
 
               {/* Full Edit View Bridge Banner */}
               {leadId && (
-                <div className="p-3.5 rounded-2xl bg-gradient-to-r from-emerald-50/90 to-teal-50/90 dark:from-emerald-950/30 dark:to-teal-950/30 border border-emerald-200 dark:border-emerald-800/40 flex items-center justify-between gap-3 shadow-xs">
+                <Card className="p-3.5 border-emerald-500/30 bg-emerald-500/[0.05] flex items-center justify-between gap-3 shadow-xs">
                   <div className="flex items-center gap-2.5 min-w-0">
-                    <div className="p-2 rounded-xl bg-emerald-100 dark:bg-emerald-900/50 text-emerald-700 dark:text-emerald-300 shrink-0">
+                    <div className="p-2 rounded-xl bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 shrink-0">
                       <Pencil className="size-4" />
                     </div>
                     <div className="min-w-0">
-                      <div className="text-xs font-bold text-slate-800 dark:text-slate-100 truncate">
+                      <div className="text-xs font-bold text-[var(--text)] truncate">
                         Need Full KYC & Master Editing?
                       </div>
-                      <div className="text-[11px] text-slate-500 dark:text-slate-400 truncate">
+                      <div className="text-[11px] text-[var(--muted)] truncate">
                         Open Legacy Console for Address, PAN/Aadhar, Investment & Agreements
                       </div>
                     </div>
@@ -417,234 +396,216 @@ export function LeadDetailsDrawer({
                   <Link
                     href={`/admin/search?leadId=${leadId}`}
                     onClick={handleCloseDrawer}
-                    className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs transition-colors shrink-0 shadow-xs"
                   >
-                    <span>Full Edit View ↗</span>
+                    <Button variant="primary" size="sm" className="!bg-emerald-600 hover:!bg-emerald-500">
+                      <span>Full Edit View ↗</span>
+                    </Button>
                   </Link>
-                </div>
+                </Card>
               )}
 
               {/* SECTION: Interactive Update Controls */}
-              <form onSubmit={handleSaveChanges} className="p-5 rounded-2xl bg-violet-50/60 dark:bg-violet-950/20 border border-violet-200/80 dark:border-violet-500/20 space-y-4">
-                <div className="flex items-center justify-between pb-2 border-b border-violet-200/60 dark:border-violet-500/20">
-                  <span className="text-xs font-bold uppercase tracking-wider text-violet-900 dark:text-violet-300 flex items-center gap-1.5">
-                    <Clock className="size-3.5" />
-                    Update Lead Disposition & Allotment
-                  </span>
-                  <span className="text-[10px] text-violet-600 dark:text-violet-400 font-medium">
-                    Live Database Update
-                  </span>
-                </div>
+              <form onSubmit={handleSaveChanges}>
+                <Card className="p-5 space-y-4">
+                  <div className="flex items-center justify-between pb-2 border-b border-[var(--border)]">
+                    <span className="text-xs font-bold uppercase tracking-wider text-[var(--brand)] flex items-center gap-1.5">
+                      <Clock className="size-3.5" />
+                      Update Lead Disposition & Allotment
+                    </span>
+                    <Badge tone="info">Live Database Update</Badge>
+                  </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                  {/* Lead Response (Exact 12 options from confirmed CRM requirements) */}
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                      Lead Response
-                    </label>
-                    <select
-                      value={editResponse}
-                      onChange={(e) => handleResponseChange(e.target.value)}
-                      className="w-full px-3 py-2 text-xs rounded-xl bg-white dark:bg-slate-900 border border-slate-250 dark:border-slate-750 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-500/40"
-                    >
-                      <option value="">-- Select Response --</option>
-                      {editResponse &&
-                        !["CLIENT", "CLIENTS"].includes(editResponse.trim().toUpperCase()) &&
-                        !activeResponses.includes(editResponse) && (
-                        <option value={editResponse}>{editResponse} (Existing)</option>
-                      )}
-                      {activeResponses
-                        .filter((opt) => !["CLIENT", "CLIENTS"].includes(opt.trim().toUpperCase()))
-                        .map((opt: string) => (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                    {/* Lead Response */}
+                    <Field label="Lead Response" id="edit-response">
+                      <Select
+                        id="edit-response"
+                        value={editResponse}
+                        onChange={(e) => handleResponseChange(e.target.value)}
+                        className="w-full text-xs"
+                      >
+                        <option value="">-- Select Response --</option>
+                        {editResponse &&
+                          !["CLIENT", "CLIENTS"].includes(editResponse.trim().toUpperCase()) &&
+                          !activeResponses.includes(editResponse) && (
+                            <option value={editResponse}>{editResponse} (Existing)</option>
+                          )}
+                        {activeResponses
+                          .filter((opt) => !["CLIENT", "CLIENTS"].includes(opt.trim().toUpperCase()))
+                          .map((opt: string) => (
+                            <option key={opt} value={opt}>
+                              {opt}
+                            </option>
+                          ))}
+                      </Select>
+                    </Field>
+
+                    {/* Status */}
+                    <Field label="Lead Status" id="edit-status">
+                      <Select
+                        id="edit-status"
+                        value={editStatus}
+                        onChange={(e) => setEditStatus(e.target.value)}
+                        className="w-full text-xs font-semibold text-[var(--brand)]"
+                      >
+                        <option value="UNFOLLOWED">UNFOLLOWED</option>
+                        <option value="UNREAD">UNREAD</option>
+                        <option value="READ">READ</option>
+                        <option value="FOLLOW_UP">FOLLOW_UP</option>
+                        <option value="TRIAL">TRIAL</option>
+                        {isCurrentClient && (
+                          <option value="CLIENT" disabled>
+                            CLIENT (Confirmed Payment)
+                          </option>
+                        )}
+                        <option value="DISPOSED">DISPOSED</option>
+                      </Select>
+                    </Field>
+
+                    {/* Lead Source */}
+                    <Field label="Lead Source" id="edit-source">
+                      <Select
+                        id="edit-source"
+                        value={editSource}
+                        onChange={(e) => setEditSource(e.target.value)}
+                        className="w-full text-xs"
+                      >
+                        <option value="">-- Select Source --</option>
+                        {editSource && !activeSources.includes(editSource) && (
+                          <option value={editSource}>{editSource} (Existing)</option>
+                        )}
+                        {activeSources.map((opt) => (
                           <option key={opt} value={opt}>
                             {opt}
                           </option>
                         ))}
-                    </select>
+                      </Select>
+                    </Field>
+
+                    {/* Profile */}
+                    <Field label="Profile" id="edit-profile">
+                      <Select
+                        id="edit-profile"
+                        value={editProfile}
+                        onChange={(e) => setEditProfile(e.target.value)}
+                        className="w-full text-xs"
+                      >
+                        <option value="">-- Select Profile --</option>
+                        {editProfile &&
+                          !(LEAD_PROFILE_OPTIONS as readonly string[]).includes(editProfile) && (
+                            <option value={editProfile}>{editProfile} (Legacy)</option>
+                          )}
+                        {LEAD_PROFILE_OPTIONS.map((opt) => (
+                          <option key={opt} value={opt}>
+                            {opt}
+                          </option>
+                        ))}
+                      </Select>
+                    </Field>
+
+                    {/* Experience */}
+                    <Field label="Experience" id="edit-experience">
+                      <Select
+                        id="edit-experience"
+                        value={editExperience}
+                        onChange={(e) => setEditExperience(e.target.value)}
+                        className="w-full text-xs"
+                      >
+                        <option value="">-- Select Experience --</option>
+                        {editExperience &&
+                          !(LEAD_EXPERIENCE_OPTIONS as readonly string[]).includes(editExperience) && (
+                            <option value={editExperience}>{editExperience} (Legacy)</option>
+                          )}
+                        {LEAD_EXPERIENCE_OPTIONS.map((opt) => (
+                          <option key={opt} value={opt}>
+                            {opt}
+                          </option>
+                        ))}
+                      </Select>
+                    </Field>
+
+                    {/* Callback Date (native datetime-local preserved per audit) */}
+                    <Field label="Callback Date & Time" id="edit-callback">
+                      <input
+                        id="edit-callback"
+                        type="datetime-local"
+                        value={editCallbackDate}
+                        onChange={(e) => setEditCallbackDate(e.target.value)}
+                        className="inp w-full text-xs py-2"
+                      />
+                    </Field>
+
+                    {/* Allot To (Reassignment) */}
+                    <Field label="Allot To (Assignee)" id="edit-allot">
+                      <Select
+                        id="edit-allot"
+                        value={editAllotToId}
+                        onChange={(e) => setEditAllotToId(e.target.value)}
+                        className="w-full text-xs"
+                      >
+                        <option value="">-- Unassigned (General Pool) --</option>
+                        {allotmentUsers.map((u) => (
+                          <option key={u.id} value={u.id}>
+                            {u.name} ({u.role} {u.teamName ? `• ${u.teamName}` : ""})
+                          </option>
+                        ))}
+                      </Select>
+                    </Field>
+
+                    {/* Comments / Description */}
+                    <div className="sm:col-span-2">
+                      <Field label="Conversation Notes / Remarks" id="edit-description">
+                        <Textarea
+                          id="edit-description"
+                          rows={3}
+                          value={editDescription}
+                          onChange={(e) => setEditDescription(e.target.value)}
+                          placeholder="Add follow-up call notes, client response feedback, or advisory requirements..."
+                          className="w-full text-xs"
+                        />
+                      </Field>
+                    </div>
                   </div>
 
-                  {/* Status */}
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                      Lead Status
-                    </label>
-                    <select
-                      value={editStatus}
-                      onChange={(e) => setEditStatus(e.target.value)}
-                      className="w-full px-3 py-2 text-xs rounded-xl bg-white dark:bg-slate-900 border border-slate-250 dark:border-slate-750 text-purple-600 dark:text-purple-400 font-semibold focus:outline-none focus:ring-2 focus:ring-purple-500/40"
+                  <div className="pt-2 flex justify-end">
+                    <Button
+                      type="submit"
+                      variant="primary"
+                      size="sm"
+                      loading={isPending}
+                      disabled={isPending}
                     >
-                      <option value="UNFOLLOWED">UNFOLLOWED</option>
-                      <option value="UNREAD">UNREAD</option>
-                      <option value="READ">READ</option>
-                      <option value="FOLLOW_UP">FOLLOW_UP</option>
-                      <option value="TRIAL">TRIAL</option>
-                      {isCurrentClient && (
-                        <option value="CLIENT" disabled>
-                          CLIENT (Confirmed Payment)
-                        </option>
-                      )}
-                      <option value="DISPOSED">DISPOSED</option>
-                    </select>
+                      Save Updates
+                    </Button>
                   </div>
-
-                  {/* Lead Source (Exact 11 options from confirmed CRM requirements) */}
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                      Lead Source
-                    </label>
-                    <select
-                      value={editSource}
-                      onChange={(e) => setEditSource(e.target.value)}
-                      className="w-full px-3 py-2 text-xs rounded-xl bg-white dark:bg-slate-900 border border-slate-250 dark:border-slate-750 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-500/40"
-                    >
-                      <option value="">-- Select Source --</option>
-                      {editSource && !activeSources.includes(editSource) && (
-                        <option value={editSource}>{editSource} (Existing)</option>
-                      )}
-                      {activeSources.map((opt) => (
-                        <option key={opt} value={opt}>
-                          {opt}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  {/* Profile (Exact 6 options from confirmed CRM requirements) */}
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                      Profile
-                    </label>
-                    <select
-                      value={editProfile}
-                      onChange={(e) => setEditProfile(e.target.value)}
-                      className="w-full px-3 py-2 text-xs rounded-xl bg-white dark:bg-slate-900 border border-slate-250 dark:border-slate-750 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-500/40"
-                    >
-                      <option value="">-- Select Profile --</option>
-                      {editProfile && !(LEAD_PROFILE_OPTIONS as readonly string[]).includes(editProfile) && (
-                        <option value={editProfile}>{editProfile} (Legacy)</option>
-                      )}
-                      {LEAD_PROFILE_OPTIONS.map((opt) => (
-                        <option key={opt} value={opt}>
-                          {opt}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  {/* Experience (Exact 5 options from confirmed CRM requirements) */}
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                      Experience
-                    </label>
-                    <select
-                      value={editExperience}
-                      onChange={(e) => setEditExperience(e.target.value)}
-                      className="w-full px-3 py-2 text-xs rounded-xl bg-white dark:bg-slate-900 border border-slate-250 dark:border-slate-750 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-500/40"
-                    >
-                      <option value="">-- Select Experience --</option>
-                      {editExperience && !(LEAD_EXPERIENCE_OPTIONS as readonly string[]).includes(editExperience) && (
-                        <option value={editExperience}>{editExperience} (Legacy)</option>
-                      )}
-                      {LEAD_EXPERIENCE_OPTIONS.map((opt) => (
-                        <option key={opt} value={opt}>
-                          {opt}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  {/* Callback Date */}
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                      Callback Date & Time
-                    </label>
-                    <input
-                      type="datetime-local"
-                      value={editCallbackDate}
-                      onChange={(e) => setEditCallbackDate(e.target.value)}
-                      className="w-full px-3 py-2 text-xs rounded-xl bg-white dark:bg-slate-900 border border-slate-250 dark:border-slate-750 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-500/40"
-                    />
-                  </div>
-
-                  {/* Allot To (Reassignment) */}
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                      Allot To (Assignee)
-                    </label>
-                    <select
-                      value={editAllotToId}
-                      onChange={(e) => setEditAllotToId(e.target.value)}
-                      className="w-full px-3 py-2 text-xs rounded-xl bg-white dark:bg-slate-900 border border-slate-250 dark:border-slate-750 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-500/40"
-                    >
-                      <option value="">-- Unassigned (General Pool) --</option>
-                      {allotmentUsers.map((u) => (
-                        <option key={u.id} value={u.id}>
-                          {u.name} ({u.role} {u.teamName ? `• ${u.teamName}` : ""})
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  {/* Comments / Description */}
-                  <div className="sm:col-span-2">
-                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                      Conversation Notes / Remarks
-                    </label>
-                    <textarea
-                      rows={3}
-                      value={editDescription}
-                      onChange={(e) => setEditDescription(e.target.value)}
-                      placeholder="Add follow-up call notes, client response feedback, or advisory requirements..."
-                      className="w-full px-3 py-2 text-xs rounded-xl bg-white dark:bg-slate-900 border border-slate-250 dark:border-slate-750 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-500/40 resize-y"
-                    />
-                  </div>
-                </div>
-
-                <div className="pt-2 flex justify-end">
-                  <button
-                    type="submit"
-                    disabled={isPending}
-                    className="inline-flex items-center gap-2 px-5 py-2 text-xs font-bold text-white bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 rounded-xl transition-all shadow-md shadow-violet-600/30 disabled:opacity-50 hover:scale-[1.02] active:scale-[0.98]"
-                  >
-                    {isPending ? (
-                      <>
-                        <Loader2 className="size-3.5 animate-spin" />
-                        <span>Saving Changes...</span>
-                      </>
-                    ) : (
-                      <>
-                        <Save className="size-3.5" />
-                        <span>Save Updates</span>
-                      </>
-                    )}
-                  </button>
-                </div>
+                </Card>
               </form>
 
-              {/* FEATURE 1: Expandable/Collapsible Lead Details Section */}
-              <div className="rounded-2xl border border-slate-200/80 dark:border-white/[0.08] bg-white/70 dark:bg-white/[0.03] overflow-hidden transition-all shadow-xs">
+              {/* Expandable/Collapsible Lead Details Section */}
+              <Card className="overflow-hidden transition-all shadow-xs">
                 <button
                   type="button"
                   onClick={() => setIsDetailsExpanded((prev) => !prev)}
                   aria-expanded={isDetailsExpanded}
                   aria-controls="expandable-lead-details"
-                  className="w-full flex items-center justify-between p-4 text-left hover:bg-slate-100/50 dark:hover:bg-white/[0.03] transition-colors"
+                  className="w-full flex items-center justify-between p-4 text-left hover:bg-[var(--glass-stroke)] transition-colors cursor-pointer"
                 >
                   <div className="flex items-center gap-2">
-                    <User className="size-4 text-violet-600 dark:text-violet-400" />
-                    <span className="text-xs font-bold uppercase tracking-wider text-slate-800 dark:text-slate-200">
+                    <User className="size-4 text-[var(--brand)]" />
+                    <span className="text-xs font-bold uppercase tracking-wider text-[var(--text)]">
                       Lead Details
                     </span>
-                    <span className="text-[10px] text-slate-400 font-medium">
+                    <span className="text-[10px] text-[var(--muted)] font-medium">
                       (Full Name, Email, State, City)
                     </span>
                   </div>
-                  <div className="flex items-center gap-1.5 text-xs text-violet-600 dark:text-violet-400 font-semibold">
+                  <div className="flex items-center gap-1.5 text-xs text-[var(--brand)] font-semibold">
                     <span>{isDetailsExpanded ? "Hide Details" : "Show Details"}</span>
                     <ChevronDown
-                      className={`size-4 transition-transform duration-200 ${
+                      className={cn(
+                        "size-4 transition-transform duration-200",
                         isDetailsExpanded ? "rotate-180" : ""
-                      }`}
+                      )}
                     />
                   </div>
                 </button>
@@ -652,177 +613,177 @@ export function LeadDetailsDrawer({
                 {isDetailsExpanded && (
                   <div
                     id="expandable-lead-details"
-                    className="px-4 pb-4 pt-1 border-t border-slate-200/60 dark:border-white/[0.05] animate-in fade-in duration-150"
+                    className="px-4 pb-4 pt-1 border-t border-[var(--border)] animate-in fade-in duration-150"
                   >
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs pt-2">
-                      <div className="p-3 rounded-xl bg-slate-50/80 dark:bg-white/[0.02] border border-slate-200/60 dark:border-white/[0.05]">
-                        <span className="text-[10px] font-semibold text-slate-400 block uppercase tracking-wider">
+                      <div className="p-3 rounded-xl bg-[var(--glass-stroke)] border border-[var(--border)]">
+                        <span className="text-[10px] font-semibold text-[var(--muted)] block uppercase tracking-wider">
                           Full Name
                         </span>
-                        <span className="font-bold text-slate-900 dark:text-white mt-0.5 block">
+                        <span className="font-bold text-[var(--text)] mt-0.5 block">
                           {lead.name || "—"}
                         </span>
                       </div>
-                      <div className="p-3 rounded-xl bg-slate-50/80 dark:bg-white/[0.02] border border-slate-200/60 dark:border-white/[0.05]">
-                        <span className="text-[10px] font-semibold text-slate-400 block uppercase tracking-wider">
+                      <div className="p-3 rounded-xl bg-[var(--glass-stroke)] border border-[var(--border)]">
+                        <span className="text-[10px] font-semibold text-[var(--muted)] block uppercase tracking-wider">
                           Email Address
                         </span>
-                        <span className="font-medium text-slate-700 dark:text-slate-300 mt-0.5 block truncate">
+                        <span className="font-medium text-[var(--text)] mt-0.5 block truncate">
                           {lead.email || "—"}
                         </span>
                       </div>
-                      <div className="p-3 rounded-xl bg-slate-50/80 dark:bg-white/[0.02] border border-slate-200/60 dark:border-white/[0.05]">
-                        <span className="text-[10px] font-semibold text-slate-400 block uppercase tracking-wider">
+                      <div className="p-3 rounded-xl bg-[var(--glass-stroke)] border border-[var(--border)]">
+                        <span className="text-[10px] font-semibold text-[var(--muted)] block uppercase tracking-wider">
                           State
                         </span>
-                        <span className="font-medium text-slate-700 dark:text-slate-300 mt-0.5 block">
+                        <span className="font-medium text-[var(--text)] mt-0.5 block">
                           {lead.state || "—"}
                         </span>
                       </div>
-                      <div className="p-3 rounded-xl bg-slate-50/80 dark:bg-white/[0.02] border border-slate-200/60 dark:border-white/[0.05]">
-                        <span className="text-[10px] font-semibold text-slate-400 block uppercase tracking-wider">
+                      <div className="p-3 rounded-xl bg-[var(--glass-stroke)] border border-[var(--border)]">
+                        <span className="text-[10px] font-semibold text-[var(--muted)] block uppercase tracking-wider">
                           City
                         </span>
-                        <span className="font-medium text-slate-700 dark:text-slate-300 mt-0.5 block">
+                        <span className="font-medium text-[var(--text)] mt-0.5 block">
                           {lead.city || "—"}
                         </span>
                       </div>
                     </div>
                   </div>
                 )}
-              </div>
+              </Card>
 
               {/* SECTION: Saved Record Profile (Read-only Overview) */}
               <div className="space-y-4">
-                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                <h3 className="text-xs font-bold uppercase tracking-wider text-[var(--muted)]">
                   Client Record Summary
                 </h3>
 
                 {/* Primary Contact Details */}
-                <div className="p-4 rounded-2xl bg-white/70 dark:bg-white/[0.03] border border-slate-200/80 dark:border-white/[0.08] shadow-xs space-y-2.5">
-                  <div className="text-[11px] font-bold uppercase tracking-wider text-violet-600 dark:text-violet-400 flex items-center gap-1.5">
+                <Card className="p-4 space-y-2.5">
+                  <div className="text-[11px] font-bold uppercase tracking-wider text-[var(--brand)] flex items-center gap-1.5">
                     <Phone className="size-3.5" /> Contact & Location
                   </div>
                   <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-xs">
                     <div>
-                      <span className="text-[10px] text-slate-400 block">Mobile Number</span>
-                      <span className="font-mono font-bold text-slate-900 dark:text-white">
+                      <span className="text-[10px] text-[var(--muted)] block">Mobile Number</span>
+                      <span className="font-mono font-bold text-[var(--text)]">
                         {lead.mobile}
                       </span>
                     </div>
                     <div>
-                      <span className="text-[10px] text-slate-400 block">Alternate Mobile</span>
-                      <span className="font-mono text-slate-700 dark:text-slate-300">
+                      <span className="text-[10px] text-[var(--muted)] block">Alternate Mobile</span>
+                      <span className="font-mono text-[var(--text)]">
                         {lead.alternateMobile || "—"}
                       </span>
                     </div>
                     <div>
-                      <span className="text-[10px] text-slate-400 block">Email Address</span>
-                      <span className="text-slate-700 dark:text-slate-300 truncate block">
+                      <span className="text-[10px] text-[var(--muted)] block">Email Address</span>
+                      <span className="text-[var(--text)] truncate block">
                         {lead.email || "—"}
                       </span>
                     </div>
                     <div>
-                      <span className="text-[10px] text-slate-400 block">City / State</span>
-                      <span className="text-slate-700 dark:text-slate-300">
+                      <span className="text-[10px] text-[var(--muted)] block">City / State</span>
+                      <span className="text-[var(--text)]">
                         {[lead.city, lead.state].filter(Boolean).join(", ") || "—"}
                       </span>
                     </div>
                     <div>
-                      <span className="text-[10px] text-slate-400 block">District</span>
-                      <span className="text-slate-700 dark:text-slate-300">
+                      <span className="text-[10px] text-[var(--muted)] block">District</span>
+                      <span className="text-[var(--text)]">
                         {lead.district || "—"}
                       </span>
                     </div>
                     <div>
-                      <span className="text-[10px] text-slate-400 block">Lead Source</span>
-                      <span className="text-slate-700 dark:text-slate-300 font-semibold">
+                      <span className="text-[10px] text-[var(--muted)] block">Lead Source</span>
+                      <span className="text-[var(--text)] font-semibold">
                         {lead.leadSource || "—"}
                       </span>
                     </div>
                   </div>
-                </div>
+                </Card>
 
                 {/* Trading & Investment Profile */}
-                <div className="p-4 rounded-2xl bg-white/70 dark:bg-white/[0.03] border border-slate-200/80 dark:border-white/[0.08] shadow-xs space-y-2.5">
-                  <div className="text-[11px] font-bold uppercase tracking-wider text-violet-600 dark:text-violet-400 flex items-center gap-1.5">
+                <Card className="p-4 space-y-2.5">
+                  <div className="text-[11px] font-bold uppercase tracking-wider text-[var(--brand)] flex items-center gap-1.5">
                     <TrendingUp className="size-3.5" /> Trading & Investment Profile
                   </div>
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
                     <div>
-                      <span className="text-[10px] text-slate-400 block">Advisory Segment</span>
-                      <span className="font-semibold text-slate-900 dark:text-white">
+                      <span className="text-[10px] text-[var(--muted)] block">Advisory Segment</span>
+                      <span className="font-semibold text-[var(--text)]">
                         {lead.segment || "—"}
                       </span>
                     </div>
                     <div>
-                      <span className="text-[10px] text-slate-400 block">Investment Capital</span>
-                      <span className="text-slate-700 dark:text-slate-300">
+                      <span className="text-[10px] text-[var(--muted)] block">Investment Capital</span>
+                      <span className="text-[var(--text)]">
                         {lead.investment || "—"}
                       </span>
                     </div>
                     <div>
-                      <span className="text-[10px] text-slate-400 block">Profile</span>
-                      <span className="text-slate-700 dark:text-slate-300">
+                      <span className="text-[10px] text-[var(--muted)] block">Profile</span>
+                      <span className="text-[var(--text)]">
                         {lead.profile || "—"}
                       </span>
                     </div>
                     <div>
-                      <span className="text-[10px] text-slate-400 block">Experience</span>
-                      <span className="text-slate-700 dark:text-slate-300">
+                      <span className="text-[10px] text-[var(--muted)] block">Experience</span>
+                      <span className="text-[var(--text)]">
                         {lead.experience || "—"}
                       </span>
                     </div>
                   </div>
-                </div>
+                </Card>
 
                 {/* KYC & Identity Details */}
-                <div className="p-4 rounded-2xl bg-white/70 dark:bg-white/[0.03] border border-slate-200/80 dark:border-white/[0.08] shadow-xs space-y-2.5">
-                  <div className="text-[11px] font-bold uppercase tracking-wider text-violet-600 dark:text-violet-400 flex items-center gap-1.5">
+                <Card className="p-4 space-y-2.5">
+                  <div className="text-[11px] font-bold uppercase tracking-wider text-[var(--brand)] flex items-center gap-1.5">
                     <CreditCard className="size-3.5" /> Personal Identification (KYC)
                   </div>
                   <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-xs">
                     <div>
-                      <span className="text-[10px] text-slate-400 block">Father&apos;s Name</span>
-                      <span className="text-slate-700 dark:text-slate-300">
+                      <span className="text-[10px] text-[var(--muted)] block">Father&apos;s Name</span>
+                      <span className="text-[var(--text)]">
                         {lead.fatherName || "—"}
                       </span>
                     </div>
                     <div>
-                      <span className="text-[10px] text-slate-400 block">Date of Birth</span>
-                      <span className="text-slate-700 dark:text-slate-300">
+                      <span className="text-[10px] text-[var(--muted)] block">Date of Birth</span>
+                      <span className="text-[var(--text)]">
                         {lead.dob ? new Date(lead.dob).toLocaleDateString() : "—"}
                       </span>
                     </div>
                     <div>
-                      <span className="text-[10px] text-slate-400 block">Occupation</span>
-                      <span className="text-slate-700 dark:text-slate-300">
+                      <span className="text-[10px] text-[var(--muted)] block">Occupation</span>
+                      <span className="text-[var(--text)]">
                         {lead.occupation || "—"}
                       </span>
                     </div>
                     <div>
-                      <span className="text-[10px] text-slate-400 block">PAN</span>
-                      <span className="font-mono text-slate-700 dark:text-slate-300 uppercase">
+                      <span className="text-[10px] text-[var(--muted)] block">PAN</span>
+                      <span className="font-mono text-[var(--text)] uppercase">
                         {lead.pan || "—"}
                       </span>
                     </div>
                     <div>
-                      <span className="text-[10px] text-slate-400 block">Aadhar Number</span>
-                      <span className="font-mono text-slate-700 dark:text-slate-300">
+                      <span className="text-[10px] text-[var(--muted)] block">Aadhar Number</span>
+                      <span className="font-mono text-[var(--text)]">
                         {lead.aadhar || "—"}
                       </span>
                     </div>
                     <div>
-                      <span className="text-[10px] text-slate-400 block">GSTIN</span>
-                      <span className="font-mono text-slate-700 dark:text-slate-300 uppercase">
+                      <span className="text-[10px] text-[var(--muted)] block">GSTIN</span>
+                      <span className="font-mono text-[var(--text)] uppercase">
                         {lead.gstin || "—"}
                       </span>
                     </div>
                   </div>
-                </div>
+                </Card>
 
                 {/* Metadata */}
-                <div className="flex items-center justify-between text-[11px] text-slate-400 pt-2 px-1">
+                <div className="flex items-center justify-between text-[11px] text-[var(--muted)] pt-2 px-1">
                   <span>
                     Created: {new Date(lead.createdAt).toLocaleString()}
                   </span>
@@ -835,6 +796,23 @@ export function LeadDetailsDrawer({
           ) : null}
         </div>
       </div>
+
+      {/* Confirmation Dialog for Lead Disposition */}
+      <ConfirmDialog
+        open={isConfirmingDispose}
+        onClose={() => setIsConfirmingDispose(false)}
+        onConfirm={handleExecuteDispose}
+        title="Mark this lead as Disposed?"
+        description={
+          <span>
+            Setting the status to <strong className="text-rose-500 font-mono">DISPOSED</strong> will mark this lead as disposed in the system, log an activity log entry, and refresh the active leads pipeline.
+          </span>
+        }
+        confirmText="Confirm Dispose"
+        cancelText="Cancel"
+        tone="danger"
+        loading={isDisposing}
+      />
     </div>
   );
 }

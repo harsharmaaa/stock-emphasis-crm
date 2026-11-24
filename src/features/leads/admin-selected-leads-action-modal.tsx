@@ -7,16 +7,24 @@ import {
   type AllotmentUserOption,
 } from "./actions";
 import {
-  X,
+  Modal,
+  Button,
+  Badge,
+  Card,
+  Field,
+  Select,
+  useToast,
+} from "@/src/components/ui";
+import {
   UserCheck,
   RotateCcw,
   CheckCircle2,
   Trash2,
   Download,
   AlertTriangle,
-  Loader2,
   AlertCircle,
 } from "lucide-react";
+import { cn } from "@/src/lib/utils";
 
 interface AdminSelectedLeadsActionModalProps {
   isOpen: boolean;
@@ -37,6 +45,7 @@ export function AdminSelectedLeadsActionModal({
   availableSources,
   availableTeams,
 }: AdminSelectedLeadsActionModalProps) {
+  const toast = useToast();
   const [isPending, startTransition] = useTransition();
   const [operation, setOperation] = useState<AdminSelectedLeadsBulkOperationType>("ALLOT_USER_TEAM");
   const [targetUserId, setTargetUserId] = useState<string>("");
@@ -153,63 +162,84 @@ export function AdminSelectedLeadsActionModal({
             downloadCsv(res.exportData);
           }
 
-          setSuccessMessage(res.message || "Operation completed successfully.");
+          const msg = res.message || "Operation completed successfully.";
+          setSuccessMessage(msg);
+          toast?.success(msg);
           setTimeout(() => {
             onSuccess();
             onClose();
           }, 600);
         } else {
-          setErrorMessage(res.error || "Failed to execute bulk action.");
+          const err = res.error || "Failed to execute bulk action.";
+          setErrorMessage(err);
+          toast?.error(err);
         }
       } catch (err) {
-        setErrorMessage(
-          err instanceof Error ? err.message : "An unexpected error occurred."
-        );
+        const errText = err instanceof Error ? err.message : "An unexpected error occurred.";
+        setErrorMessage(errText);
+        toast?.error(errText);
       }
     });
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-in fade-in duration-150">
-      <div className="fixed inset-0" onClick={onClose} />
-
-      <div
-        className="relative w-full max-w-lg rounded-2xl bg-[#121826] border border-slate-700/60 shadow-2xl p-6 z-10 animate-in fade-in zoom-in-95 duration-150 space-y-5"
-        onClick={(e) => e.stopPropagation()}
-      >
-        {/* Header */}
-        <div className="flex items-center justify-between pb-2 border-b border-slate-800">
-          <div>
-            <h2 className="text-lg font-bold text-white tracking-tight flex items-center gap-2">
-              <span>Bulk Actions</span>
-              <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-violet-500/20 text-violet-300 border border-violet-500/30">
-                {selectedLeadIds.length} Selected
-              </span>
-            </h2>
-            <p className="text-xs text-slate-400 mt-0.5">
-              Execute batch operations on explicitly selected leads.
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors cursor-pointer"
-          >
-            <X className="size-4" />
-          </button>
+    <Modal
+      open={true}
+      onClose={onClose}
+      size="lg"
+      title={
+        <div className="flex items-center gap-2">
+          <span>Bulk Actions</span>
+          <Badge tone="info">
+            {selectedLeadIds.length} Selected
+          </Badge>
         </div>
+      }
+      description="Execute batch operations on explicitly selected leads."
+      footer={
+        <div className="flex items-center justify-between w-full">
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={onClose}
+          >
+            Cancel
+          </Button>
 
+          <Button
+            type="button"
+            disabled={isPending || (operation === "DELETE_FOREVER" && !confirmDeleteForever)}
+            loading={isPending}
+            onClick={handleExecute}
+            variant={
+              operation === "DELETE_FOREVER" || operation === "DELETE"
+                ? "danger"
+                : "primary"
+            }
+            size="sm"
+          >
+            {operation === "EXPORT"
+              ? "Download CSV"
+              : operation === "DELETE_FOREVER"
+              ? "Delete Permanently"
+              : "Execute Action"}
+          </Button>
+        </div>
+      }
+    >
+      <div className="space-y-4 pt-1">
         {/* Notifications */}
         {successMessage && (
-          <div className="p-3 rounded-xl bg-emerald-950/50 border border-emerald-500/40 text-emerald-300 text-xs flex items-center gap-2">
-            <CheckCircle2 className="size-4 shrink-0 text-emerald-400" />
+          <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-700 dark:text-emerald-300 text-xs flex items-center gap-2">
+            <CheckCircle2 className="size-4 shrink-0 text-emerald-500" />
             <span>{successMessage}</span>
           </div>
         )}
 
         {errorMessage && (
-          <div className="p-3 rounded-xl bg-rose-950/50 border border-rose-500/40 text-rose-300 text-xs flex items-center gap-2">
-            <AlertCircle className="size-4 shrink-0 text-rose-400" />
+          <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-600 dark:text-rose-400 text-xs flex items-center gap-2">
+            <AlertCircle className="size-4 shrink-0 text-rose-500" />
             <span>{errorMessage}</span>
           </div>
         )}
@@ -231,13 +261,14 @@ export function AdminSelectedLeadsActionModal({
                 key={item.id}
                 type="button"
                 onClick={() => setOperation(item.id as AdminSelectedLeadsBulkOperationType)}
-                className={`flex flex-col items-center justify-center p-2.5 rounded-xl text-xs font-semibold border transition-all cursor-pointer text-center gap-1.5 ${
+                className={cn(
+                  "flex flex-col items-center justify-center p-2.5 rounded-xl text-xs font-semibold border transition-all cursor-pointer text-center gap-1.5",
                   active
-                    ? "bg-violet-600/20 border-violet-500 text-white shadow-xs"
-                    : "bg-slate-900/60 border-slate-800 text-slate-400 hover:text-slate-200 hover:bg-slate-800/50"
-                }`}
+                    ? "bg-[var(--brand)]/15 border-[var(--brand)] text-[var(--brand)] shadow-xs"
+                    : "bg-[var(--glass-stroke)] border-[var(--border)] text-[var(--muted)] hover:text-[var(--text)] hover:bg-[var(--glass-stroke)]/80"
+                )}
               >
-                <Icon className={`size-4 ${active ? "text-violet-400" : "text-slate-400"}`} />
+                <Icon className={cn("size-4", active ? "text-[var(--brand)]" : "text-[var(--muted)]")} />
                 <span className="text-[11px] leading-tight">{item.label}</span>
               </button>
             );
@@ -245,17 +276,15 @@ export function AdminSelectedLeadsActionModal({
         </div>
 
         {/* Configuration Body based on operation */}
-        <div className="p-4 rounded-xl bg-slate-900/80 border border-slate-800 space-y-3 text-xs">
+        <Card className="p-4 space-y-3 text-xs">
           {operation === "ALLOT_USER_TEAM" && (
             <div className="space-y-3">
-              <div>
-                <label className="block text-[11px] font-semibold text-slate-300 mb-1">
-                  Assign to User (Lead Owner):
-                </label>
-                <select
+              <Field label="Assign to User (Lead Owner)" id="target-user">
+                <Select
+                  id="target-user"
                   value={targetUserId}
                   onChange={(e) => setTargetUserId(e.target.value)}
-                  className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-700 text-white focus:outline-none focus:border-violet-500 text-xs"
+                  className="w-full text-xs"
                 >
                   <option value="">-- Keep / Clear User Assignment --</option>
                   {allotmentUsers.map((u) => (
@@ -263,17 +292,15 @@ export function AdminSelectedLeadsActionModal({
                       {u.name} ({u.role}) {u.teamName ? `• ${u.teamName}` : ""}
                     </option>
                   ))}
-                </select>
-              </div>
+                </Select>
+              </Field>
 
-              <div>
-                <label className="block text-[11px] font-semibold text-slate-300 mb-1">
-                  Assign to Team:
-                </label>
-                <select
+              <Field label="Assign to Team" id="target-team">
+                <Select
+                  id="target-team"
                   value={targetTeamId}
                   onChange={(e) => setTargetTeamId(e.target.value)}
-                  className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-700 text-white focus:outline-none focus:border-violet-500 text-xs"
+                  className="w-full text-xs"
                 >
                   <option value="">-- Auto-resolve from User / No Team --</option>
                   {availableTeams.map((t) => (
@@ -281,17 +308,15 @@ export function AdminSelectedLeadsActionModal({
                       {t.name}
                     </option>
                   ))}
-                </select>
-              </div>
+                </Select>
+              </Field>
 
-              <div>
-                <label className="block text-[11px] font-semibold text-slate-300 mb-1">
-                  Target Lead Source (Optional):
-                </label>
-                <select
+              <Field label="Target Lead Source (Optional)" id="target-source">
+                <Select
+                  id="target-source"
                   value={targetSource}
                   onChange={(e) => setTargetSource(e.target.value)}
-                  className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-700 text-white focus:outline-none focus:border-violet-500 text-xs"
+                  className="w-full text-xs"
                 >
                   <option value="">-- Keep Current Lead Source --</option>
                   {availableSources.map((s) => (
@@ -299,66 +324,64 @@ export function AdminSelectedLeadsActionModal({
                       {s}
                     </option>
                   ))}
-                </select>
-              </div>
+                </Select>
+              </Field>
 
-              <label className="flex items-center gap-2 pt-1 text-slate-300 cursor-pointer">
+              <label className="flex items-center gap-2 pt-1 text-[var(--text)] cursor-pointer">
                 <input
                   type="checkbox"
                   checked={clearPreviousTimeline}
                   onChange={(e) => setClearPreviousTimeline(e.target.checked)}
-                  className="size-4 rounded border-slate-700 text-violet-600 focus:ring-violet-500/30"
+                  className="size-4 rounded border-[var(--border)] text-[var(--brand)] focus:ring-[var(--brand)]/30"
                 />
                 <span className="font-medium text-xs">Clear Previous Timeline & Call History</span>
               </label>
 
-              <p className="text-[11px] text-slate-400">
-                Selected leads will be assigned with status reset to <span className="text-cyan-400 font-bold">UNREAD</span> so they appear immediately in the assignee&apos;s queue.
+              <p className="text-[11px] text-[var(--muted)]">
+                Selected leads will be assigned with status reset to <span className="text-cyan-500 font-bold">UNREAD</span> so they appear immediately in the assignee&apos;s queue.
               </p>
             </div>
           )}
 
           {operation === "RECYCLE" && (
             <div className="space-y-3">
-              <div>
-                <label className="block text-[11px] font-semibold text-slate-300 mb-1">
-                  Target Lead Source Pool:
-                </label>
-                <select
+              <Field label="Target Lead Source Pool" id="recycle-source">
+                <Select
+                  id="recycle-source"
                   value={effectiveTargetSource}
                   onChange={(e) => setTargetSource(e.target.value)}
-                  className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-700 text-white focus:outline-none focus:border-violet-500 text-xs"
+                  className="w-full text-xs"
                 >
                   {availableSources.map((s) => (
                     <option key={s} value={s}>
                       {s}
                     </option>
                   ))}
-                </select>
-              </div>
+                </Select>
+              </Field>
 
-              <label className="flex items-center gap-2 pt-1 text-slate-300 cursor-pointer">
+              <label className="flex items-center gap-2 pt-1 text-[var(--text)] cursor-pointer">
                 <input
                   type="checkbox"
                   checked={clearPreviousTimeline}
                   onChange={(e) => setClearPreviousTimeline(e.target.checked)}
-                  className="size-4 rounded border-slate-700 text-violet-600 focus:ring-violet-500/30"
+                  className="size-4 rounded border-[var(--border)] text-[var(--brand)] focus:ring-[var(--brand)]/30"
                 />
                 <span className="font-medium text-xs">Clear Previous Timeline & Call History</span>
               </label>
 
-              <p className="text-[11px] text-slate-400">
-                Selected leads will be unassigned (<span className="text-cyan-400 font-mono">allotToId: null</span>) and reset to <span className="text-cyan-400 font-bold">UNREAD</span> in the unalloted pool for the chosen source.
+              <p className="text-[11px] text-[var(--muted)]">
+                Selected leads will be unassigned (<span className="text-cyan-500 font-mono">allotToId: null</span>) and reset to <span className="text-cyan-500 font-bold">UNREAD</span> in the unalloted pool for the chosen source.
               </p>
             </div>
           )}
 
           {operation === "DISPOSE" && (
             <div className="space-y-1">
-              <p className="text-slate-300">
-                Move {selectedLeadIds.length} lead(s) to <span className="text-rose-400 font-bold">DISPOSED</span> status.
+              <p className="text-[var(--text)]">
+                Move {selectedLeadIds.length} lead(s) to <span className="text-rose-500 font-bold">DISPOSED</span> status.
               </p>
-              <p className="text-[11px] text-slate-400">
+              <p className="text-[11px] text-[var(--muted)]">
                 Disposed leads will no longer show in active queues and can be reviewed in the Disposed tab.
               </p>
             </div>
@@ -366,10 +389,10 @@ export function AdminSelectedLeadsActionModal({
 
           {operation === "EXPORT" && (
             <div className="space-y-1">
-              <p className="text-slate-300">
+              <p className="text-[var(--text)]">
                 Export all {selectedLeadIds.length} selected lead(s) to a CSV spreadsheet.
               </p>
-              <p className="text-[11px] text-slate-400">
+              <p className="text-[11px] text-[var(--muted)]">
                 Includes ID, contact info, lead source, response, owner assignment, and created dates.
               </p>
             </div>
@@ -377,10 +400,10 @@ export function AdminSelectedLeadsActionModal({
 
           {operation === "DELETE" && (
             <div className="space-y-1">
-              <p className="text-slate-300">
-                Move {selectedLeadIds.length} lead(s) to the <span className="text-rose-400 font-bold">Deleted Bin</span>.
+              <p className="text-[var(--text)]">
+                Move {selectedLeadIds.length} lead(s) to the <span className="text-rose-500 font-bold">Deleted Bin</span>.
               </p>
-              <p className="text-[11px] text-slate-400">
+              <p className="text-[11px] text-[var(--muted)]">
                 Soft-deletes the records. They can be reviewed or permanently deleted later.
               </p>
             </div>
@@ -388,16 +411,16 @@ export function AdminSelectedLeadsActionModal({
 
           {operation === "DELETE_FOREVER" && (
             <div className="space-y-3">
-              <div className="p-3 rounded-xl bg-rose-950/40 border border-rose-500/40 text-rose-300 space-y-1">
-                <p className="font-bold flex items-center gap-1.5 text-xs text-rose-200">
-                  <AlertTriangle className="size-4 text-rose-400" /> Permanent Database Deletion
+              <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-600 dark:text-rose-300 space-y-1">
+                <p className="font-bold flex items-center gap-1.5 text-xs text-rose-500">
+                  <AlertTriangle className="size-4" /> Permanent Database Deletion
                 </p>
                 <p className="text-[11px] leading-relaxed">
                   This action CANNOT be undone. It will permanently purge all {selectedLeadIds.length} lead records and their call logs from the database.
                 </p>
               </div>
 
-              <label className="flex items-center gap-2 text-rose-300 cursor-pointer">
+              <label className="flex items-center gap-2 text-rose-600 dark:text-rose-300 cursor-pointer">
                 <input
                   type="checkbox"
                   checked={confirmDeleteForever}
@@ -408,47 +431,8 @@ export function AdminSelectedLeadsActionModal({
               </label>
             </div>
           )}
-        </div>
-
-        {/* Footer */}
-        <div className="flex items-center justify-between pt-2 border-t border-slate-800">
-          <button
-            type="button"
-            onClick={onClose}
-            className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-400 hover:text-white hover:bg-slate-800 transition-colors cursor-pointer"
-          >
-            Cancel
-          </button>
-
-          <button
-            type="button"
-            disabled={isPending || (operation === "DELETE_FOREVER" && !confirmDeleteForever)}
-            onClick={handleExecute}
-            className={`inline-flex items-center gap-1.5 px-5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer shadow-md disabled:opacity-50 disabled:cursor-not-allowed ${
-              operation === "DELETE_FOREVER" || operation === "DELETE"
-                ? "bg-rose-600 hover:bg-rose-500 text-white shadow-rose-600/30"
-                : operation === "EXPORT"
-                ? "bg-cyan-600 hover:bg-cyan-500 text-white shadow-cyan-600/30"
-                : "bg-violet-600 hover:bg-violet-500 text-white shadow-violet-600/30"
-            }`}
-          >
-            {isPending ? (
-              <>
-                <Loader2 className="size-3.5 animate-spin" />
-                <span>Executing...</span>
-              </>
-            ) : (
-              <span>
-                {operation === "EXPORT"
-                  ? "Download CSV"
-                  : operation === "DELETE_FOREVER"
-                  ? "Delete Permanently"
-                  : "Execute Action"}
-              </span>
-            )}
-          </button>
-        </div>
+        </Card>
       </div>
-    </div>
+    </Modal>
   );
 }
