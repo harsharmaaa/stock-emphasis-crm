@@ -1,3 +1,5 @@
+@import "../styles/tokens.css";
+@import "../styles/ui-kit.css";
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
@@ -5,6 +7,34 @@
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
+  --color-brand: var(--brand);
+  --color-brand2: var(--brand2);
+  --color-accent: var(--accent);
+  --color-ok: var(--ok);
+  --color-warn: var(--warn);
+  --color-err: var(--err);
+  --color-ink: var(--text);
+  --color-muted: var(--muted);
+  --color-line: var(--line);
+  --color-glass: var(--glass);
+  --color-glass-strong: var(--glass-strong);
+  --color-glass-pop: var(--glass-pop);
+
+  --radius-se-sm: var(--r-sm);
+  --radius-se-md: var(--r-md);
+  --radius-se-lg: var(--r-lg);
+
+  --shadow-se-sm: var(--shadow-sm);
+  --shadow-se-md: var(--shadow-md);
+  --shadow-se-lg: var(--shadow-lg);
+  --shadow-brand: var(--shadow-brand);
+  --shadow-grad: var(--shadow-grad);
+  --shadow-nav: var(--shadow-nav);
+  --shadow-icon: var(--shadow-icon);
+
+  --blur-se: var(--blur);
+  --background-image-brand-gradient: var(--grad);
+
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --font-sans: var(--font-sans);
@@ -125,7 +155,7 @@
   }
 
   body {
-    @apply bg-background text-foreground antialiased selection:bg-purple-500/30 selection:text-purple-300;
+    @apply bg-background text-foreground antialiased selection:bg-blue-500/25 selection:text-blue-600 dark:selection:text-blue-300;
   }
 
   html {
@@ -289,8 +319,8 @@
 
 .glass-input:focus {
   background-color: rgba(255, 255, 255, 0.9);
-  border-color: rgba(139, 92, 246, 0.6);
-  box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.15);
+  border-color: rgba(79, 109, 245, 0.6);
+  box-shadow: 0 0 0 3px rgba(79, 109, 245, 0.15);
 }
 
 .dark .glass-input {
@@ -301,6 +331,6 @@
 
 .dark .glass-input:focus {
   background-color: rgba(255, 255, 255, 0.08);
-  border-color: rgba(167, 139, 250, 0.6);
-  box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.25);
+  border-color: rgba(96, 165, 250, 0.6);
+  box-shadow: 0 0 0 3px rgba(79, 109, 245, 0.25);
 }
