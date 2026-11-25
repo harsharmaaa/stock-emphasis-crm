@@ -169,16 +169,27 @@ export function ConfigurationLandingClient() {
             </Card>
           </Link>
 
-          {/* Lead Operations (Planned) */}
-          <Card className="p-5 flex items-center justify-between opacity-80 hover:opacity-100 transition-opacity">
-            <div className="size-11 rounded-xl bg-sky-500/10 text-sky-500 flex items-center justify-center shrink-0">
-              <SlidersHorizontal className="size-5" />
-            </div>
-            <div className="text-right">
-              <div className="text-sm font-semibold text-foreground">Lead</div>
-              <div className="text-xs text-sky-500 font-medium mt-0.5">Operations</div>
-            </div>
-          </Card>
+          {/* Lead Operations */}
+          <Link
+            href="/admin/settings/configuration/lead-operations"
+            className="group block"
+          >
+            <Card className="p-5 flex items-center justify-between border-sky-500/20 hover:border-sky-500 transition-all">
+              <div className="size-11 rounded-xl bg-sky-500/10 text-sky-500 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+                <SlidersHorizontal className="size-5" />
+              </div>
+              <div className="text-right">
+                <div className="flex items-center justify-end gap-1.5">
+                  <span className="text-sm font-bold text-foreground">Lead</span>
+                  <Badge tone="info">Active</Badge>
+                </div>
+                <div className="text-xs text-sky-500 font-semibold mt-0.5 flex items-center justify-end gap-1 group-hover:-translate-x-0.5 transition-transform">
+                  <span>Operations</span>
+                  <ArrowRight className="size-3" />
+                </div>
+              </div>
+            </Card>
+          </Link>
 
           {/* Lead Recycle (Planned) */}
           <Card className="p-5 flex items-center justify-between opacity-80 hover:opacity-100 transition-opacity">
