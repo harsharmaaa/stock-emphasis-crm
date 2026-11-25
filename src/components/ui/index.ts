@@ -11,6 +11,7 @@ export * from "./EmptyState";
 export * from "./Field";
 export * from "./Icon";
 export * from "./KpiCard";
+export * from "./Menu";
 export * from "./Modal";
 export * from "./PageHeader";
 export * from "./Pagination";

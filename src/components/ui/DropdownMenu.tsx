@@ -131,8 +131,6 @@ export function DropdownMenu({
 
   const [focusedIndex, setFocusedIndex] = useState<number>(-1);
   const focusedIndexRef = useRef(focusedIndex);
-  focusedIndexRef.current = focusedIndex;
-
   const focusedItemLabelRef = useRef<string | null>(null);
 
   const prevOpenRef = useRef<boolean>(false);
@@ -141,10 +139,13 @@ export function DropdownMenu({
   const pendingFocusTargetRef = useRef<"first" | "last" | number | "panel" | null>(null);
 
   const navigableIndicesRef = useRef(navigableIndices);
-  navigableIndicesRef.current = navigableIndices;
-
   const itemsRef = useRef(items);
-  itemsRef.current = items;
+
+  useEffect(() => {
+    focusedIndexRef.current = focusedIndex;
+    navigableIndicesRef.current = navigableIndices;
+    itemsRef.current = items;
+  });
 
   // Centralized cancellation helper: used on genuine menu close and unmount
   const cancelPendingFocus = useCallback(() => {

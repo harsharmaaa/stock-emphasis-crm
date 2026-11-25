@@ -48,6 +48,7 @@ export default async function AdminLeadsPage({ searchParams }: AdminLeadsPagePro
 
   return (
     <LeadsListClient
+      key={`${normalizedStatus}-${search}-${pageNum}`}
       initialLeads={initialLeads}
       initialTotalCount={initialTotalCount}
       initialTotalPages={initialTotalPages}

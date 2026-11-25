@@ -149,10 +149,12 @@ export function Modal({
 
   // Keep latest callback values available without triggering re-registration or stack reordering
   const onCloseRef = useRef(onClose);
-  onCloseRef.current = onClose;
-
   const closeOnEscapeRef = useRef(closeOnEscape);
-  closeOnEscapeRef.current = closeOnEscape;
+
+  useEffect(() => {
+    onCloseRef.current = onClose;
+    closeOnEscapeRef.current = closeOnEscape;
+  });
 
   // 1. Manage modal stack and body scroll locking with stable ordering
   useEffect(() => {

@@ -4,26 +4,11 @@ import { useState, useMemo } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
-  ChevronLeft,
   User,
-  Mail,
-  Phone,
-  MapPin,
-  Calendar,
-  Lock,
-  Building2,
-  UserCheck2,
-  Users2,
   Briefcase,
-  Target,
-  FileText,
   ShieldCheck,
-  Check,
-  AlertCircle,
-  Loader2,
   Eye,
   EyeOff,
-  CheckCircle2,
 } from "lucide-react";
 import type { Role } from "@prisma/client";
 import type {
@@ -35,6 +20,18 @@ import type {
   UpdateEmployeeInput,
 } from "./actions";
 import { createUserAction, updateUserAction } from "./actions";
+import {
+  PageHeader,
+  Card,
+  Field,
+  Input,
+  Select,
+  Textarea,
+  DatePicker,
+  Button,
+  Badge,
+  useToast,
+} from "@/src/components/ui";
 
 export const INDIAN_STATES = [
   "Andhra Pradesh",
@@ -101,6 +98,7 @@ export function EmployeeForm({
   onSuccess,
 }: EmployeeFormProps) {
   const router = useRouter();
+  const toast = useToast();
 
   // Basic Details State
   const [name, setName] = useState(initialUser?.name || "");
@@ -138,7 +136,6 @@ export function EmployeeForm({
 
   // UI state
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
-  const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Filter profiles dynamically based on selected Department
@@ -178,30 +175,34 @@ export function EmployeeForm({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMsg(null);
-    setSuccessMsg(null);
 
     if (!name.trim()) {
       setErrorMsg("Employee Name is required.");
+      toast.error("Validation Error", "Employee Name is required.");
       return;
     }
 
     if (!username.trim()) {
       setErrorMsg("Username is required.");
+      toast.error("Validation Error", "Username is required.");
       return;
     }
 
     if (!email.trim()) {
       setErrorMsg("Email address is required.");
+      toast.error("Validation Error", "Email address is required.");
       return;
     }
 
     if (mode === "create" && (!password.trim() || password.length < 6)) {
       setErrorMsg("Password is required and must be at least 6 characters.");
+      toast.error("Validation Error", "Password must be at least 6 characters.");
       return;
     }
 
     if (mode === "edit" && password.trim() && password.trim().length < 6) {
       setErrorMsg("New password must be at least 6 characters.");
+      toast.error("Validation Error", "New password must be at least 6 characters.");
       return;
     }
 
@@ -236,11 +237,15 @@ export function EmployeeForm({
         const res = await createUserAction(input);
         if (!res.success) {
           setErrorMsg(res.error || "Failed to create employee.");
+          toast.error("Creation Failed", res.error || "Failed to create employee.");
           setIsSubmitting(false);
           return;
         }
 
-        setSuccessMsg(`Employee "${res.user?.name}" created successfully!`);
+        toast.success(
+          "Employee Created",
+          `Employee "${res.user?.name}" was created successfully!`
+        );
         if (onSuccess) {
           onSuccess();
         } else {
@@ -277,11 +282,15 @@ export function EmployeeForm({
         const res = await updateUserAction(input);
         if (!res.success) {
           setErrorMsg(res.error || "Failed to update employee.");
+          toast.error("Update Failed", res.error || "Failed to update employee.");
           setIsSubmitting(false);
           return;
         }
 
-        setSuccessMsg(`Employee "${res.user?.name}" updated successfully!`);
+        toast.success(
+          "Employee Updated",
+          `Employee "${res.user?.name}" was updated successfully!`
+        );
         if (onSuccess) {
           onSuccess();
         } else {
@@ -290,6 +299,7 @@ export function EmployeeForm({
       }
     } catch {
       setErrorMsg("An unexpected network or server error occurred.");
+      toast.error("Error", "An unexpected network or server error occurred.");
     } finally {
       setIsSubmitting(false);
     }
@@ -298,52 +308,42 @@ export function EmployeeForm({
   return (
     <form onSubmit={handleSubmit} className="space-y-6 max-w-5xl mx-auto pb-16">
       {/* Top Header */}
-      <div className="flex items-center justify-between gap-4 border-b border-slate-200/80 dark:border-white/[0.08] pb-4">
-        <div>
-          <div className="flex items-center gap-2 mb-1">
-            <Link
-              href="/admin/users"
-              className="inline-flex items-center gap-1 text-xs font-semibold text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white transition-colors"
-            >
-              <ChevronLeft className="size-3.5" />
-              Employee Directory
-            </Link>
-          </div>
-          <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900 dark:text-white flex items-center gap-2">
-            <span>{mode === "create" ? "ADD EMPLOYEE" : "EDIT EMPLOYEE"}</span>
-          </h1>
-        </div>
+      <PageHeader
+        title={mode === "create" ? "Add Employee" : "Edit Employee"}
+        description={
+          mode === "create"
+            ? "Create a new CRM employee with profile designation and lead fetch permissions."
+            : `Update details, designation, credentials, and lead fetch permissions for ${initialUser?.name || "employee"}.`
+        }
+        breadcrumbs={[
+          { label: "Employees", href: "/admin/users" },
+          { label: mode === "create" ? "Add Employee" : "Edit" },
+        ]}
+        actions={
+          <Link href="/admin/users">
+            <Button variant="sec" size="sm" leftIcon="ChevronLeft">
+              Back to Directory
+            </Button>
+          </Link>
+        }
+      />
 
-        <Link
-          href="/admin/users"
-          className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-semibold bg-rose-500/10 hover:bg-rose-500/20 text-rose-600 dark:text-rose-400 border border-rose-500/20 transition-all"
-        >
-          <ChevronLeft className="size-3.5" />
-          Go Back
-        </Link>
-      </div>
-
-      {/* Error / Success Banners */}
+      {/* Global Error Banner if needed */}
       {errorMsg && (
-        <div className="p-3.5 rounded-2xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/40 flex items-center gap-2.5 text-xs text-rose-700 dark:text-rose-300">
-          <AlertCircle className="size-4 shrink-0" />
+        <div
+          role="alert"
+          className="p-3.5 rounded-2xl bg-[var(--err)]/10 border border-[var(--err)]/30 flex items-center gap-2.5 text-xs text-[var(--err)] font-medium"
+        >
           <span>{errorMsg}</span>
-        </div>
-      )}
-
-      {successMsg && (
-        <div className="p-3.5 rounded-2xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-900/40 flex items-center gap-2.5 text-xs text-emerald-700 dark:text-emerald-300">
-          <CheckCircle2 className="size-4 shrink-0" />
-          <span>{successMsg}</span>
         </div>
       )}
 
       {/* ============================================================== */}
       {/* SECTION A: BASIC DETAILS                                      */}
       {/* ============================================================== */}
-      <div className="rounded-2xl border border-slate-200/90 dark:border-white/[0.08] bg-white dark:bg-slate-900/60 shadow-xs overflow-hidden">
+      <Card className="p-0 overflow-hidden">
         <div className="p-4 sm:p-5 border-b border-slate-200/80 dark:border-white/[0.08] bg-slate-50/50 dark:bg-white/[0.02] flex items-center gap-2.5">
-          <div className="size-7 rounded-lg bg-blue-500/10 text-blue-600 dark:text-blue-400 flex items-center justify-center">
+          <div className="size-7 rounded-lg bg-[var(--brand-soft)]/20 text-[var(--brand)] flex items-center justify-center">
             <User className="size-4" />
           </div>
           <h2 className="text-sm font-bold text-slate-900 dark:text-white">Basic Details</h2>
@@ -351,72 +351,52 @@ export function EmployeeForm({
 
         <div className="p-4 sm:p-6 grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-5">
           {/* Name */}
-          <div>
-            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
-              Name <span className="text-rose-500">*</span>
-            </label>
-            <input
+          <Field label="Full Name" required error={!name.trim() && errorMsg ? "Name is required" : undefined}>
+            <Input
               type="text"
-              placeholder="Full Name"
+              placeholder="e.g. Rahul Sharma"
               value={name}
               onChange={(e) => setName(e.target.value)}
               required
-              className="w-full px-3 py-2 text-xs rounded-xl border border-slate-250 dark:border-white/[0.1] bg-slate-50/50 dark:bg-slate-800/50 text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-hidden focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
             />
-          </div>
+          </Field>
 
           {/* Mobile */}
-          <div>
-            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
-              Mobile Number
-            </label>
-            <input
+          <Field label="Mobile Number">
+            <Input
               type="tel"
               placeholder="10-digit mobile number"
               value={mobile}
               onChange={(e) => setMobile(e.target.value)}
-              className="w-full px-3 py-2 text-xs rounded-xl border border-slate-250 dark:border-white/[0.1] bg-slate-50/50 dark:bg-slate-800/50 text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-hidden focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
             />
-          </div>
+          </Field>
 
           {/* Father's Name */}
-          <div>
-            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
-              Father&apos;s Name
-            </label>
-            <input
+          <Field label="Father's Name">
+            <Input
               type="text"
               placeholder="Father's Name"
               value={fatherName}
               onChange={(e) => setFatherName(e.target.value)}
-              className="w-full px-3 py-2 text-xs rounded-xl border border-slate-250 dark:border-white/[0.1] bg-slate-50/50 dark:bg-slate-800/50 text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-hidden focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
             />
-          </div>
+          </Field>
 
           {/* Email */}
-          <div>
-            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
-              Email Address <span className="text-rose-500">*</span>
-            </label>
-            <input
+          <Field label="Email Address" required error={!email.trim() && errorMsg ? "Email is required" : undefined}>
+            <Input
               type="email"
               placeholder="employee@stockemphasis.com"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
-              className="w-full px-3 py-2 text-xs rounded-xl border border-slate-250 dark:border-white/[0.1] bg-slate-50/50 dark:bg-slate-800/50 text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-hidden focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
             />
-          </div>
+          </Field>
 
           {/* State */}
-          <div>
-            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
-              State
-            </label>
-            <select
+          <Field label="State">
+            <Select
               value={state}
               onChange={(e) => setState(e.target.value)}
-              className="w-full px-3 py-2 text-xs rounded-xl border border-slate-250 dark:border-white/[0.1] bg-slate-50/50 dark:bg-slate-800/50 text-slate-900 dark:text-white focus:outline-hidden focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
             >
               <option value="">Select State</option>
               {INDIAN_STATES.map((s) => (
@@ -424,67 +404,57 @@ export function EmployeeForm({
                   {s}
                 </option>
               ))}
-            </select>
-          </div>
+            </Select>
+          </Field>
 
           {/* City */}
-          <div>
-            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
-              City
-            </label>
-            <input
+          <Field label="City">
+            <Input
               type="text"
               placeholder="City"
               value={city}
               onChange={(e) => setCity(e.target.value)}
-              className="w-full px-3 py-2 text-xs rounded-xl border border-slate-250 dark:border-white/[0.1] bg-slate-50/50 dark:bg-slate-800/50 text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-hidden focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
             />
-          </div>
+          </Field>
 
           {/* Date of Birth */}
-          <div>
-            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
-              Date of Birth
-            </label>
-            <input
-              type="date"
+          <Field label="Date of Birth">
+            <DatePicker
               value={dob}
-              onChange={(e) => setDob(e.target.value)}
-              className="w-full px-3 py-2 text-xs rounded-xl border border-slate-250 dark:border-white/[0.1] bg-slate-50/50 dark:bg-slate-800/50 text-slate-900 dark:text-white focus:outline-hidden focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+              onChange={setDob}
+              placeholder="Select date of birth"
             />
-          </div>
+          </Field>
 
           {/* Address */}
           <div className="md:col-span-2">
-            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
-              Address
-            </label>
-            <textarea
-              rows={2}
-              placeholder="Start typing residential address here..."
-              value={address}
-              onChange={(e) => setAddress(e.target.value)}
-              className="w-full px-3 py-2 text-xs rounded-xl border border-slate-250 dark:border-white/[0.1] bg-slate-50/50 dark:bg-slate-800/50 text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-hidden focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 resize-y"
-            />
+            <Field label="Residential Address">
+              <Textarea
+                rows={2}
+                placeholder="Start typing residential address here..."
+                value={address}
+                onChange={(e) => setAddress(e.target.value)}
+              />
+            </Field>
           </div>
         </div>
-      </div>
+      </Card>
 
       {/* ============================================================== */}
       {/* SECTION B: OTHER DETAILS                                      */}
       {/* ============================================================== */}
-      <div className="rounded-2xl border border-slate-200/90 dark:border-white/[0.08] bg-white dark:bg-slate-900/60 shadow-xs overflow-hidden">
+      <Card className="p-0 overflow-hidden">
         <div className="p-4 sm:p-5 border-b border-slate-200/80 dark:border-white/[0.08] bg-slate-50/50 dark:bg-white/[0.02] flex items-center justify-between">
           <div className="flex items-center gap-2.5">
-            <div className="size-7 rounded-lg bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 flex items-center justify-center">
+            <div className="size-7 rounded-lg bg-[var(--brand-soft)]/20 text-[var(--brand)] flex items-center justify-center">
               <Briefcase className="size-4" />
             </div>
-            <h2 className="text-sm font-bold text-slate-900 dark:text-white">Other Details</h2>
+            <h2 className="text-sm font-bold text-slate-900 dark:text-white">Profile & Credentials</h2>
           </div>
 
           {/* Status Toggle */}
           <div className="flex items-center gap-2.5">
-            <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">Status</span>
+            <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">Account Status</span>
             <button
               type="button"
               role="switch"
@@ -500,69 +470,55 @@ export function EmployeeForm({
                 }`}
               />
             </button>
-            <span
-              className={`text-[11px] font-semibold ${
-                isActive ? "text-emerald-600 dark:text-emerald-400" : "text-slate-400"
-              }`}
-            >
+            <Badge tone={isActive ? "ok" : "warn"} dot>
               {isActive ? "Active" : "Inactive"}
-            </span>
+            </Badge>
           </div>
         </div>
 
         <div className="p-4 sm:p-6 grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-5">
           {/* Username */}
-          <div>
-            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
-              Username <span className="text-rose-500">*</span>
-            </label>
-            <input
+          <Field label="Username" required error={!username.trim() && errorMsg ? "Username is required" : undefined}>
+            <Input
               type="text"
-              placeholder="e.g. harsh"
+              placeholder="e.g. rahul.sharma"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
               required
-              className="w-full px-3 py-2 text-xs rounded-xl border border-slate-250 dark:border-white/[0.1] bg-slate-50/50 dark:bg-slate-800/50 text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-hidden focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
             />
-          </div>
+          </Field>
 
           {/* Password */}
-          <div>
-            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
-              {mode === "create" ? (
-                <>Password <span className="text-rose-500">*</span></>
-              ) : (
-                <>New Password <span className="text-slate-400 font-normal">(Leave blank to keep unchanged)</span></>
-              )}
-            </label>
+          <Field
+            label={mode === "create" ? "Password" : "New Password"}
+            required={mode === "create"}
+            description={mode === "edit" ? "Leave blank to keep current password unchanged." : undefined}
+          >
             <div className="relative">
-              <input
+              <Input
                 type={showPassword ? "text" : "password"}
-                placeholder={mode === "create" ? "emp@123" : "Enter new password if resetting"}
+                placeholder={mode === "create" ? "At least 6 characters" : "Enter new password if resetting"}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required={mode === "create"}
-                className="w-full pl-3 pr-9 py-2 text-xs rounded-xl border border-slate-250 dark:border-white/[0.1] bg-slate-50/50 dark:bg-slate-800/50 text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-hidden focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+                className="pr-10"
               />
               <button
                 type="button"
                 onClick={() => setShowPassword((prev) => !prev)}
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer p-1"
+                aria-label={showPassword ? "Hide password" : "Show password"}
               >
                 {showPassword ? <EyeOff className="size-3.5" /> : <Eye className="size-3.5" />}
               </button>
             </div>
-          </div>
+          </Field>
 
           {/* Department */}
-          <div>
-            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
-              Department
-            </label>
-            <select
+          <Field label="Department">
+            <Select
               value={departmentId}
               onChange={(e) => handleDepartmentChange(e.target.value)}
-              className="w-full px-3 py-2 text-xs rounded-xl border border-slate-250 dark:border-white/[0.1] bg-slate-50/50 dark:bg-slate-800/50 text-slate-900 dark:text-white focus:outline-hidden focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
             >
               <option value="">Select Department</option>
               {departments.map((d) => (
@@ -570,93 +526,72 @@ export function EmployeeForm({
                   {d.name}
                 </option>
               ))}
-            </select>
-          </div>
+            </Select>
+          </Field>
 
           {/* Employee Profile (Filtered by selected Department!) */}
-          <div>
-            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
-              Profile / Designation <span className="text-rose-500">*</span>
-            </label>
-            <select
+          <Field
+            label="Designation / Profile"
+            required
+            description={!departmentId ? "Select a Department first to view available profiles." : undefined}
+          >
+            <Select
               value={employeeProfileId}
               onChange={(e) => setEmployeeProfileId(e.target.value)}
               disabled={!departmentId}
               required
-              className="w-full px-3 py-2 text-xs rounded-xl border border-slate-250 dark:border-white/[0.1] bg-slate-50/50 dark:bg-slate-800/50 text-slate-900 dark:text-white focus:outline-hidden focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 disabled:opacity-60 disabled:cursor-not-allowed"
             >
               <option value="">
-                {departmentId ? "Select Profile" : "Please select department first"}
+                {departmentId ? "Select Designation / Profile" : "Please select department first"}
               </option>
               {filteredProfiles.map((p) => (
                 <option key={p.id} value={p.id}>
                   {p.name}
                 </option>
               ))}
-            </select>
-            {!departmentId && (
-              <p className="text-[10px] text-amber-600 dark:text-amber-400 mt-1">
-                Select a Department first to view its active profiles.
-              </p>
-            )}
-          </div>
+            </Select>
+          </Field>
 
           {/* Past Experience */}
-          <div>
-            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
-              Past Experience
-            </label>
-            <select
+          <Field label="Past Experience">
+            <Select
               value={pastExperience}
               onChange={(e) => setPastExperience(e.target.value)}
-              className="w-full px-3 py-2 text-xs rounded-xl border border-slate-250 dark:border-white/[0.1] bg-slate-50/50 dark:bg-slate-800/50 text-slate-900 dark:text-white focus:outline-hidden focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
             >
               {PAST_EXPERIENCE_OPTIONS.map((exp) => (
                 <option key={exp} value={exp}>
                   {exp}
                 </option>
               ))}
-            </select>
-          </div>
+            </Select>
+          </Field>
 
           {/* Joining Date */}
-          <div>
-            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
-              Joining Date
-            </label>
-            <input
-              type="date"
+          <Field label="Joining Date">
+            <DatePicker
               value={joiningDate}
-              onChange={(e) => setJoiningDate(e.target.value)}
-              className="w-full px-3 py-2 text-xs rounded-xl border border-slate-250 dark:border-white/[0.1] bg-slate-50/50 dark:bg-slate-800/50 text-slate-900 dark:text-white focus:outline-hidden focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+              onChange={setJoiningDate}
+              placeholder="Select joining date"
             />
-          </div>
+          </Field>
 
           {/* Calling Extension */}
-          <div>
-            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
-              Calling Extension
-            </label>
-            <input
+          <Field label="Calling Extension">
+            <Input
               type="text"
               placeholder="e.g. 2023"
               value={callingExtension}
               onChange={(e) => setCallingExtension(e.target.value)}
-              className="w-full px-3 py-2 text-xs rounded-xl border border-slate-250 dark:border-white/[0.1] bg-slate-50/50 dark:bg-slate-800/50 text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-hidden focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
             />
-          </div>
+          </Field>
 
           {/* Reporting Manager */}
-          <div>
-            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
-              Reporting Manager
-            </label>
-            <select
+          <Field label="Reporting Manager">
+            <Select
               value={managerId}
               onChange={(e) => setManagerId(e.target.value)}
-              className="w-full px-3 py-2 text-xs rounded-xl border border-slate-250 dark:border-white/[0.1] bg-slate-50/50 dark:bg-slate-800/50 text-slate-900 dark:text-white focus:outline-hidden focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
             >
-              <option value="">No Reporting Manager</option>
+              <option value="">No Reporting Manager (Direct Report)</option>
               {managers
                 .filter((m) => mode === "create" || m.id !== initialUser?.id)
                 .map((m) => (
@@ -664,69 +599,64 @@ export function EmployeeForm({
                     {m.name} {m.profileName ? `(${m.profileName})` : ""}
                   </option>
                 ))}
-            </select>
-          </div>
+            </Select>
+          </Field>
 
           {/* Employee Target */}
-          <div>
-            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
-              Employee Target (₹)
-            </label>
-            <input
+          <Field label="Monthly Target (₹)">
+            <Input
               type="number"
               min="0"
               step="1000"
               placeholder="e.g. 135000"
               value={employeeTarget}
               onChange={(e) => setEmployeeTarget(e.target.value)}
-              className="w-full px-3 py-2 text-xs rounded-xl border border-slate-250 dark:border-white/[0.1] bg-slate-50/50 dark:bg-slate-800/50 text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-hidden focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
             />
-          </div>
+          </Field>
 
           {/* System Role */}
-          <div>
-            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
-              System Access Role
-            </label>
-            <select
+          <Field label="System Access Role">
+            <Select
               value={role}
               onChange={(e) => setRole(e.target.value as Role)}
-              className="w-full px-3 py-2 text-xs rounded-xl border border-slate-250 dark:border-white/[0.1] bg-slate-50/50 dark:bg-slate-800/50 text-slate-900 dark:text-white focus:outline-hidden focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
             >
               <option value="EMPLOYEE">EMPLOYEE (Standard Staff)</option>
               <option value="MANAGER">MANAGER (Team Lead / Oversight)</option>
               <option value="ADMIN">ADMIN (Full Governance)</option>
-            </select>
-          </div>
+            </Select>
+          </Field>
 
           {/* Description */}
           <div className="md:col-span-2">
-            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
-              Description / Notes
-            </label>
-            <textarea
-              rows={2}
-              placeholder="Start typing employee notes, qualifications or designations here..."
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              className="w-full px-3 py-2 text-xs rounded-xl border border-slate-250 dark:border-white/[0.1] bg-slate-50/50 dark:bg-slate-800/50 text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-hidden focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 resize-y"
-            />
+            <Field label="Description / Notes">
+              <Textarea
+                rows={2}
+                placeholder="Start typing employee notes, qualifications or designations here..."
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+              />
+            </Field>
           </div>
         </div>
-      </div>
+      </Card>
 
       {/* ============================================================== */}
-      {/* SECTION C: LEAD FETCH PERMISSION (CRITICAL REQUIREMENT)        */}
+      {/* SECTION C: LEAD FETCH PERMISSION                               */}
       {/* ============================================================== */}
-      <div className="rounded-2xl border border-slate-200/90 dark:border-white/[0.08] bg-white dark:bg-slate-900/60 shadow-xs overflow-hidden">
+      <Card className="p-0 overflow-hidden">
         <div className="p-4 sm:p-5 border-b border-slate-200/80 dark:border-white/[0.08] bg-slate-50/50 dark:bg-white/[0.02] flex flex-col sm:flex-row sm:items-center justify-between gap-2">
           <div className="flex items-center gap-2.5">
-            <div className="size-7 rounded-lg bg-teal-500/10 text-teal-600 dark:text-teal-400 flex items-center justify-center">
+            <div className="size-7 rounded-lg bg-[var(--brand-soft)]/20 text-[var(--brand)] flex items-center justify-center">
               <ShieldCheck className="size-4" />
             </div>
             <div>
-              <h2 className="text-sm font-bold text-slate-900 dark:text-white">Lead Fetch Permission</h2>
-              <p className="text-[11px] text-slate-500 dark:text-slate-400">
+              <div className="flex items-center gap-2">
+                <h2 className="text-sm font-bold text-slate-900 dark:text-white">Lead Fetch Permission</h2>
+                <Badge tone={selectedLeadSources.length > 0 ? "ok" : "warn"}>
+                  {selectedLeadSources.length} of {leadSources.length} Permitted
+                </Badge>
+              </div>
+              <p className="text-[11px] text-[var(--muted)]">
                 Configure authorized lead sources this employee can fetch leads from.
               </p>
             </div>
@@ -734,37 +664,27 @@ export function EmployeeForm({
 
           {employeeProfileId && (
             <div className="flex items-center gap-2 self-start sm:self-auto">
-              <button
-                type="button"
-                onClick={handleSelectAllSources}
-                className="px-2.5 py-1 text-[11px] font-semibold rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 transition-colors"
-              >
+              <Button type="button" variant="sec" size="sm" onClick={handleSelectAllSources}>
                 Select All
-              </button>
-              <button
-                type="button"
-                onClick={handleClearAllSources}
-                className="px-2.5 py-1 text-[11px] font-semibold rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 transition-colors"
-              >
+              </Button>
+              <Button type="button" variant="ghost" size="sm" onClick={handleClearAllSources}>
                 Clear All
-              </button>
+              </Button>
             </div>
           )}
         </div>
 
         <div className="p-5 sm:p-6">
           {!employeeProfileId ? (
-            /* Empty state when no profile is selected */
-            <div className="py-8 text-center bg-slate-50/50 dark:bg-slate-800/30 border border-dashed border-slate-250 dark:border-white/[0.08] rounded-xl">
+            <div className="py-8 text-center bg-slate-50/50 dark:bg-white/[0.02] border border-dashed border-slate-250 dark:border-white/[0.08] rounded-xl">
               <p className="text-xs font-semibold text-slate-500 dark:text-slate-400">
-                Please Select Profile
+                Please Select Department & Profile
               </p>
-              <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-0.5">
+              <p className="text-[11px] text-[var(--muted)] mt-0.5">
                 Select a Department and Profile above to unlock lead source fetch permissions.
               </p>
             </div>
           ) : (
-            /* Checkbox list when profile is selected */
             <div className="space-y-3">
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
                 {leadSources.map((source) => {
@@ -774,15 +694,15 @@ export function EmployeeForm({
                       key={source}
                       className={`flex items-center gap-2.5 p-3 rounded-xl border text-xs font-medium cursor-pointer transition-all select-none ${
                         isChecked
-                          ? "bg-blue-50/80 dark:bg-blue-950/30 border-blue-300 dark:border-blue-800/60 text-blue-900 dark:text-blue-200 shadow-2xs"
-                          : "bg-slate-50/40 dark:bg-slate-800/40 border-slate-200/80 dark:border-white/[0.06] text-slate-700 dark:text-slate-300 hover:bg-slate-100/60 dark:hover:bg-slate-800/70"
+                          ? "bg-[var(--brand-soft)]/15 border-[var(--brand)]/40 text-[var(--text)] shadow-2xs"
+                          : "bg-slate-50/40 dark:bg-white/[0.02] border-slate-200/80 dark:border-white/[0.06] text-[var(--muted)] hover:bg-slate-100/60 dark:hover:bg-white/[0.04]"
                       }`}
                     >
                       <input
                         type="checkbox"
                         checked={isChecked}
                         onChange={() => handleToggleLeadSource(source)}
-                        className="size-4 rounded-md border-slate-300 text-blue-600 focus:ring-blue-500/20"
+                        className="size-4 rounded-md border-slate-300 text-[var(--brand)] focus:ring-[var(--brand)]/20 cursor-pointer"
                       />
                       <span className="truncate">{source}</span>
                     </label>
@@ -790,48 +710,33 @@ export function EmployeeForm({
                 })}
               </div>
 
-              <div className="flex items-center justify-between pt-2 border-t border-slate-200/60 dark:border-white/[0.06] text-[11px] text-slate-500 dark:text-slate-400">
-                <span>
-                  {selectedLeadSources.length} of {leadSources.length} source(s) permitted
-                </span>
-                {selectedLeadSources.length === 0 && (
-                  <span className="text-amber-600 dark:text-amber-400">
-                    Warning: Empty permission list means this employee cannot fetch leads.
-                  </span>
-                )}
-              </div>
+              {selectedLeadSources.length === 0 && (
+                <p className="text-[11px] text-[var(--warn)] pt-1">
+                  Warning: Empty permission list means this employee cannot fetch leads.
+                </p>
+              )}
             </div>
           )}
         </div>
-      </div>
+      </Card>
 
       {/* Submit / Cancel Buttons */}
       <div className="flex items-center justify-end gap-3 pt-2">
-        <Link
-          href="/admin/users"
-          className="px-5 py-2.5 rounded-xl border border-slate-250 dark:border-white/[0.1] bg-white dark:bg-slate-900 text-xs font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
-        >
-          Cancel
+        <Link href="/admin/users">
+          <Button variant="sec" size="md">
+            Cancel
+          </Button>
         </Link>
-        <button
+        <Button
           type="submit"
-          disabled={isSubmitting}
-          className="inline-flex items-center gap-2 px-6 py-2.5 rounded-xl text-xs font-semibold text-white bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 shadow-md shadow-blue-500/25 transition-all hover:scale-[1.01] active:scale-[0.99] disabled:opacity-50 disabled:pointer-events-none cursor-pointer"
+          variant="primary"
+          size="md"
+          loading={isSubmitting}
+          leftIcon="Check"
         >
-          {isSubmitting ? (
-            <>
-              <Loader2 className="size-4 animate-spin" />
-              <span>Saving...</span>
-            </>
-          ) : (
-            <>
-              <Check className="size-4" />
-              <span>{mode === "create" ? "Save Employee" : "Update Employee"}</span>
-            </>
-          )}
-        </button>
+          {mode === "create" ? "Save Employee" : "Update Employee"}
+        </Button>
       </div>
     </form>
   );
 }
-

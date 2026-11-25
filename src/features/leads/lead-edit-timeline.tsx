@@ -8,7 +8,7 @@ import {
   updateLeadDetailsAction,
 } from "./actions";
 import {
-    LEAD_PROFILE_OPTIONS,
+  LEAD_PROFILE_OPTIONS,
   LEAD_EXPERIENCE_OPTIONS,
   mapStatusToLifecycleKey,
 } from "@/src/lib/utils";
@@ -29,6 +29,7 @@ import {
   MapPin,
   User,
 } from "lucide-react";
+import { useToast } from "@/src/components/ui";
 
 interface LeadEditTimelineProps {
   lead: LifecycleSearchLead;
@@ -63,6 +64,7 @@ export function LeadEditTimeline({
   const [isPending, startTransition] = useTransition();
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const toast = useToast();
 
   // Form state
   const [formData, setFormData] = useState({
@@ -181,6 +183,7 @@ export function LeadEditTimeline({
 
         if (res.success) {
           setSuccessMessage("Lead updated successfully!");
+          toast.success("Lead updated", "Lead updated successfully!");
 
           const selectedAssignee = allotmentUsers.find((u) => u.id === formData.allotToId);
           const updatedLead: LifecycleSearchLead = {
@@ -436,9 +439,9 @@ export function LeadEditTimeline({
         {/* Quick Advisory Profile Badges (Instant visibility for 150+ Stock Advisory floor) */}
         <div className="pt-2.5 border-t border-slate-200/60 dark:border-white/[0.05] flex flex-wrap items-center gap-2 text-xs">
           {/* Advisory Segment */}
-          <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-200/80 dark:border-indigo-800/40 text-indigo-700 dark:text-indigo-300">
-            <TrendingUp className="size-3.5 text-indigo-600 dark:text-indigo-400 shrink-0" />
-            <span className="text-[10px] uppercase font-bold tracking-wider text-indigo-500">Segment:</span>
+          <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-brand/10 border border-brand/20 text-brand">
+            <TrendingUp className="size-3.5 text-brand shrink-0" />
+            <span className="text-[10px] uppercase font-bold tracking-wider text-brand/80">Segment:</span>
             <span className="font-bold">{formData.segment || lead.segment || "General Advisory"}</span>
           </div>
 

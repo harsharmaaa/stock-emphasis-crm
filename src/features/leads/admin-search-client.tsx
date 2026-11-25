@@ -11,7 +11,8 @@ import {
 } from "@/src/lib/utils";
 import { LeadEditTimeline } from "./lead-edit-timeline";
 import { AdminLeadTimelineModal } from "./admin-lead-timeline-modal";
-import { Pencil, Inbox, Clock } from "lucide-react";
+import { Pencil, Clock } from "lucide-react";
+import { PageHeader, Card, Badge, Button, EmptyState } from "@/src/components/ui";
 
 interface AdminSearchClientProps {
   initialQuery: string;
@@ -116,24 +117,20 @@ export function AdminSearchClient({
   // Otherwise, render the Search & Status Header Mapping Page (Image 2)
   return (
     <div className="space-y-6 animate-in fade-in duration-200">
-      {/* Title (Image 2) */}
-      <div>
-        <h1 className="text-xl sm:text-2xl font-black text-slate-800 dark:text-slate-100 tracking-tight uppercase">
-          SEARCH
-        </h1>
-        {initialQuery && (
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-            Showing mapped status headers for search:{" "}
-            <span className="font-semibold text-blue-600 dark:text-blue-400">
-              &quot;{initialQuery}&quot;
-            </span>{" "}
-            ({leads.length} {leads.length === 1 ? "match" : "matches"})
-          </p>
-        )}
-      </div>
+      {/* Title */}
+      <PageHeader
+        title="SEARCH"
+        description={
+          initialQuery
+            ? `Showing mapped status headers for search: "${initialQuery}" (${leads.length} ${
+                leads.length === 1 ? "match" : "matches"
+              })`
+            : undefined
+        }
+      />
 
-      {/* Status Headers Navigation Bar (Image 2) */}
-      <div className="border-b border-slate-200/80 dark:border-white/[0.08] flex items-center gap-1 overflow-x-auto scrollbar-none pb-0">
+      {/* Status Headers Navigation Bar */}
+      <div className="border-b border-border/80 flex items-center gap-1 overflow-x-auto scrollbar-none pb-0">
         {LIFECYCLE_TABS.map((tab) => {
           const isActive = activeTabKey === tab.key;
           const count = statusCounts[tab.key] || 0;
@@ -143,33 +140,29 @@ export function AdminSearchClient({
               key={tab.key}
               type="button"
               onClick={() => setActiveTabKey(tab.key)}
-              className={`flex items-center gap-2 px-4 py-2.5 text-xs font-semibold rounded-t-xl transition-all shrink-0 border-t border-x ${
+              className={`flex items-center gap-2 px-4 py-2.5 text-xs font-semibold rounded-t-xl transition-all shrink-0 border-t border-x cursor-pointer ${
                 isActive
-                  ? "bg-white dark:bg-[#0c1220] text-slate-900 dark:text-white border-slate-200/80 dark:border-white/[0.12] -mb-px shadow-xs z-10"
-                  : "bg-slate-100/60 dark:bg-white/[0.02] text-slate-600 dark:text-slate-400 border-transparent hover:text-slate-900 dark:hover:text-white hover:bg-slate-100/90"
+                  ? "bg-card text-foreground border-border -mb-px shadow-xs z-10"
+                  : "bg-muted/30 text-muted-foreground border-transparent hover:text-foreground hover:bg-muted/50"
               }`}
             >
               <span>{tab.label}</span>
-              <span
-                className={`px-1.5 py-0.2 rounded-full text-[10px] font-bold ${
-                  count > 0
-                    ? "bg-[#38bdf8] text-white"
-                    : "bg-slate-200/80 dark:bg-white/[0.08] text-slate-600 dark:text-slate-400"
-                }`}
+              <Badge
+                tone={count > 0 ? "info" : undefined}
               >
                 {count}
-              </span>
+              </Badge>
             </button>
           );
         })}
       </div>
 
-      {/* Results Table Under Active Status Header (Image 2) */}
-      <div className="rounded-2xl bg-white/95 dark:bg-[#0c1220]/95 backdrop-blur-xl border border-slate-200/80 dark:border-white/[0.08] shadow-sm overflow-hidden">
+      {/* Results Table Under Active Status Header */}
+      <Card className="overflow-hidden">
         {activeLeads.length > 0 ? (
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs">
-              <thead className="bg-slate-50/80 dark:bg-white/[0.03] border-b border-slate-200/80 dark:border-white/[0.08] text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+              <thead className="bg-muted/20 border-b border-border/80 text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
                 <tr>
                   <th scope="col" className="px-4 py-3.5">
                     S.No.
@@ -201,7 +194,7 @@ export function AdminSearchClient({
                 </tr>
               </thead>
 
-              <tbody className="divide-y divide-slate-200/60 dark:divide-white/[0.06]">
+              <tbody className="divide-y divide-border/40">
                 {activeLeads.map((lead, idx) => {
                   const createDate = lead.createdAt ? lead.createdAt.slice(0, 10) : "-";
                   const updateDate =
@@ -212,65 +205,65 @@ export function AdminSearchClient({
                   return (
                     <tr
                       key={lead.id}
-                      className="hover:bg-blue-50/50 dark:hover:bg-blue-950/20 transition-colors group"
+                      className="hover:bg-muted/30 transition-colors group"
                     >
-                      <td className="px-4 py-3 font-mono text-slate-500 dark:text-slate-400">
+                      <td className="px-4 py-3 font-mono text-muted-foreground">
                         {idx + 1}--[{lead.id.slice(-7)}]
                       </td>
 
-                      <td className="px-4 py-3 font-medium text-slate-800 dark:text-slate-200">
+                      <td className="px-4 py-3 font-medium text-foreground">
                         {lead.ownerName || "Admin"}
                       </td>
 
-                      <td className="px-4 py-3 font-semibold text-slate-900 dark:text-white">
+                      <td className="px-4 py-3 font-semibold text-foreground">
                         {lead.name}
                       </td>
 
-                      <td className="px-4 py-3 font-mono text-slate-700 dark:text-slate-300">
+                      <td className="px-4 py-3 font-mono text-foreground">
                         {lead.mobile}
                       </td>
 
-                      <td className="px-4 py-3 text-slate-700 dark:text-slate-300">
+                      <td className="px-4 py-3 text-muted-foreground">
                         {lead.leadResponse || "-"}
                       </td>
 
-                      <td className="px-4 py-3 text-slate-600 dark:text-slate-400">
+                      <td className="px-4 py-3 text-muted-foreground">
                         {lead.leadSource || "—"}
                       </td>
 
-                      <td className="px-4 py-3 font-mono text-slate-500 dark:text-slate-400">
-                        <span className="px-2 py-0.5 rounded bg-blue-100/60 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300">
+                      <td className="px-4 py-3 font-mono">
+                        <Badge tone="info">
                           {createDate}
-                        </span>
+                        </Badge>
                       </td>
 
-                      <td className="px-4 py-3 font-mono text-slate-500 dark:text-slate-400">
+                      <td className="px-4 py-3 font-mono text-muted-foreground">
                         {updateDate}
                       </td>
 
                       <td className="px-4 py-3 text-center">
                         <div className="flex items-center justify-center gap-1.5">
-                          {/* Dedicated Edit Button - ONLY way to open edit form */}
-                          <button
-                            type="button"
+                          {/* Dedicated Edit Button */}
+                          <Button
+                            variant="primary"
+                            size="sm"
+                            leftIcon="Pencil"
                             onClick={() => setSelectedLeadId(lead.id)}
-                            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-medium text-xs shadow-2xs transition-colors"
                             title="Edit lead details"
                           >
-                            <Pencil className="size-3" />
-                            <span>Edit</span>
-                          </button>
+                            Edit
+                          </Button>
 
-                          {/* Timeline Button - ONLY shows Created By and Created At timestamps */}
-                          <button
-                            type="button"
+                          {/* Timeline Button */}
+                          <Button
+                            variant="sec"
+                            size="sm"
+                            leftIcon="Clock"
                             onClick={() => setTimelineModalLead(lead)}
-                            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-[#38bdf8] hover:bg-[#0ea5e9] text-white font-medium text-xs shadow-2xs transition-colors"
                             title="View lead creation timeline"
                           >
-                            <Clock className="size-3" />
-                            <span>Timeline</span>
-                          </button>
+                            Timeline
+                          </Button>
                         </div>
                       </td>
                     </tr>
@@ -280,17 +273,15 @@ export function AdminSearchClient({
             </table>
           </div>
         ) : (
-          <div className="py-12 px-4 text-center space-y-2">
-            <Inbox className="size-8 text-slate-400 mx-auto" />
-            <p className="text-xs font-semibold text-slate-700 dark:text-slate-300">
-              No leads found under this status header
-            </p>
-            <p className="text-[11px] text-slate-400">
-              Try clicking another status tab or search with a different name or phone number.
-            </p>
+          <div className="py-8">
+            <EmptyState
+              icon="Inbox"
+              title="No leads found under this status header"
+              description="Try clicking another status tab or search with a different name or phone number."
+            />
           </div>
         )}
-      </div>
+      </Card>
 
       {/* Lead Timeline Modal */}
       <AdminLeadTimelineModal
@@ -299,8 +290,8 @@ export function AdminSearchClient({
         onClose={() => setTimelineModalLead(null)}
       />
 
-      {/* Footer (Image 2) */}
-      <footer className="text-center py-4 text-xs text-slate-400 dark:text-slate-500">
+      {/* Footer */}
+      <footer className="text-center py-4 text-xs text-muted-foreground">
         © Stock Emphasis v1.2.0. All rights reserved.
       </footer>
     </div>

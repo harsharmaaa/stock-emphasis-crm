@@ -212,13 +212,19 @@ export function LeadsListClient({
       if (urlStatus) {
         const normalized = normalizeStatusFilter(urlStatus) || "ALL";
         setStatusFilter((prev) => (prev !== normalized ? normalized : prev));
+      } else {
+        setStatusFilter("ALL");
       }
       if (urlSearch !== null) {
         setSearchQuery((prev) => (prev !== urlSearch ? urlSearch : prev));
+      } else {
+        setSearchQuery("");
       }
       if (urlLeadId) {
         setSelectedLeadId((prev) => (prev !== urlLeadId ? urlLeadId : prev));
         setIsDrawerOpen((prev) => (!prev ? true : prev));
+      } else {
+        setSelectedLeadId(null);
       }
     }, 0);
 

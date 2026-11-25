@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
 import { FloatingOrbs } from "@/src/components/layout/floating-orbs";
@@ -13,6 +13,11 @@ const inter = Inter({
 export const metadata: Metadata = {
   title: "Stock Emphasis CRM",
   description: "Enterprise CRM and Stock Management System with modern glassmorphism design.",
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
@@ -32,7 +37,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           }}
         />
       </head>
-      <body className="min-h-full flex flex-col relative bg-background text-foreground transition-colors duration-200">
+      <body className="min-h-full flex flex-col relative text-foreground transition-colors duration-200">
         <FloatingOrbs />
         <ToastProvider>
           <div className="relative z-10 flex-1 flex flex-col min-h-0">{children}</div>

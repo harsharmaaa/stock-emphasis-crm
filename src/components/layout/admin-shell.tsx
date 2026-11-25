@@ -32,6 +32,9 @@ import {
   UserPlus,
   UserCog,
   Network,
+  MessageSquare,
+  Mail,
+  Lightbulb,
 } from "lucide-react";
 import { Badge } from "@/src/components/ui/Badge";
 import { EmptyState } from "@/src/components/ui/EmptyState";
@@ -82,8 +85,63 @@ export function AdminShell({
   // Mobile drawer state
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
-  // Desktop sidebar collapse rail state
-  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  // Desktop sidebar explicit independent states
+  const [isPinned, setIsPinned] = useState(false);
+  const [isHovered, setIsHovered] = useState(false);
+  const hoverTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Desktop effective collapsed state: true only when neither pinned nor hovered
+  const isDesktopCollapsed = !isPinned && !isHovered;
+
+  const sidebarRef = useRef<HTMLElement | null>(null);
+  const hamburgerRef = useRef<HTMLButtonElement | null>(null);
+
+  const handleSidebarMouseEnter = () => {
+    if (typeof window !== "undefined" && window.innerWidth >= 1024) {
+      if (hoverTimeoutRef.current) {
+        clearTimeout(hoverTimeoutRef.current);
+        hoverTimeoutRef.current = null;
+      }
+      if (!isPinned) {
+        setIsHovered(true);
+      }
+    }
+  };
+
+  const handleSidebarMouseLeave = () => {
+    if (typeof window !== "undefined" && window.innerWidth >= 1024) {
+      if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current);
+      if (!isPinned) {
+        hoverTimeoutRef.current = setTimeout(() => {
+          setIsHovered(false);
+        }, 300);
+      }
+    }
+  };
+
+  const handleHamburgerClick = () => {
+    if (typeof window !== "undefined" && window.innerWidth < 1024) {
+      setSidebarOpen((prev) => !prev);
+    } else {
+      if (hoverTimeoutRef.current) {
+        clearTimeout(hoverTimeoutRef.current);
+        hoverTimeoutRef.current = null;
+      }
+      setIsPinned((prev) => {
+        const next = !prev;
+        if (!next) {
+          setIsHovered(false);
+        }
+        return next;
+      });
+    }
+  };
+
+  useEffect(() => {
+    return () => {
+      if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current);
+    };
+  }, []);
 
   // Leads mega menu hover state
   const [isLeadsMenuOpen, setIsLeadsMenuOpen] = useState(false);
@@ -173,7 +231,7 @@ export function AdminShell({
     }
   };
 
-  // Global Ctrl+K / Cmd+K listener for search
+  // Global Ctrl+K / Cmd+K listener for search & Escape key listener
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") {
@@ -183,14 +241,25 @@ export function AdminShell({
       } else if (e.key === "Escape") {
         setIsNotificationsOpen(false);
         setIsProfileOpen(false);
+        setIsLeadsMenuOpen(false);
+        setIsSettingsMenuOpen(false);
+        setSidebarOpen(false);
+        if (isPinned || isHovered) {
+          setIsPinned(false);
+          setIsHovered(false);
+          if (hoverTimeoutRef.current) {
+            clearTimeout(hoverTimeoutRef.current);
+            hoverTimeoutRef.current = null;
+          }
+        }
       }
     };
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, []);
+  }, [isPinned, isHovered]);
 
-  // Click outside listener for dropdowns
+  // Click outside listener for dropdowns and sidebar
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       const target = e.target as Node;
@@ -200,11 +269,25 @@ export function AdminShell({
       if (profileRef.current && !profileRef.current.contains(target)) {
         setIsProfileOpen(false);
       }
+      if (typeof window !== "undefined" && window.innerWidth >= 1024) {
+        const isInsideSidebar = sidebarRef.current && sidebarRef.current.contains(target);
+        const isInsideHamburger = hamburgerRef.current && hamburgerRef.current.contains(target);
+        if (!isInsideSidebar && !isInsideHamburger) {
+          if (isPinned || isHovered) {
+            setIsPinned(false);
+            setIsHovered(false);
+            if (hoverTimeoutRef.current) {
+              clearTimeout(hoverTimeoutRef.current);
+              hoverTimeoutRef.current = null;
+            }
+          }
+        }
+      }
     };
 
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
+  }, [isPinned, isHovered]);
 
   const handleSignOut = async () => {
     setIsSigningOut(true);
@@ -216,41 +299,68 @@ export function AdminShell({
       {/* Sidebar Navigation */}
       <Suspense fallback={null}>
         <AdminNav
+          asideRef={sidebarRef}
           isOpen={sidebarOpen}
-          onClose={() => setSidebarOpen(false)}
+          onClose={() => {
+            setSidebarOpen(false);
+            if (isHovered) {
+              setIsHovered(false);
+            }
+          }}
           adminName={adminName}
           adminEmail={adminEmail}
           adminRole={adminRole}
-          isCollapsed={isSidebarCollapsed}
-          onToggleCollapse={() => setIsSidebarCollapsed((prev) => !prev)}
+          isCollapsed={isDesktopCollapsed}
+          onToggleCollapse={() => {
+            setIsPinned((prev) => !prev);
+            setIsHovered(false);
+          }}
+          onMouseEnter={handleSidebarMouseEnter}
+          onMouseLeave={handleSidebarMouseLeave}
         />
       </Suspense>
 
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col min-w-0">
         {/* Top Header Bar */}
-        <header className="sticky top-0 z-20 h-14 border-b border-slate-200/80 dark:border-white/[0.08] bg-white/75 dark:bg-[#090e1c]/80 backdrop-blur-xl px-3 sm:px-5 flex items-center justify-between gap-2 sm:gap-4 transition-colors duration-200 shadow-xs">
+        <header className="sticky top-0 z-20 h-14 border-b border-slate-200/80 dark:border-white/[0.08] bg-white/75 dark:bg-[#090e1c]/80 backdrop-blur-xl px-2.5 sm:px-4 md:px-5 flex items-center justify-between gap-1.5 sm:gap-3 transition-colors duration-200 shadow-xs">
           {/* Left section: Hamburger, Search capsule, Leads dropdown, Settings dropdown, Chat, Email, Tips */}
-          <div className="flex items-center gap-1.5 sm:gap-2.5 min-w-0">
+          <div className="flex items-center gap-1 sm:gap-2 min-w-0">
             {/* Hamburger menu button */}
             <button
-              onClick={() => {
-                if (typeof window !== "undefined" && window.innerWidth < 1024) {
-                  setSidebarOpen(true);
-                } else {
-                  setIsSidebarCollapsed((prev) => !prev);
+              ref={hamburgerRef}
+              onClick={handleHamburgerClick}
+              onMouseEnter={() => {
+                if (typeof window !== "undefined" && window.innerWidth >= 1024 && !isPinned) {
+                  handleSidebarMouseEnter();
+                }
+              }}
+              onMouseLeave={() => {
+                if (typeof window !== "undefined" && window.innerWidth >= 1024 && !isPinned) {
+                  handleSidebarMouseLeave();
                 }
               }}
               className="p-1.5 rounded-lg text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors shrink-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#4F6DF5]"
-              aria-label="Toggle sidebar menu"
-              title="Toggle sidebar navigation"
+              aria-label={
+                sidebarOpen || !isDesktopCollapsed
+                  ? "Close sidebar navigation"
+                  : "Open sidebar navigation"
+              }
+              aria-expanded={sidebarOpen || !isDesktopCollapsed}
+              title={
+                isPinned
+                  ? "Unpin sidebar navigation"
+                  : !isDesktopCollapsed
+                  ? "Collapse sidebar navigation"
+                  : "Expand and pin sidebar navigation"
+              }
             >
               <Menu className="size-4.5" />
             </button>
 
             {/* Header Global Search Input */}
             <form onSubmit={handleHeaderSearchSubmit} className="relative shrink-0">
-              <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-100/70 dark:bg-white/[0.05] border border-slate-200/80 dark:border-white/[0.08] text-slate-500 dark:text-slate-400 focus-within:border-[#4F6DF5] focus-within:ring-1 focus-within:ring-[#4F6DF5] w-36 sm:w-56 text-xs transition-all shadow-xs">
+              <div className="flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-1.5 rounded-full bg-slate-100/70 dark:bg-white/[0.05] border border-slate-200/80 dark:border-white/[0.08] text-slate-500 dark:text-slate-400 focus-within:border-[#4F6DF5] focus-within:ring-1 focus-within:ring-[#4F6DF5] w-28 sm:w-36 md:w-40 lg:w-48 xl:w-56 focus-within:w-36 sm:focus-within:w-48 md:focus-within:w-56 lg:focus-within:w-64 text-xs transition-all duration-200 shadow-xs">
                 <button type="submit" className="focus:outline-none cursor-pointer" aria-label="Submit search">
                   <Search className="size-3.5 text-slate-400 hover:text-[#4F6DF5] transition-colors shrink-0" />
                 </button>
@@ -259,15 +369,15 @@ export function AdminShell({
                   type="text"
                   value={headerSearch}
                   onChange={(e) => setHeaderSearch(e.target.value)}
-                  placeholder="Search leads, phone..."
+                  placeholder="Search leads..."
                   className="w-full bg-transparent text-xs text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none"
                 />
               </div>
             </form>
 
-            {/* Leads Dropdown Button + Hover Mega Menu */}
+            {/* Leads Dropdown Button + Hover Mega Menu (Desktop/Tablet) */}
             <div
-              className="relative"
+              className="relative hidden sm:block"
               onMouseEnter={handleLeadsMouseEnter}
               onMouseLeave={handleLeadsMouseLeave}
             >
@@ -278,16 +388,17 @@ export function AdminShell({
                   if (leadsMenuTimeoutRef.current) clearTimeout(leadsMenuTimeoutRef.current);
                   setIsLeadsMenuOpen(false);
                 }}
-                className={`flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all shadow-2xs cursor-pointer ${
+                className={`flex items-center gap-1 px-2 sm:px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all shadow-2xs cursor-pointer ${
                   pathname.startsWith("/admin/leads") || isLeadsMenuOpen
                     ? "bg-[#4F6DF5]/12 text-[#4F6DF5] dark:text-[#60A5FA] border border-[#4F6DF5]/30 font-semibold"
                     : "text-slate-700 dark:text-slate-300 hover:bg-white/70 dark:hover:bg-white/[0.06] border border-transparent"
                 }`}
                 aria-expanded={isLeadsMenuOpen}
                 aria-haspopup="true"
-                title="Click for All Leads, Hover for options"
+                title="Leads — Click for All Leads, Hover for options"
               >
-                <span>Leads</span>
+                <Smile className="size-3.5 shrink-0 text-[#4F6DF5] dark:text-[#60A5FA]" />
+                <span className="hidden md:inline">Leads</span>
                 <ChevronDown className={`size-3 transition-transform duration-150 ${isLeadsMenuOpen ? "rotate-180" : ""}`} />
               </Link>
 
@@ -346,7 +457,7 @@ export function AdminShell({
                     {/* Column 2 */}
                     <div className="col-span-4 space-y-1">
                       <Link
-                        href="/admin/leads?status=TRIALS"
+                        href="/admin/leads?status=TRIAL"
                         onClick={() => setIsLeadsMenuOpen(false)}
                         className="flex items-center gap-3 p-2 rounded-xl text-slate-700 dark:text-slate-300 hover:bg-slate-100/80 dark:hover:bg-slate-800 transition-colors group"
                       >
@@ -356,7 +467,7 @@ export function AdminShell({
                         <span className="text-xs font-medium truncate">Trials</span>
                       </Link>
                       <Link
-                        href="/admin/leads?status=CLIENTS"
+                        href="/admin/leads?status=CLIENT"
                         onClick={() => setIsLeadsMenuOpen(false)}
                         className="flex items-center gap-3 p-2 rounded-xl text-slate-700 dark:text-slate-300 hover:bg-slate-100/80 dark:hover:bg-slate-800 transition-colors group"
                       >
@@ -415,24 +526,26 @@ export function AdminShell({
               )}
             </div>
 
-            {/* Settings Dropdown Button */}
+            {/* Settings Dropdown Button (Desktop/Tablet) */}
             <div
-              className="relative"
+              className="relative hidden sm:block"
               onMouseEnter={handleSettingsMouseEnter}
               onMouseLeave={handleSettingsMouseLeave}
             >
               <button
                 type="button"
                 onClick={() => setIsSettingsMenuOpen((prev) => !prev)}
-                className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                className={`flex items-center gap-1 px-2 sm:px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors ${
                   isSettingsMenuOpen
                     ? "bg-[#4F6DF5]/12 text-[#4F6DF5] dark:text-[#60A5FA]"
                     : "text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
                 }`}
                 aria-expanded={isSettingsMenuOpen}
                 aria-haspopup="true"
+                title="Settings"
               >
-                <span>Settings</span>
+                <SlidersHorizontal className="size-3.5 shrink-0 text-slate-500 dark:text-slate-400" />
+                <span className="hidden md:inline">Settings</span>
                 <ChevronDown className={`size-3 text-slate-400 transition-transform ${isSettingsMenuOpen ? "rotate-180" : ""}`} />
               </button>
 
@@ -562,10 +675,12 @@ export function AdminShell({
             {/* Chat Placeholder */}
             <button
               type="button"
-              className="hidden md:flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
-              title="Chat channel (Upcoming)"
+              className="hidden sm:flex items-center gap-1 sm:gap-1.5 px-2 sm:px-2.5 py-1.5 rounded-lg text-xs font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors shrink-0"
+              title="Chat channel (0 unread)"
+              aria-label="Chat channel, 0 unread messages"
             >
-              <span>Chat</span>
+              <MessageSquare className="size-3.5 text-slate-500 dark:text-slate-400 shrink-0" />
+              <span className="hidden xl:inline">Chat</span>
               <span className="px-1.5 py-0.2 rounded-full bg-[#4F6DF5]/15 text-[#4F6DF5] dark:text-[#60A5FA] border border-[#4F6DF5]/25 text-[10px] font-bold leading-tight">
                 0
               </span>
@@ -574,10 +689,12 @@ export function AdminShell({
             {/* Email Placeholder */}
             <button
               type="button"
-              className="hidden md:flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
-              title="Email updates (Upcoming)"
+              className="hidden sm:flex items-center gap-1 sm:gap-1.5 px-2 sm:px-2.5 py-1.5 rounded-lg text-xs font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors shrink-0"
+              title="Email updates (0 unread)"
+              aria-label="Email updates, 0 unread messages"
             >
-              <span>Email</span>
+              <Mail className="size-3.5 text-slate-500 dark:text-slate-400 shrink-0" />
+              <span className="hidden xl:inline">Email</span>
               <span className="px-1.5 py-0.2 rounded-full bg-[#4F6DF5]/15 text-[#4F6DF5] dark:text-[#60A5FA] border border-[#4F6DF5]/25 text-[10px] font-bold leading-tight">
                 0
               </span>
@@ -586,10 +703,12 @@ export function AdminShell({
             {/* Tips Placeholder */}
             <button
               type="button"
-              className="hidden sm:flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
-              title="Advisory tips (31)"
+              className="flex items-center gap-1 sm:gap-1.5 px-2 sm:px-2.5 py-1.5 rounded-lg text-xs font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors shrink-0"
+              title="Advisory tips (31 tips)"
+              aria-label="Advisory tips, 31 tips available"
             >
-              <span>Tips</span>
+              <Lightbulb className="size-3.5 text-amber-500 dark:text-amber-400 shrink-0" />
+              <span className="hidden lg:inline">Tips</span>
               <span className="px-1.5 py-0.2 rounded-full bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/25 text-[10px] font-bold leading-tight">
                 31
               </span>
@@ -697,7 +816,7 @@ export function AdminShell({
                   setIsProfileOpen((prev) => !prev);
                   setIsNotificationsOpen(false);
                 }}
-                className={`flex items-center gap-2 p-1.5 sm:px-2.5 sm:py-1.5 rounded-xl border transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-[#4F6DF5] ${
+                className={`flex items-center gap-1.5 sm:gap-2 p-1 sm:px-2 sm:py-1 rounded-xl border transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-[#4F6DF5] ${
                   isProfileOpen
                     ? "bg-[#4F6DF5]/12 border-[#4F6DF5]/30 text-[#4F6DF5] dark:text-[#60A5FA]"
                     : "bg-white/70 dark:bg-white/[0.05] border-slate-200/80 dark:border-white/[0.08] hover:border-slate-300 dark:hover:border-white/[0.15]"
@@ -706,10 +825,10 @@ export function AdminShell({
                 aria-expanded={isProfileOpen}
                 aria-haspopup="true"
               >
-                <div className="flex items-center justify-center size-7 rounded-lg bg-gradient-to-br from-[#4F6DF5] to-[#60A5FA] text-white font-bold text-xs shadow-xs">
+                <div className="flex items-center justify-center size-7 rounded-lg bg-gradient-to-br from-[#4F6DF5] to-[#60A5FA] text-white font-bold text-xs shadow-xs shrink-0">
                   {adminName.slice(0, 2).toUpperCase()}
                 </div>
-                <div className="hidden md:flex flex-col text-left">
+                <div className="hidden xl:flex flex-col text-left">
                   <span className="text-xs font-bold text-slate-800 dark:text-slate-200 max-w-[110px] truncate leading-tight">
                     {adminName}
                   </span>
@@ -717,7 +836,7 @@ export function AdminShell({
                     {adminRole}
                   </span>
                 </div>
-                <ChevronDown className="size-3.5 text-slate-400 hidden sm:block" />
+                <ChevronDown className="size-3.5 text-slate-400 shrink-0" />
               </button>
 
               {/* Profile Dropdown Menu */}
@@ -791,7 +910,7 @@ export function AdminShell({
         </header>
 
         {/* Page Content Body */}
-        <main className="flex-1 p-4 sm:p-6 lg:p-8 max-w-7xl w-full mx-auto">
+        <main className="flex-1 p-4 sm:p-6 lg:p-8 max-w-[1440px] w-full mx-auto min-w-0">
           {children}
         </main>
       </div>

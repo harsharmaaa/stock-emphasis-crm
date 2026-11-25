@@ -242,11 +242,13 @@ export function DatePicker({
   });
 
   // Synchronize viewDate when selected date changes
-  useEffect(() => {
+  const [prevCurrentValue, setPrevCurrentValue] = useState(currentValue);
+  if (currentValue !== prevCurrentValue) {
+    setPrevCurrentValue(currentValue);
     if (selectedDate) {
       setViewDate(new Date(selectedDate.getFullYear(), selectedDate.getMonth(), 1));
     }
-  }, [selectedDate]);
+  }
 
   const wrapperRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
@@ -278,44 +280,32 @@ export function DatePicker({
   useOutsideClick(wrapperRef, () => setOpen(false), isOpen);
 
   // Month navigation boundary checks
-  const canPrevMonth = useMemo(() => {
-    if (!minDate) return true;
-    const prevMonthEnd = new Date(viewYear, viewMonth, 0);
-    return prevMonthEnd >= minDate;
-  }, [minDate, viewYear, viewMonth]);
-
-  const canNextMonth = useMemo(() => {
-    if (!maxDate) return true;
-    const nextMonthStart = new Date(viewYear, viewMonth + 1, 1);
-    return nextMonthStart <= maxDate;
-  }, [maxDate, viewYear, viewMonth]);
+  const canPrevMonth = !minDate || new Date(viewYear, viewMonth, 0) >= minDate;
+  const canNextMonth = !maxDate || new Date(viewYear, viewMonth + 1, 1) <= maxDate;
 
   // Month shift helper with day clamping and bounds resolution
-  const navigateMonth = useCallback(
-    (delta: number) => {
-      const targetYear =
-        delta > 0 && viewMonth === 11
-          ? viewYear + 1
-          : delta < 0 && viewMonth === 0
-          ? viewYear - 1
-          : viewYear;
-      const targetMonth = (viewMonth + delta + 12) % 12;
+  const navigateMonth = (delta: number) => {
+    const targetYear =
+      delta > 0 && viewMonth === 11
+        ? viewYear + 1
+        : delta < 0 && viewMonth === 0
+        ? viewYear - 1
+        : viewYear;
+    const targetMonth = (viewMonth + delta + 12) % 12;
 
-      // Verify boundary
-      if (delta < 0 && !canPrevMonth) return;
-      if (delta > 0 && !canNextMonth) return;
+    // Verify boundary
+    if (delta < 0 && !canPrevMonth) return;
+    if (delta > 0 && !canNextMonth) return;
 
-      const destDaysInMonth = new Date(targetYear, targetMonth + 1, 0).getDate();
-      const clampedDay = Math.min(focusedDay, destDaysInMonth);
-      const targetDay =
-        getNearestEnabledDay(targetYear, targetMonth, clampedDay, minDate, maxDate) ??
-        1;
+    const destDaysInMonth = new Date(targetYear, targetMonth + 1, 0).getDate();
+    const clampedDay = Math.min(focusedDay, destDaysInMonth);
+    const targetDay =
+      getNearestEnabledDay(targetYear, targetMonth, clampedDay, minDate, maxDate) ??
+      1;
 
-      setViewDate(new Date(targetYear, targetMonth, 1));
-      setFocusedDay(targetDay);
-    },
-    [viewYear, viewMonth, focusedDay, canPrevMonth, canNextMonth, minDate, maxDate]
-  );
+    setViewDate(new Date(targetYear, targetMonth, 1));
+    setFocusedDay(targetDay);
+  };
 
   // Day selection handler
   const handleSelectDay = (day: number) => {
@@ -347,7 +337,9 @@ export function DatePicker({
   }, [isOpen, focusedDay, viewYear, viewMonth]);
 
   // Initial focus on open: prioritize selected date, then today, then nearest enabled date
-  useEffect(() => {
+  const [prevIsOpen, setPrevIsOpen] = useState(isOpen);
+  if (isOpen !== prevIsOpen) {
+    setPrevIsOpen(isOpen);
     if (isOpen) {
       let initialDay = 1;
       if (
@@ -369,7 +361,7 @@ export function DatePicker({
       }
       setFocusedDay(initialDay);
     }
-  }, [isOpen]);
+  }
 
   // Bounds-aware date navigation by day/week offset
   const moveByOffset = (delta: number) => {

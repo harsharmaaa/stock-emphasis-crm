@@ -43,6 +43,9 @@ interface AdminNavProps {
   adminRole?: string;
   isCollapsed?: boolean;
   onToggleCollapse?: () => void;
+  onMouseEnter?: () => void;
+  onMouseLeave?: () => void;
+  asideRef?: React.RefObject<HTMLElement | null>;
 }
 
 interface NavItem {
@@ -234,6 +237,9 @@ export function AdminNav({
   adminRole = "ADMIN",
   isCollapsed = false,
   onToggleCollapse,
+  onMouseEnter,
+  onMouseLeave,
+  asideRef,
 }: AdminNavProps) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -298,7 +304,7 @@ export function AdminNav({
     return pathname.startsWith(itemPath);
   };
 
-  const navContent = (
+  const renderNavContent = (collapsed: boolean) => (
     <div className="flex h-full flex-col justify-between bg-white/80 dark:bg-[#080d19]/85 backdrop-blur-2xl border-r border-slate-200/80 dark:border-white/[0.08] text-slate-800 dark:text-slate-100 transition-colors duration-200">
       <div className="flex-1 flex flex-col min-h-0">
         {/* Brand Header */}
@@ -311,7 +317,7 @@ export function AdminNav({
             <div className="flex items-center justify-center size-9 rounded-xl bg-gradient-to-br from-[#4F6DF5] to-[#60A5FA] text-white shadow-md shadow-[#4F6DF5]/25 group-hover:scale-105 transition-transform shrink-0">
               <Boxes className="size-5" />
             </div>
-            {!isCollapsed && (
+            {!collapsed && (
               <div className="min-w-0">
                 <span className="block text-[10px] font-bold uppercase tracking-widest text-[#4F6DF5] dark:text-[#60A5FA]">
                   Stock Emphasis
@@ -334,7 +340,7 @@ export function AdminNav({
         </div>
 
         {/* Notice Banner for upcoming items */}
-        {activeNotice && !isCollapsed && (
+        {activeNotice && !collapsed && (
           <div className="mx-3 mt-3 p-2.5 rounded-xl bg-[#4F6DF5]/10 dark:bg-[#4F6DF5]/15 border border-[#4F6DF5]/25 dark:border-[#4F6DF5]/30 text-slate-900 dark:text-slate-100 text-xs flex items-start gap-2 animate-in fade-in slide-in-from-top-1 duration-200">
             <Sparkles className="size-4 text-[#4F6DF5] dark:text-[#60A5FA] shrink-0 mt-0.5" />
             <div className="flex-1">
@@ -356,12 +362,12 @@ export function AdminNav({
         {/* Primary Navigation Groups */}
         <div className="flex-1 overflow-y-auto px-3 py-4 space-y-5 scrollbar-thin">
           {NAVIGATION_GROUPS.map((group) => {
-            const isGroupCollapsed = collapsedGroups[group.id] && !isCollapsed;
+            const isGroupCollapsed = collapsedGroups[group.id] && !collapsed;
 
             return (
               <div key={group.id} className="space-y-1">
                 {/* Group Header */}
-                {!isCollapsed && (
+                {!collapsed && (
                   <div className="px-3 pb-1">
                     {group.collapsible ? (
                       <button
@@ -400,9 +406,9 @@ export function AdminNav({
                             href={item.href}
                             prefetch={true}
                             onClick={onClose}
-                            title={isCollapsed ? item.title : undefined}
+                            title={collapsed ? item.title : undefined}
                             className={`group relative flex items-center ${
-                              isCollapsed ? "justify-center px-2 py-2.5" : "justify-between px-3.5 py-2.5"
+                              collapsed ? "justify-center px-2 py-2.5" : "justify-between px-3.5 py-2.5"
                             } rounded-xl text-xs font-medium transition-all ${
                               active
                                 ? "bg-[#4F6DF5]/12 dark:bg-[#4F6DF5]/20 text-[#4F6DF5] dark:text-[#60A5FA] border border-[#4F6DF5]/30 dark:border-[#4F6DF5]/40 font-semibold shadow-2xs"
@@ -417,10 +423,10 @@ export function AdminNav({
                                     : "text-slate-500 dark:text-slate-400 group-hover:text-slate-800 dark:group-hover:text-slate-200"
                                 }`}
                               />
-                              {!isCollapsed && <span className="truncate">{item.title}</span>}
+                              {!collapsed && <span className="truncate">{item.title}</span>}
                             </div>
 
-                            {active && !isCollapsed && (
+                            {active && !collapsed && (
                               <div className="absolute right-0 top-1/2 -translate-y-1/2 w-1 h-5 rounded-l-full bg-[#4F6DF5] dark:bg-[#60A5FA] shadow-[0_0_8px_rgba(79,109,245,0.6)]" />
                             )}
                           </Link>
@@ -433,18 +439,18 @@ export function AdminNav({
                           key={item.title}
                           type="button"
                           onClick={() => setActiveNotice(item.tooltip || `${item.title} is scheduled for Phase 2 development.`)}
-                          title={isCollapsed ? `${item.title} (Upcoming)` : item.tooltip}
+                          title={collapsed ? `${item.title} (Upcoming)` : item.tooltip}
                           className={`w-full group relative flex items-center ${
-                            isCollapsed ? "justify-center px-2 py-2.5" : "justify-between px-3.5 py-2"
+                            collapsed ? "justify-center px-2 py-2.5" : "justify-between px-3.5 py-2"
                           } rounded-xl text-xs font-medium text-slate-400 dark:text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-900/60 transition-all border border-transparent cursor-pointer`}
                           aria-disabled="true"
                         >
                           <div className="flex items-center gap-3 min-w-0">
                             <IconComponent className="size-4 shrink-0 text-slate-400 dark:text-slate-400 group-hover:text-slate-500 dark:group-hover:text-slate-400 transition-colors" />
-                            {!isCollapsed && <span className="truncate text-slate-500 dark:text-slate-400">{item.title}</span>}
+                            {!collapsed && <span className="truncate text-slate-500 dark:text-slate-400">{item.title}</span>}
                           </div>
 
-                          {!isCollapsed && item.badge && (
+                          {!collapsed && item.badge && (
                             <Badge tone="info">
                               {item.badge}
                             </Badge>
@@ -465,13 +471,13 @@ export function AdminNav({
         {/* Identity preview */}
         <div
           className={`flex items-center ${
-            isCollapsed ? "justify-center p-2" : "gap-3 p-2.5"
+            collapsed ? "justify-center p-2" : "gap-3 p-2.5"
           } rounded-xl bg-white/70 dark:bg-white/[0.04] border border-slate-200/80 dark:border-white/[0.08] shadow-2xs`}
         >
           <div className="flex items-center justify-center size-8 rounded-lg bg-[#4F6DF5]/15 text-[#4F6DF5] dark:text-[#60A5FA] font-bold text-xs border border-[#4F6DF5]/25 shrink-0">
             {adminName.slice(0, 2).toUpperCase()}
           </div>
-          {!isCollapsed && (
+          {!collapsed && (
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-1.5">
                 <span className="text-xs font-bold text-slate-900 dark:text-white truncate">
@@ -495,10 +501,10 @@ export function AdminNav({
             type="button"
             onClick={onToggleCollapse}
             className="hidden lg:flex w-full items-center justify-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800/80 border border-transparent transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#4F6DF5]"
-            aria-label={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
-            title={isCollapsed ? "Expand sidebar (w-64)" : "Collapse sidebar (w-20)"}
+            aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+            title={collapsed ? "Expand sidebar (w-64)" : "Collapse sidebar (w-20)"}
           >
-            {isCollapsed ? (
+            {collapsed ? (
               <PanelLeftOpen className="size-4" />
             ) : (
               <>
@@ -516,11 +522,14 @@ export function AdminNav({
     <>
       {/* Desktop Persistent Sidebar */}
       <aside
+        ref={asideRef}
+        onMouseEnter={onMouseEnter}
+        onMouseLeave={onMouseLeave}
         className={`hidden lg:block shrink-0 h-screen sticky top-0 z-30 transition-all duration-200 ${
           isCollapsed ? "w-20" : "w-64"
         }`}
       >
-        {navContent}
+        {renderNavContent(isCollapsed)}
       </aside>
 
       {/* Mobile Drawer Overlay */}
@@ -531,7 +540,7 @@ export function AdminNav({
             onClick={onClose}
           />
           <div className="fixed inset-y-0 left-0 w-72 max-w-full shadow-2xl animate-in slide-in-from-left duration-200">
-            {navContent}
+            {renderNavContent(false)}
           </div>
         </div>
       )}
