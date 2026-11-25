@@ -9,17 +9,21 @@ import {
   Edit2,
   Power,
   Search,
-  CheckCircle2,
-  AlertTriangle,
   Check,
-  X,
-  ShieldAlert,
-  Clock,
-  Sparkles,
 } from "lucide-react";
 import { ProductModal } from "./product-modal";
 import { deactivateProductAction, reactivateProductAction } from "./actions";
 import type { ProductItem } from "./types";
+import {
+  PageHeader,
+  Card,
+  Button,
+  Badge,
+  Input,
+  ConfirmDialog,
+  EmptyState,
+  useToast,
+} from "@/src/components/ui";
 
 interface ProductsClientProps {
   initialProducts: ProductItem[];
@@ -38,13 +42,7 @@ export function ProductsClient({ initialProducts }: ProductsClientProps) {
   const [confirmToggleProduct, setConfirmToggleProduct] = useState<ProductItem | null>(null);
   const [isToggling, setIsToggling] = useState(false);
 
-  // Notification Toast
-  const [toastMsg, setToastMsg] = useState<{ type: "success" | "error"; text: string } | null>(null);
-
-  const showToast = (type: "success" | "error", text: string) => {
-    setToastMsg({ type, text });
-    setTimeout(() => setToastMsg(null), 4000);
-  };
+  const toast = useToast();
 
   const handleOpenAdd = () => {
     setEditingProduct(null);
@@ -66,8 +64,8 @@ export function ProductsClient({ initialProducts }: ProductsClientProps) {
       }
       return [savedProduct, ...prev];
     });
-    showToast(
-      "success",
+    toast.success(
+      "Saved successfully",
       `Product "${savedProduct.name}" ${editingProduct ? "updated" : "created"} successfully.`
     );
   };
@@ -83,10 +81,10 @@ export function ProductsClient({ initialProducts }: ProductsClientProps) {
           setProducts((prev) =>
             prev.map((p) => (p.id === confirmToggleProduct.id ? { ...p, isActive: false } : p))
           );
-          showToast("success", `Product "${confirmToggleProduct.name}" deactivated.`);
+          toast.success("Deactivated", `Product "${confirmToggleProduct.name}" deactivated.`);
           setConfirmToggleProduct(null);
         } else {
-          showToast("error", res.error || "Failed to deactivate product.");
+          toast.error("Deactivation failed", res.error || "Failed to deactivate product.");
         }
       } else {
         const res = await reactivateProductAction(confirmToggleProduct.id);
@@ -94,15 +92,15 @@ export function ProductsClient({ initialProducts }: ProductsClientProps) {
           setProducts((prev) =>
             prev.map((p) => (p.id === confirmToggleProduct.id ? { ...p, isActive: true } : p))
           );
-          showToast("success", `Product "${confirmToggleProduct.name}" reactivated.`);
+          toast.success("Reactivated", `Product "${confirmToggleProduct.name}" reactivated.`);
           setConfirmToggleProduct(null);
         } else {
-          showToast("error", res.error || "Failed to reactivate product.");
+          toast.error("Reactivation failed", res.error || "Failed to reactivate product.");
         }
       }
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "An unexpected error occurred.";
-      showToast("error", message);
+      toast.error("Error", message);
     } finally {
       setIsToggling(false);
     }
@@ -128,94 +126,65 @@ export function ProductsClient({ initialProducts }: ProductsClientProps) {
 
   return (
     <div className="p-4 sm:p-6 lg:p-8 space-y-6 max-w-7xl mx-auto">
-      {/* Toast Alert */}
-      {toastMsg && (
-        <div
-          className={`fixed top-18 right-6 z-50 flex items-center gap-2.5 px-4 py-3 rounded-xl shadow-lg border text-xs font-semibold animate-in slide-in-from-top-2 duration-200 ${
-            toastMsg.type === "success"
-              ? "bg-emerald-50 dark:bg-emerald-950/80 border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-200"
-              : "bg-rose-50 dark:bg-rose-950/80 border-rose-200 dark:border-rose-800 text-rose-800 dark:text-rose-200"
-          }`}
-        >
-          {toastMsg.type === "success" ? (
-            <CheckCircle2 className="size-4 shrink-0 text-emerald-600 dark:text-emerald-400" />
-          ) : (
-            <AlertTriangle className="size-4 shrink-0 text-rose-600 dark:text-rose-400" />
-          )}
-          <span>{toastMsg.text}</span>
-        </div>
-      )}
-
-      {/* Header bar matching screenshot and CRM standard */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-2">
-            <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-800 dark:text-white uppercase">
-              PRODUCT
-            </h1>
-            <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-blue-100 dark:bg-blue-950 text-blue-700 dark:text-blue-300">
-              {products.length}
-            </span>
+      {/* Header bar */}
+      <PageHeader
+        title="PRODUCT"
+        description="Service packages, multi-tier duration pricing, and free trial configurations."
+        actions={
+          <div className="flex items-center gap-2.5">
+            <Link href="/admin/settings/configuration">
+              <Button
+                variant="ghost"
+                size="sm"
+              >
+                <ArrowLeft className="size-3.5" />
+                Go Back
+              </Button>
+            </Link>
+            <Button
+              variant="primary"
+              size="sm"
+              leftIcon="Plus"
+              onClick={handleOpenAdd}
+            >
+              Add Product
+            </Button>
           </div>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-            Service packages, multi-tier duration pricing, and free trial configurations.
-          </p>
-        </div>
-
-        <div className="flex items-center gap-2.5">
-          <Link
-            href="/admin/settings/configuration"
-            className="px-3.5 py-2 text-xs font-semibold rounded-xl border border-slate-250 dark:border-white/[0.1] bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800/80 shadow-2xs transition-all flex items-center gap-1.5 cursor-pointer"
-          >
-            <ArrowLeft className="size-3.5" />
-            <span>Go Back</span>
-          </Link>
-          <button
-            onClick={handleOpenAdd}
-            className="px-4 py-2 text-xs font-semibold rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs transition-colors flex items-center gap-1.5 cursor-pointer"
-          >
-            <Plus className="size-4" />
-            <span>Add Product</span>
-          </button>
-        </div>
-      </div>
+        }
+      />
 
       {/* Filter and Search Bar */}
-      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-white dark:bg-[#0c1220] p-3 rounded-2xl border border-slate-200/80 dark:border-white/[0.08] shadow-xs">
+      <Card className="p-3 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
         <div className="relative flex-1 max-w-sm">
-          <Search className="size-3.5 text-slate-400 absolute left-3 top-2.5" />
-          <input
-            type="text"
+          <Input
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Search by product name..."
-            className="w-full pl-8 pr-3 py-1.5 text-xs rounded-xl border border-slate-250 dark:border-white/[0.1] bg-slate-50/50 dark:bg-slate-900 text-slate-800 dark:text-white placeholder:text-slate-400 focus:outline-hidden focus:border-blue-500"
+            className="pl-8"
           />
+          <Search className="size-3.5 text-muted-foreground absolute left-3 top-3 pointer-events-none" />
         </div>
 
         <div className="flex items-center gap-1.5">
           {(["ALL", "ACTIVE", "INACTIVE"] as const).map((status) => (
-            <button
+            <Button
               key={status}
+              variant={statusFilter === status ? "primary" : "ghost"}
+              size="sm"
               onClick={() => setStatusFilter(status)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
-                statusFilter === status
-                  ? "bg-blue-600 text-white shadow-2xs"
-                  : "bg-slate-100 dark:bg-white/[0.04] text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-white/[0.08]"
-              }`}
             >
               {status === "ALL" ? "All" : status === "ACTIVE" ? "Active" : "Inactive"}
-            </button>
+            </Button>
           ))}
         </div>
-      </div>
+      </Card>
 
       {/* Main Table */}
-      <div className="bg-white dark:bg-[#0c1220] rounded-2xl border border-slate-200/80 dark:border-white/[0.08] shadow-xs overflow-hidden">
+      <Card className="overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs">
             <thead>
-              <tr className="border-b border-slate-200/80 dark:border-white/[0.08] bg-slate-50/75 dark:bg-white/[0.02] text-slate-500 dark:text-slate-400 font-semibold uppercase tracking-wider text-[11px]">
+              <tr className="border-b border-border/80 bg-muted/20 text-muted-foreground font-semibold uppercase tracking-wider text-[11px]">
                 <th className="py-3.5 pl-4 pr-2 w-12 text-center">#</th>
                 <th className="py-3.5 px-4 min-w-[200px]">Product Name</th>
                 <th className="py-3.5 px-4 min-w-[340px]">Pricing Tiers</th>
@@ -226,101 +195,97 @@ export function ProductsClient({ initialProducts }: ProductsClientProps) {
                 <th className="py-3.5 pr-4 pl-2 text-center w-24">Action</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-200/60 dark:divide-white/[0.04]">
+            <tbody className="divide-y divide-border/40">
               {filteredProducts.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="py-12 text-center text-slate-400">
-                    <div className="flex flex-col items-center justify-center gap-2">
-                      <div className="size-10 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-400 flex items-center justify-center">
-                        <Package className="size-5" />
-                      </div>
-                      <span className="font-semibold text-slate-600 dark:text-slate-300">
-                        {searchQuery || statusFilter !== "ALL"
-                          ? "No products matching your search filter."
-                          : "No products configured yet."}
-                      </span>
-                      <p className="text-[11px] text-slate-400">
-                        Click &ldquo;Add Product&rdquo; above to set up your first investment product.
-                      </p>
-                    </div>
+                  <td colSpan={8} className="py-8">
+                    <EmptyState
+                      icon="Inbox"
+                      title={
+                        searchQuery || statusFilter !== "ALL"
+                          ? "No products matching your search filter"
+                          : "No products configured yet"
+                      }
+                      description='Click "Add Product" above to set up your first investment product.'
+                    />
                   </td>
                 </tr>
               ) : (
                 filteredProducts.map((p, idx) => (
                   <tr
                     key={p.id}
-                    className={`hover:bg-slate-50/60 dark:hover:bg-white/[0.02] transition-colors ${
-                      !p.isActive ? "opacity-60 bg-slate-50/30 dark:bg-white/[0.01]" : ""
+                    className={`hover:bg-muted/30 transition-colors ${
+                      !p.isActive ? "opacity-60 bg-muted/10" : ""
                     }`}
                   >
                     {/* Index */}
-                    <td className="py-3.5 pl-4 pr-2 text-center text-slate-400 font-mono text-[11px]">
+                    <td className="py-3.5 pl-4 pr-2 text-center text-muted-foreground font-mono text-[11px]">
                       {idx + 1}
                     </td>
 
                     {/* Product Name */}
                     <td className="py-3.5 px-4">
-                      <div className="font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                      <div className="font-bold text-foreground flex items-center gap-2">
                         <span>{p.name}</span>
                         {p.pricingWithGst && (
-                          <span className="px-1.5 py-0.2 rounded text-[9px] font-semibold bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200/60 dark:border-emerald-800/60">
+                          <Badge tone="ok">
                             Incl. GST
-                          </span>
+                          </Badge>
                         )}
                       </div>
-                      <span className="text-[10px] text-slate-400 block mt-0.5">
+                      <span className="text-[10px] text-muted-foreground block mt-0.5">
                         Added by {p.createdByName || "Admin"}
                       </span>
                     </td>
 
-                    {/* Pricing Grid matching legacy screenshot */}
+                    {/* Pricing Grid */}
                     <td className="py-3 px-4">
-                      <div className="grid grid-cols-1 divide-y divide-slate-100 dark:divide-white/[0.04] text-[11px]">
+                      <div className="grid grid-cols-1 divide-y divide-border/40 text-[11px]">
                         {/* Monthly */}
                         <div className="grid grid-cols-12 py-1 items-center">
-                          <span className="col-span-4 text-slate-600 dark:text-slate-300 font-medium">
+                          <span className="col-span-4 text-foreground font-medium">
                             Monthly
                           </span>
-                          <span className="col-span-3 text-slate-400 font-mono text-[10px]">
+                          <span className="col-span-3 text-muted-foreground font-mono text-[10px]">
                             30 Days
                           </span>
-                          <span className="col-span-5 text-right font-mono font-semibold text-slate-800 dark:text-slate-200">
+                          <span className="col-span-5 text-right font-mono font-semibold text-foreground">
                             {formatPrice(p.monthlyPrice)}
                           </span>
                         </div>
                         {/* Quarterly */}
                         <div className="grid grid-cols-12 py-1 items-center">
-                          <span className="col-span-4 text-slate-600 dark:text-slate-300 font-medium">
+                          <span className="col-span-4 text-foreground font-medium">
                             Quarterly
                           </span>
-                          <span className="col-span-3 text-slate-400 font-mono text-[10px]">
+                          <span className="col-span-3 text-muted-foreground font-mono text-[10px]">
                             90 Days
                           </span>
-                          <span className="col-span-5 text-right font-mono font-semibold text-slate-800 dark:text-slate-200">
+                          <span className="col-span-5 text-right font-mono font-semibold text-foreground">
                             {formatPrice(p.quarterlyPrice)}
                           </span>
                         </div>
                         {/* Half-Yearly */}
                         <div className="grid grid-cols-12 py-1 items-center">
-                          <span className="col-span-4 text-slate-600 dark:text-slate-300 font-medium">
+                          <span className="col-span-4 text-foreground font-medium">
                             Half-Yearly
                           </span>
-                          <span className="col-span-3 text-slate-400 font-mono text-[10px]">
+                          <span className="col-span-3 text-muted-foreground font-mono text-[10px]">
                             180 Days
                           </span>
-                          <span className="col-span-5 text-right font-mono font-semibold text-slate-800 dark:text-slate-200">
+                          <span className="col-span-5 text-right font-mono font-semibold text-foreground">
                             {formatPrice(p.halfYearlyPrice)}
                           </span>
                         </div>
                         {/* Yearly */}
                         <div className="grid grid-cols-12 py-1 items-center">
-                          <span className="col-span-4 text-slate-600 dark:text-slate-300 font-medium">
+                          <span className="col-span-4 text-foreground font-medium">
                             Yearly
                           </span>
-                          <span className="col-span-3 text-slate-400 font-mono text-[10px]">
+                          <span className="col-span-3 text-muted-foreground font-mono text-[10px]">
                             365 Days
                           </span>
-                          <span className="col-span-5 text-right font-mono font-semibold text-slate-800 dark:text-slate-200">
+                          <span className="col-span-5 text-right font-mono font-semibold text-foreground">
                             {formatPrice(p.yearlyPrice)}
                           </span>
                         </div>
@@ -330,60 +295,58 @@ export function ProductsClient({ initialProducts }: ProductsClientProps) {
                     {/* FT (Free Trial) Indicator */}
                     <td className="py-3.5 px-3 text-center">
                       {p.hasFreeTrial ? (
-                        <div className="inline-flex items-center justify-center size-6 rounded-md bg-blue-500 text-white shadow-2xs" title="Eligible for 2 Days Free Trial">
+                        <div className="inline-flex items-center justify-center size-6 rounded-md bg-brand text-white shadow-2xs" title="Eligible for 2 Days Free Trial">
                           <Check className="size-3.5 stroke-[3]" />
                         </div>
                       ) : (
-                        <div className="inline-flex items-center justify-center size-6 rounded-md border border-slate-300 dark:border-slate-700 bg-white/40 dark:bg-slate-900/40 text-slate-300" title="No Free Trial">
+                        <div className="inline-flex items-center justify-center size-6 rounded-md border border-border bg-muted/40 text-muted-foreground" title="No Free Trial">
                           <span className="text-[10px]">—</span>
                         </div>
                       )}
                     </td>
 
                     {/* Risk Above */}
-                    <td className="py-3.5 px-3 text-center font-mono text-slate-600 dark:text-slate-400 text-[11px]">
+                    <td className="py-3.5 px-3 text-center font-mono text-muted-foreground text-[11px]">
                       {p.riskAbove || "—"}
                     </td>
 
                     {/* Telegram */}
-                    <td className="py-3.5 px-3 text-center text-slate-600 dark:text-slate-400 text-[11px] truncate max-w-[140px]">
+                    <td className="py-3.5 px-3 text-center text-muted-foreground text-[11px] truncate max-w-[140px]">
                       {p.telegram || "—"}
                     </td>
 
                     {/* Status Badge */}
                     <td className="py-3.5 px-3 text-center">
-                      <span
-                        className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                          p.isActive
-                            ? "bg-emerald-100 dark:bg-emerald-950/80 text-emerald-700 dark:text-emerald-300"
-                            : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400"
-                        }`}
-                      >
+                      <Badge tone={p.isActive ? "ok" : "warn"} dot={p.isActive}>
                         {p.isActive ? "Active" : "Inactive"}
-                      </span>
+                      </Badge>
                     </td>
 
                     {/* Actions */}
                     <td className="py-3.5 pr-4 pl-2 text-center">
                       <div className="flex items-center justify-center gap-1.5">
-                        <button
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="p-1.5 h-auto text-foreground hover:text-brand"
                           onClick={() => handleOpenEdit(p)}
                           title="Edit Product"
-                          className="p-1.5 rounded-lg border border-slate-250 dark:border-white/[0.1] text-slate-600 dark:text-slate-300 hover:text-blue-600 hover:border-blue-500 hover:bg-blue-50 dark:hover:bg-blue-950/30 transition-colors cursor-pointer"
                         >
                           <Edit2 className="size-3.5" />
-                        </button>
-                        <button
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className={`p-1.5 h-auto ${
+                            p.isActive
+                              ? "text-muted-foreground hover:text-destructive"
+                              : "text-emerald-600 hover:text-emerald-700"
+                          }`}
                           onClick={() => setConfirmToggleProduct(p)}
                           title={p.isActive ? "Deactivate Product" : "Reactivate Product"}
-                          className={`p-1.5 rounded-lg border transition-colors cursor-pointer ${
-                            p.isActive
-                              ? "border-slate-250 dark:border-white/[0.1] text-slate-400 hover:text-rose-600 hover:border-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30"
-                              : "border-emerald-300 dark:border-emerald-800 text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/30"
-                          }`}
                         >
                           <Power className="size-3.5" />
-                        </button>
+                        </Button>
                       </div>
                     </td>
                   </tr>
@@ -392,7 +355,7 @@ export function ProductsClient({ initialProducts }: ProductsClientProps) {
             </tbody>
           </table>
         </div>
-      </div>
+      </Card>
 
       {/* Add / Edit Modal */}
       <ProductModal
@@ -402,65 +365,26 @@ export function ProductsClient({ initialProducts }: ProductsClientProps) {
         onSuccess={handleSaveSuccess}
       />
 
-      {/* Confirmation Modal for Deactivate / Reactivate */}
-      {confirmToggleProduct && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-xs animate-in fade-in duration-200">
-          <div className="bg-white dark:bg-[#0c1220] rounded-2xl max-w-sm w-full p-5 border border-slate-200 dark:border-white/[0.08] shadow-2xl space-y-4">
-            <div className="flex items-center gap-3">
-              <div
-                className={`size-10 rounded-xl flex items-center justify-center shrink-0 ${
-                  confirmToggleProduct.isActive
-                    ? "bg-rose-50 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400"
-                    : "bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400"
-                }`}
-              >
-                <Power className="size-5" />
-              </div>
-              <div>
-                <h3 className="text-sm font-bold text-slate-900 dark:text-white">
-                  {confirmToggleProduct.isActive ? "Deactivate Product?" : "Reactivate Product?"}
-                </h3>
-                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                  {confirmToggleProduct.name}
-                </p>
-              </div>
-            </div>
-
-            <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
+      {/* Confirmation Dialog for Deactivate / Reactivate */}
+      <ConfirmDialog
+        open={Boolean(confirmToggleProduct)}
+        onClose={() => setConfirmToggleProduct(null)}
+        onConfirm={handleToggleStatusConfirm}
+        title={confirmToggleProduct?.isActive ? "Deactivate Product?" : "Reactivate Product?"}
+        description={
+          confirmToggleProduct ? (
+            <span>
               {confirmToggleProduct.isActive
-                ? "This will make the product inactive. It will no longer appear in new client allotment or subscription selections, but historic records are preserved."
-                : "This will restore the product as active so it can be selected across the system."}
-            </p>
-
-            <div className="flex items-center justify-end gap-2.5 pt-2">
-              <button
-                type="button"
-                onClick={() => setConfirmToggleProduct(null)}
-                disabled={isToggling}
-                className="px-3.5 py-1.5 text-xs font-semibold rounded-xl border border-slate-250 dark:border-white/[0.1] text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/[0.04] transition-colors cursor-pointer"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={handleToggleStatusConfirm}
-                disabled={isToggling}
-                className={`px-3.5 py-1.5 text-xs font-semibold rounded-xl text-white shadow-xs transition-colors cursor-pointer disabled:opacity-50 ${
-                  confirmToggleProduct.isActive
-                    ? "bg-rose-600 hover:bg-rose-700"
-                    : "bg-emerald-600 hover:bg-emerald-700"
-                }`}
-              >
-                {isToggling
-                  ? "Processing..."
-                  : confirmToggleProduct.isActive
-                  ? "Yes, Deactivate"
-                  : "Yes, Reactivate"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+                ? `This will make ${confirmToggleProduct.name} inactive. It will no longer appear in new client allotment or subscription selections, but historic records are preserved.`
+                : `This will restore ${confirmToggleProduct.name} as active so it can be selected across the system.`}
+            </span>
+          ) : undefined
+        }
+        confirmText={confirmToggleProduct?.isActive ? "Yes, Deactivate" : "Yes, Reactivate"}
+        cancelText="Cancel"
+        tone={confirmToggleProduct?.isActive ? "danger" : "info"}
+        loading={isToggling}
+      />
     </div>
   );
 }

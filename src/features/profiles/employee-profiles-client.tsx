@@ -12,25 +12,25 @@ import {
   getEmployeeProfilesAction,
 } from "./actions";
 import {
-  UserCheck2,
-  Plus,
+  PageHeader,
+  Card,
+  Button,
+  Badge,
+  Modal,
+  ConfirmDialog,
+  Field,
+  Input,
+  Select,
+  Textarea,
+  EmptyState,
+  useToast,
+} from "@/src/components/ui";
+import {
   Search,
   Edit2,
   Trash2,
-  CheckCircle2,
-  XCircle,
-  Loader2,
-  AlertCircle,
-  X,
-  RefreshCw,
   Eye,
   Building2,
-  Layers,
-  ChevronLeft,
-  FileSpreadsheet,
-  Check,
-  TrendingUp,
-  CreditCard,
   Users,
 } from "lucide-react";
 
@@ -43,6 +43,7 @@ export function EmployeeProfilesClient({
   initialProfiles,
   initialDepartments,
 }: EmployeeProfilesClientProps) {
+  const toast = useToast();
   const [profiles, setProfiles] = useState<SafeEmployeeProfile[]>(initialProfiles);
   const [departments, setDepartments] = useState<DepartmentOption[]>(initialDepartments);
 
@@ -58,6 +59,7 @@ export function EmployeeProfilesClient({
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [editingProfile, setEditingProfile] = useState<SafeEmployeeProfile | null>(null);
   const [viewingProfile, setViewingProfile] = useState<SafeEmployeeProfile | null>(null);
+  const [deletingProfile, setDeletingProfile] = useState<SafeEmployeeProfile | null>(null);
 
   // Create form state
   const [createName, setCreateName] = useState("");
@@ -80,9 +82,6 @@ export function EmployeeProfilesClient({
   const [editIsActive, setEditIsActive] = useState(true);
   const [editError, setEditError] = useState<string | null>(null);
   const [isSubmittingEdit, setIsSubmittingEdit] = useState(false);
-
-  // Feedback notification
-  const [feedback, setFeedback] = useState<{ type: "success" | "error"; message: string } | null>(null);
 
   const refreshData = () => {
     startTransition(async () => {
@@ -160,7 +159,7 @@ export function EmployeeProfilesClient({
       }
 
       setIsCreateModalOpen(false);
-      setFeedback({ type: "success", message: `Profile "${res.profile?.name}" created successfully!` });
+      toast.success("Profile Created", `Profile "${res.profile?.name}" created successfully!`);
       refreshData();
     } catch {
       setCreateError("An unexpected error occurred.");
@@ -207,7 +206,7 @@ export function EmployeeProfilesClient({
       }
 
       setEditingProfile(null);
-      setFeedback({ type: "success", message: `Profile "${res.profile?.name}" updated successfully!` });
+      toast.success("Profile Updated", `Profile "${res.profile?.name}" updated successfully!`);
       refreshData();
     } catch {
       setEditError("An unexpected error occurred.");
@@ -216,30 +215,21 @@ export function EmployeeProfilesClient({
     }
   };
 
-  const handleDeleteProfile = async (profile: SafeEmployeeProfile) => {
-    const confirmed = window.confirm(
-      `Are you sure you want to delete profile "${profile.name}"?`
-    );
-    if (!confirmed) return;
-
-    setActionLoadingId(profile.id);
+  const handleConfirmDelete = async () => {
+    if (!deletingProfile) return;
+    setActionLoadingId(deletingProfile.id);
 
     try {
-      const res = await deleteEmployeeProfileAction(profile.id);
+      const res = await deleteEmployeeProfileAction(deletingProfile.id);
       if (res.success) {
-        setProfiles((prev) => prev.filter((p) => p.id !== profile.id));
-        setFeedback({
-          type: "success",
-          message: `Profile "${profile.name}" deleted successfully.`,
-        });
+        setProfiles((prev) => prev.filter((p) => p.id !== deletingProfile.id));
+        toast.success("Profile Deleted", `Profile "${deletingProfile.name}" deleted successfully.`);
+        setDeletingProfile(null);
       } else {
-        setFeedback({
-          type: "error",
-          message: res.error || "Failed to delete profile.",
-        });
+        toast.error("Delete Failed", res.error || "Failed to delete profile.");
       }
     } catch {
-      setFeedback({ type: "error", message: "Failed to delete profile." });
+      toast.error("Error", "Failed to delete profile.");
     } finally {
       setActionLoadingId(null);
     }
@@ -255,15 +245,15 @@ export function EmployeeProfilesClient({
         setProfiles((prev) =>
           prev.map((p) => (p.id === profile.id ? { ...p, isActive: newStatus } : p))
         );
-        setFeedback({
-          type: "success",
-          message: `Profile "${profile.name}" marked as ${newStatus ? "Active" : "Hidden"}.`,
-        });
+        toast.success(
+          "Status Updated",
+          `Profile "${profile.name}" marked as ${newStatus ? "Active" : "Hidden"}.`
+        );
       } else {
-        setFeedback({ type: "error", message: res.error || "Failed to toggle profile status." });
+        toast.error("Status Update Failed", res.error || "Failed to toggle profile status.");
       }
     } catch {
-      setFeedback({ type: "error", message: "Failed to update status." });
+      toast.error("Error", "Failed to update status.");
     } finally {
       setActionLoadingId(null);
     }
@@ -272,146 +262,110 @@ export function EmployeeProfilesClient({
   return (
     <div className="space-y-6 pb-12">
       {/* Top Header */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-slate-200/80 dark:border-white/[0.08] pb-5">
-        <div>
-          <div className="flex items-center gap-2 mb-1">
-            <Link
-              href="/admin/users"
-              className="inline-flex items-center gap-1 text-xs font-semibold text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white transition-colors"
-            >
-              <ChevronLeft className="size-3.5" />
-              Users & Governance
+      <PageHeader
+        title={
+          <div className="flex items-center gap-3">
+            <span>Profiles & Designations</span>
+            <Badge tone="info">
+              {stats.total} {stats.total === 1 ? "Profile" : "Profiles"}
+            </Badge>
+          </div>
+        }
+        description="Configure employee designations, department associations, and operational allocation limits."
+        breadcrumbs={[
+          { label: "Governance", href: "/admin/users" },
+          { label: "Profiles & Designations" },
+        ]}
+        actions={
+          <div className="flex items-center gap-2.5">
+            <Link href="/admin/departments">
+              <Button variant="sec" size="sm">
+                <Building2 className="size-4" />
+                Departments ({departments.length})
+              </Button>
             </Link>
+            <Button
+              variant="sec"
+              size="sm"
+              icon="RefreshCw"
+              loading={isPending}
+              onClick={refreshData}
+              aria-label="Refresh profiles"
+            />
+            <Button variant="primary" size="sm" leftIcon="Plus" onClick={openCreateModal}>
+              Add Profile
+            </Button>
           </div>
-          <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900 dark:text-white flex items-center gap-2.5">
-            <div className="size-9 rounded-xl bg-violet-600/10 dark:bg-violet-500/15 flex items-center justify-center text-violet-600 dark:text-violet-400">
-              <UserCheck2 className="size-5" />
-            </div>
-            Employee Profiles
-          </h1>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-            Configure employee working designations, department associations, and allocation limits.
-          </p>
-        </div>
-
-        <div className="flex items-center gap-2.5">
-          <Link
-            href="/admin/departments"
-            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold border border-slate-250 dark:border-white/[0.1] bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors shadow-2xs"
-          >
-            <Building2 className="size-3.5 text-violet-500" />
-            Departments ({departments.length})
-          </Link>
-          <button
-            onClick={refreshData}
-            disabled={isPending}
-            className="p-2 rounded-xl border border-slate-250 dark:border-white/[0.1] bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors shadow-2xs"
-            title="Refresh profiles"
-          >
-            <RefreshCw className={`size-4 ${isPending ? "animate-spin text-violet-600" : ""}`} />
-          </button>
-          <button
-            onClick={openCreateModal}
-            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold bg-violet-600 hover:bg-violet-500 text-white shadow-xs transition-all active:scale-[0.98]"
-          >
-            <Plus className="size-4" />
-            Add Profile
-          </button>
-        </div>
-      </div>
-
-      {/* Feedback Banner */}
-      {feedback && (
-        <div
-          className={`p-3.5 rounded-xl border flex items-center justify-between gap-3 text-xs font-medium animate-in fade-in duration-200 ${
-            feedback.type === "success"
-              ? "bg-emerald-50 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300"
-              : "bg-rose-50 dark:bg-rose-950/30 border-rose-200 dark:border-rose-800 text-rose-800 dark:text-rose-300"
-          }`}
-        >
-          <div className="flex items-center gap-2">
-            {feedback.type === "success" ? (
-              <CheckCircle2 className="size-4 text-emerald-600 shrink-0" />
-            ) : (
-              <AlertCircle className="size-4 text-rose-600 shrink-0" />
-            )}
-            <span>{feedback.message}</span>
-          </div>
-          <button
-            onClick={() => setFeedback(null)}
-            className="p-1 rounded hover:bg-black/5 dark:hover:bg-white/10"
-          >
-            <X className="size-3.5" />
-          </button>
-        </div>
-      )}
+        }
+      />
 
       {/* KPI Cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
-        <div className="p-4 rounded-2xl bg-white dark:bg-slate-900/60 border border-slate-200/90 dark:border-white/[0.08] shadow-2xs">
-          <div className="text-[11px] font-semibold text-slate-500 dark:text-slate-400">Total Profiles</div>
+        <Card className="p-4">
+          <div className="text-[11px] font-semibold text-[var(--muted)]">Total Profiles</div>
           <div className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white mt-1">
             {stats.total}
           </div>
-        </div>
-        <div className="p-4 rounded-2xl bg-white dark:bg-slate-900/60 border border-slate-200/90 dark:border-white/[0.08] shadow-2xs">
+        </Card>
+        <Card className="p-4">
           <div className="text-[11px] font-semibold text-emerald-600 dark:text-emerald-400">Active Profiles</div>
           <div className="text-2xl font-bold tracking-tight text-emerald-600 dark:text-emerald-400 mt-1">
             {stats.active}
           </div>
-        </div>
-        <div className="p-4 rounded-2xl bg-white dark:bg-slate-900/60 border border-slate-200/90 dark:border-white/[0.08] shadow-2xs">
-          <div className="text-[11px] font-semibold text-slate-500 dark:text-slate-400">Hidden Profiles</div>
+        </Card>
+        <Card className="p-4">
+          <div className="text-[11px] font-semibold text-[var(--muted)]">Hidden Profiles</div>
           <div className="text-2xl font-bold tracking-tight text-slate-500 dark:text-slate-400 mt-1">
             {stats.hidden}
           </div>
-        </div>
-        <div className="p-4 rounded-2xl bg-white dark:bg-slate-900/60 border border-slate-200/90 dark:border-white/[0.08] shadow-2xs">
-          <div className="text-[11px] font-semibold text-violet-600 dark:text-violet-400">Departments Active</div>
-          <div className="text-2xl font-bold tracking-tight text-violet-600 dark:text-violet-400 mt-1">
+        </Card>
+        <Card className="p-4">
+          <div className="text-[11px] font-semibold text-[var(--brand)]">Departments Active</div>
+          <div className="text-2xl font-bold tracking-tight text-[var(--brand)] mt-1">
             {stats.deptsCount}
           </div>
-        </div>
+        </Card>
       </div>
 
       {/* Filter and Search Bar */}
-      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 p-3 bg-white dark:bg-slate-900/60 rounded-2xl border border-slate-200/90 dark:border-white/[0.08]">
-        <div className="flex flex-1 flex-col sm:flex-row items-stretch sm:items-center gap-3">
-          {/* Search Input */}
-          <div className="relative flex-1 max-w-sm">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-slate-400" />
-            <input
-              type="text"
-              placeholder="Search by profile name or description..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-9 pr-3.5 py-1.5 text-xs rounded-xl border border-slate-200 dark:border-white/[0.1] bg-slate-50/50 dark:bg-slate-800/50 text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-hidden focus:ring-2 focus:ring-violet-500/20 focus:border-violet-500 transition-all"
-            />
+      <Card className="p-3.5">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+          <div className="flex flex-1 flex-col sm:flex-row items-stretch sm:items-center gap-3">
+            {/* Search Input */}
+            <div className="relative flex-1 max-w-sm">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-[var(--muted)]" />
+              <Input
+                type="text"
+                placeholder="Search profiles or departments..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-9 text-xs"
+              />
+            </div>
+
+            {/* Department Filter */}
+            <Select
+              value={departmentFilter}
+              onChange={(e) => setDepartmentFilter(e.target.value)}
+              className="text-xs h-8 min-w-[140px]"
+            >
+              <option value="ALL">All Departments</option>
+              {departments.map((d) => (
+                <option key={d.id} value={d.id}>
+                  {d.name}
+                </option>
+              ))}
+            </Select>
           </div>
 
-          {/* Department Filter */}
-          <select
-            value={departmentFilter}
-            onChange={(e) => setDepartmentFilter(e.target.value)}
-            className="text-xs px-3 py-1.5 rounded-xl border border-slate-200 dark:border-white/[0.1] bg-slate-50/50 dark:bg-slate-800/50 text-slate-700 dark:text-slate-300 focus:outline-hidden focus:ring-2 focus:ring-violet-500/20"
-          >
-            <option value="ALL">All Departments</option>
-            {departments.map((dept) => (
-              <option key={dept.id} value={dept.id}>
-                {dept.name}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        {/* Status Filter */}
-        <div className="flex items-center gap-2">
-          <div className="flex p-0.5 rounded-xl bg-slate-100 dark:bg-slate-800/80 border border-slate-200/70 dark:border-white/[0.06]">
+          {/* Status Filter */}
+          <div className="flex p-0.5 rounded-xl bg-slate-100 dark:bg-white/[0.04] border border-slate-200/70 dark:border-white/[0.06] shrink-0 self-start sm:self-auto">
             {(["ALL", "ACTIVE", "HIDDEN"] as const).map((filter) => (
               <button
                 key={filter}
+                type="button"
                 onClick={() => setStatusFilter(filter)}
-                className={`px-3 py-1 text-[11px] font-semibold rounded-lg transition-all ${
+                className={`px-3 py-1 text-[11px] font-semibold rounded-lg transition-all cursor-pointer ${
                   statusFilter === filter
                     ? "bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-2xs"
                     : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
@@ -422,18 +376,17 @@ export function EmployeeProfilesClient({
             ))}
           </div>
         </div>
-      </div>
+      </Card>
 
       {/* Profiles Table */}
-      <div className="bg-white dark:bg-slate-900/60 rounded-2xl border border-slate-200/90 dark:border-white/[0.08] shadow-xs overflow-hidden">
+      <Card className="p-0 overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse text-xs">
             <thead>
               <tr className="border-b border-slate-200/80 dark:border-white/[0.08] bg-slate-50/60 dark:bg-white/[0.02] text-slate-500 dark:text-slate-400">
-                <th className="py-3 px-4 font-semibold w-10">#</th>
-                <th className="py-3 px-4 font-semibold">Profile Name</th>
+                <th className="py-3 px-4 font-semibold w-12">#</th>
+                <th className="py-3 px-4 font-semibold">Profile / Designation</th>
                 <th className="py-3 px-4 font-semibold">Department</th>
-                <th className="py-3 px-4 font-semibold">Description</th>
                 <th className="py-3 px-4 font-semibold text-center">Client Limit</th>
                 <th className="py-3 px-4 font-semibold text-center">Invoice Limit</th>
                 <th className="py-3 px-4 font-semibold text-center">Sales Limit</th>
@@ -444,9 +397,15 @@ export function EmployeeProfilesClient({
             <tbody className="divide-y divide-slate-100 dark:divide-white/[0.04]">
               {filteredProfiles.length === 0 ? (
                 <tr>
-                  <td colSpan={9} className="py-12 text-center text-slate-500 dark:text-slate-400">
-                    <Layers className="size-8 mx-auto text-slate-300 dark:text-slate-600 mb-2" />
-                    No employee profiles found matching your search.
+                  <td colSpan={8} className="py-8">
+                    <EmptyState
+                      icon="Inbox"
+                      title="No Profiles Found"
+                      description="No employee designations match your search query or department filter."
+                      actionLabel="Add Profile"
+                      actionIcon="Plus"
+                      onAction={openCreateModal}
+                    />
                   </td>
                 </tr>
               ) : (
@@ -455,52 +414,38 @@ export function EmployeeProfilesClient({
                     key={p.id}
                     className="hover:bg-slate-50/50 dark:hover:bg-white/[0.02] transition-colors"
                   >
-                    <td className="py-3 px-4 text-slate-400 font-mono">{idx + 1}</td>
-                    <td className="py-3 px-4">
-                      <div className="font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
-                        <span>{p.name}</span>
-                      </div>
+                    <td className="py-3.5 px-4 text-slate-400 font-mono">{idx + 1}</td>
+                    <td className="py-3.5 px-4 font-semibold text-slate-900 dark:text-white">
+                      {p.name}
                     </td>
-                    <td className="py-3 px-4">
-                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg bg-violet-50 dark:bg-violet-950/40 border border-violet-200 dark:border-violet-800/40 text-violet-700 dark:text-violet-300 font-semibold text-[11px]">
-                        <Building2 className="size-3 text-violet-500" />
+                    <td className="py-3.5 px-4">
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-lg bg-slate-100 dark:bg-white/[0.04] text-slate-700 dark:text-slate-300 font-medium text-[11px]">
+                        <Building2 className="size-3 text-[var(--muted)]" />
                         {p.departmentName}
                       </span>
                     </td>
-                    <td className="py-3 px-4 text-slate-600 dark:text-slate-300 max-w-xs truncate">
-                      {p.description || <span className="text-slate-400 italic">None</span>}
-                    </td>
-                    <td className="py-3 px-4 text-center font-mono font-medium text-slate-800 dark:text-slate-200">
-                      {p.clientLimit}
-                    </td>
-                    <td className="py-3 px-4 text-center font-mono font-medium text-slate-800 dark:text-slate-200">
-                      {p.invoiceLimit}
-                    </td>
-                    <td className="py-3 px-4 text-center font-mono font-medium text-slate-800 dark:text-slate-200">
-                      {p.salesLimit}
-                    </td>
-                    <td className="py-3 px-4">
-                      <span
-                        className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold ${
-                          p.isActive
-                            ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20"
-                            : "bg-slate-500/10 text-slate-600 dark:text-slate-400 border border-slate-500/20"
-                        }`}
+                    <td className="py-3.5 px-4 text-center font-mono">{p.clientLimit}</td>
+                    <td className="py-3.5 px-4 text-center font-mono">{p.invoiceLimit}</td>
+                    <td className="py-3.5 px-4 text-center font-mono">{p.salesLimit}</td>
+                    <td className="py-3.5 px-4">
+                      <button
+                        type="button"
+                        onClick={() => handleToggleStatus(p)}
+                        disabled={actionLoadingId === p.id}
+                        className="cursor-pointer"
+                        title="Click to toggle status"
                       >
-                        <span
-                          className={`size-1.5 rounded-full ${
-                            p.isActive ? "bg-emerald-500" : "bg-slate-400"
-                          }`}
-                        />
-                        {p.isActive ? "Active" : "Hidden"}
-                      </span>
+                        <Badge tone={p.isActive ? "ok" : "warn"} dot>
+                          {p.isActive ? "Active" : "Hidden"}
+                        </Badge>
+                      </button>
                     </td>
-                    <td className="py-3 px-4 text-right">
-                      <div className="inline-flex items-center gap-1">
+                    <td className="py-3.5 px-4 text-right">
+                      <div className="inline-flex items-center gap-1 justify-end">
                         <button
                           type="button"
                           onClick={() => setViewingProfile(p)}
-                          className="p-1.5 rounded-lg text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                          className="p-1.5 rounded-lg text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
                           title="View profile details"
                         >
                           <Eye className="size-3.5" />
@@ -508,23 +453,19 @@ export function EmployeeProfilesClient({
                         <button
                           type="button"
                           onClick={() => openEditModal(p)}
-                          className="p-1.5 rounded-lg text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                          className="p-1.5 rounded-lg text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
                           title="Edit profile"
                         >
                           <Edit2 className="size-3.5" />
                         </button>
                         <button
                           type="button"
-                          onClick={() => handleDeleteProfile(p)}
+                          onClick={() => setDeletingProfile(p)}
                           disabled={actionLoadingId === p.id}
-                          className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors"
+                          className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors cursor-pointer"
                           title="Delete profile"
                         >
-                          {actionLoadingId === p.id ? (
-                            <Loader2 className="size-3.5 animate-spin" />
-                          ) : (
-                            <Trash2 className="size-3.5" />
-                          )}
+                          <Trash2 className="size-3.5" />
                         </button>
                       </div>
                     </td>
@@ -534,438 +475,245 @@ export function EmployeeProfilesClient({
             </tbody>
           </table>
         </div>
-      </div>
+      </Card>
 
-      {/* Add Profile Modal */}
-      {isCreateModalOpen && (
-        <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="w-full max-w-lg bg-white dark:bg-[#0c1220] rounded-2xl border border-slate-200 dark:border-white/[0.1] shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-150">
-            <div className="p-4 sm:p-5 border-b border-slate-200/80 dark:border-white/[0.08] flex items-center justify-between">
-              <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                <UserCheck2 className="size-4 text-violet-500" />
-                Add Employee Profile
-              </h3>
-              <button
-                onClick={() => setIsCreateModalOpen(false)}
-                className="p-1 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-white"
-              >
-                <X className="size-4" />
-              </button>
+      {/* Delete Confirmation Dialog */}
+      <ConfirmDialog
+        open={Boolean(deletingProfile)}
+        onClose={() => setDeletingProfile(null)}
+        onConfirm={handleConfirmDelete}
+        title="Delete Profile / Designation"
+        description={
+          deletingProfile
+            ? `Are you sure you want to delete profile "${deletingProfile.name}"? If users are assigned to this profile, their profile reference will be cleared safely.`
+            : ""
+        }
+        confirmText="Delete Profile"
+        tone="danger"
+        loading={actionLoadingId === deletingProfile?.id}
+      />
+
+      {/* Create Modal */}
+      <Modal
+        open={isCreateModalOpen}
+        onClose={() => setIsCreateModalOpen(false)}
+        title="Add Employee Profile / Designation"
+        description="Configure designation name, parent department, and operational caps."
+        size="md"
+      >
+        <form onSubmit={handleCreateSubmit} className="space-y-4">
+          {createError && (
+            <div role="alert" className="p-3 rounded-xl bg-[var(--err)]/10 text-[var(--err)] text-xs font-medium">
+              {createError}
             </div>
+          )}
 
-            <form onSubmit={handleCreateSubmit} className="p-4 sm:p-5 space-y-4">
-              {createError && (
-                <div className="p-3 rounded-xl bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-800 text-xs text-rose-700 dark:text-rose-300 flex items-center gap-2">
-                  <AlertCircle className="size-4 shrink-0" />
-                  <span>{createError}</span>
-                </div>
-              )}
+          <Field label="Profile / Designation Name" required>
+            <Input
+              type="text"
+              placeholder="e.g. Senior Business Associate"
+              value={createName}
+              onChange={(e) => setCreateName(e.target.value)}
+              required
+            />
+          </Field>
 
-              {/* Department Dropdown */}
-              <div className="space-y-1.5">
-                <div className="flex items-center justify-between">
-                  <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
-                    Department <span className="text-rose-500">*</span>
-                  </label>
-                  <Link
-                    href="/admin/departments"
-                    className="text-[11px] font-medium text-violet-600 hover:underline"
-                  >
-                    + Manage Departments
-                  </Link>
-                </div>
-                <select
-                  required
-                  value={createDeptId}
-                  onChange={(e) => setCreateDeptId(e.target.value)}
-                  className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 dark:border-white/[0.1] bg-slate-50 dark:bg-slate-800/60 text-slate-900 dark:text-white focus:outline-hidden focus:ring-2 focus:ring-violet-500/20 focus:border-violet-500"
-                >
-                  <option value="" disabled>
-                    -- Select Department --
-                  </option>
-                  {departments
-                    .filter((d) => d.isActive)
-                    .map((dept) => (
-                      <option key={dept.id} value={dept.id}>
-                        {dept.name}
-                      </option>
-                    ))}
-                </select>
-              </div>
+          <Field label="Parent Department" required>
+            <Select
+              value={createDeptId}
+              onChange={(e) => setCreateDeptId(e.target.value)}
+              required
+            >
+              {departments.map((d) => (
+                <option key={d.id} value={d.id}>
+                  {d.name}
+                </option>
+              ))}
+            </Select>
+          </Field>
 
-              {/* Profile Name */}
-              <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
-                  Profile Name <span className="text-rose-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  required
-                  placeholder="e.g. SBA, AFM, TL, BA, FM"
-                  value={createName}
-                  onChange={(e) => setCreateName(e.target.value)}
-                  className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 dark:border-white/[0.1] bg-slate-50 dark:bg-slate-800/60 text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-hidden focus:ring-2 focus:ring-violet-500/20 focus:border-violet-500"
-                />
-              </div>
-
-              {/* Limits Grid */}
-              <div className="grid grid-cols-3 gap-3">
-                <div className="space-y-1.5">
-                  <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
-                    Client Limit
-                  </label>
-                  <input
-                    type="number"
-                    min="0"
-                    value={createClientLimit}
-                    onChange={(e) => setCreateClientLimit(e.target.value)}
-                    className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 dark:border-white/[0.1] bg-slate-50 dark:bg-slate-800/60 text-slate-900 dark:text-white font-mono"
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
-                    Invoice Limit
-                  </label>
-                  <input
-                    type="number"
-                    min="0"
-                    value={createInvoiceLimit}
-                    onChange={(e) => setCreateInvoiceLimit(e.target.value)}
-                    className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 dark:border-white/[0.1] bg-slate-50 dark:bg-slate-800/60 text-slate-900 dark:text-white font-mono"
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
-                    Sales Limit
-                  </label>
-                  <input
-                    type="number"
-                    min="0"
-                    value={createSalesLimit}
-                    onChange={(e) => setCreateSalesLimit(e.target.value)}
-                    className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 dark:border-white/[0.1] bg-slate-50 dark:bg-slate-800/60 text-slate-900 dark:text-white font-mono"
-                  />
-                </div>
-              </div>
-
-              {/* Description */}
-              <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
-                  Description
-                </label>
-                <textarea
-                  rows={2}
-                  placeholder="e.g. Senior Business Analyst handling premium accounts"
-                  value={createDescription}
-                  onChange={(e) => setCreateDescription(e.target.value)}
-                  className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 dark:border-white/[0.1] bg-slate-50 dark:bg-slate-800/60 text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-hidden focus:ring-2 focus:ring-violet-500/20 focus:border-violet-500"
-                />
-              </div>
-
-              {/* Active / Hidden */}
-              <div className="flex items-center gap-2 pt-1">
-                <input
-                  type="checkbox"
-                  id="createProfileIsActive"
-                  checked={createIsActive}
-                  onChange={(e) => setCreateIsActive(e.target.checked)}
-                  className="rounded text-violet-600 focus:ring-violet-500 size-4 cursor-pointer"
-                />
-                <label
-                  htmlFor="createProfileIsActive"
-                  className="text-xs font-medium text-slate-700 dark:text-slate-300 cursor-pointer"
-                >
-                  Active Profile (uncheck to hide from selection)
-                </label>
-              </div>
-
-              <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-slate-100 dark:border-white/[0.06]">
-                <button
-                  type="button"
-                  onClick={() => setIsCreateModalOpen(false)}
-                  className="px-3.5 py-1.5 rounded-xl text-xs font-semibold text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"
-                >
-                  Close
-                </button>
-                <button
-                  type="submit"
-                  disabled={isSubmittingCreate}
-                  className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-xl text-xs font-semibold bg-violet-600 hover:bg-violet-500 text-white disabled:opacity-50"
-                >
-                  {isSubmittingCreate ? <Loader2 className="size-3.5 animate-spin" /> : <Check className="size-3.5" />}
-                  Save Profile
-                </button>
-              </div>
-            </form>
+          <div className="grid grid-cols-3 gap-3">
+            <Field label="Client Limit">
+              <Input
+                type="number"
+                min="0"
+                value={createClientLimit}
+                onChange={(e) => setCreateClientLimit(e.target.value)}
+              />
+            </Field>
+            <Field label="Invoice Limit">
+              <Input
+                type="number"
+                min="0"
+                value={createInvoiceLimit}
+                onChange={(e) => setCreateInvoiceLimit(e.target.value)}
+              />
+            </Field>
+            <Field label="Sales Limit">
+              <Input
+                type="number"
+                min="0"
+                value={createSalesLimit}
+                onChange={(e) => setCreateSalesLimit(e.target.value)}
+              />
+            </Field>
           </div>
-        </div>
-      )}
 
-      {/* Edit Profile Modal */}
+          <Field label="Description / Notes">
+            <Textarea
+              rows={2}
+              placeholder="Responsibilities, scope or designation notes..."
+              value={createDescription}
+              onChange={(e) => setCreateDescription(e.target.value)}
+            />
+          </Field>
+
+          <div className="flex items-center justify-end gap-2.5 pt-2">
+            <Button variant="sec" size="sm" onClick={() => setIsCreateModalOpen(false)}>
+              Cancel
+            </Button>
+            <Button type="submit" variant="primary" size="sm" loading={isSubmittingCreate}>
+              Save Profile
+            </Button>
+          </div>
+        </form>
+      </Modal>
+
+      {/* Edit Modal */}
       {editingProfile && (
-        <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="w-full max-w-lg bg-white dark:bg-[#0c1220] rounded-2xl border border-slate-200 dark:border-white/[0.1] shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-150">
-            <div className="p-4 sm:p-5 border-b border-slate-200/80 dark:border-white/[0.08] flex items-center justify-between">
-              <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                <Edit2 className="size-4 text-violet-500" />
-                Edit Profile
-              </h3>
-              <button
-                onClick={() => setEditingProfile(null)}
-                className="p-1 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-white"
+        <Modal
+          open={Boolean(editingProfile)}
+          onClose={() => setEditingProfile(null)}
+          title={`Edit Profile: ${editingProfile.name}`}
+          size="md"
+        >
+          <form onSubmit={handleEditSubmit} className="space-y-4">
+            {editError && (
+              <div role="alert" className="p-3 rounded-xl bg-[var(--err)]/10 text-[var(--err)] text-xs font-medium">
+                {editError}
+              </div>
+            )}
+
+            <Field label="Profile / Designation Name" required>
+              <Input
+                type="text"
+                value={editName}
+                onChange={(e) => setEditName(e.target.value)}
+                required
+              />
+            </Field>
+
+            <Field label="Parent Department" required>
+              <Select
+                value={editDeptId}
+                onChange={(e) => setEditDeptId(e.target.value)}
+                required
               >
-                <X className="size-4" />
-              </button>
+                {departments.map((d) => (
+                  <option key={d.id} value={d.id}>
+                    {d.name}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+
+            <div className="grid grid-cols-3 gap-3">
+              <Field label="Client Limit">
+                <Input
+                  type="number"
+                  min="0"
+                  value={editClientLimit}
+                  onChange={(e) => setEditClientLimit(e.target.value)}
+                />
+              </Field>
+              <Field label="Invoice Limit">
+                <Input
+                  type="number"
+                  min="0"
+                  value={editInvoiceLimit}
+                  onChange={(e) => setEditInvoiceLimit(e.target.value)}
+                />
+              </Field>
+              <Field label="Sales Limit">
+                <Input
+                  type="number"
+                  min="0"
+                  value={editSalesLimit}
+                  onChange={(e) => setEditSalesLimit(e.target.value)}
+                />
+              </Field>
             </div>
 
-            <form onSubmit={handleEditSubmit} className="p-4 sm:p-5 space-y-4">
-              {editError && (
-                <div className="p-3 rounded-xl bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-800 text-xs text-rose-700 dark:text-rose-300 flex items-center gap-2">
-                  <AlertCircle className="size-4 shrink-0" />
-                  <span>{editError}</span>
-                </div>
-              )}
+            <Field label="Description / Notes">
+              <Textarea
+                rows={2}
+                value={editDescription}
+                onChange={(e) => setEditDescription(e.target.value)}
+              />
+            </Field>
 
-              {/* Department Dropdown */}
-              <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
-                  Department <span className="text-rose-500">*</span>
-                </label>
-                <select
-                  required
-                  value={editDeptId}
-                  onChange={(e) => setEditDeptId(e.target.value)}
-                  className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 dark:border-white/[0.1] bg-slate-50 dark:bg-slate-800/60 text-slate-900 dark:text-white focus:outline-hidden focus:ring-2 focus:ring-violet-500/20 focus:border-violet-500"
-                >
-                  {departments.map((dept) => (
-                    <option key={dept.id} value={dept.id}>
-                      {dept.name} {!dept.isActive && "(Inactive)"}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Profile Name */}
-              <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
-                  Profile Name <span className="text-rose-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={editName}
-                  onChange={(e) => setEditName(e.target.value)}
-                  className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 dark:border-white/[0.1] bg-slate-50 dark:bg-slate-800/60 text-slate-900 dark:text-white focus:outline-hidden focus:ring-2 focus:ring-violet-500/20 focus:border-violet-500"
-                />
-              </div>
-
-              {/* Limits Grid */}
-              <div className="grid grid-cols-3 gap-3">
-                <div className="space-y-1.5">
-                  <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
-                    Client Limit
-                  </label>
-                  <input
-                    type="number"
-                    min="0"
-                    value={editClientLimit}
-                    onChange={(e) => setEditClientLimit(e.target.value)}
-                    className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 dark:border-white/[0.1] bg-slate-50 dark:bg-slate-800/60 text-slate-900 dark:text-white font-mono"
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
-                    Invoice Limit
-                  </label>
-                  <input
-                    type="number"
-                    min="0"
-                    value={editInvoiceLimit}
-                    onChange={(e) => setEditInvoiceLimit(e.target.value)}
-                    className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 dark:border-white/[0.1] bg-slate-50 dark:bg-slate-800/60 text-slate-900 dark:text-white font-mono"
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
-                    Sales Limit
-                  </label>
-                  <input
-                    type="number"
-                    min="0"
-                    value={editSalesLimit}
-                    onChange={(e) => setEditSalesLimit(e.target.value)}
-                    className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 dark:border-white/[0.1] bg-slate-50 dark:bg-slate-800/60 text-slate-900 dark:text-white font-mono"
-                  />
-                </div>
-              </div>
-
-              {/* Description */}
-              <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
-                  Description
-                </label>
-                <textarea
-                  rows={2}
-                  value={editDescription}
-                  onChange={(e) => setEditDescription(e.target.value)}
-                  className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 dark:border-white/[0.1] bg-slate-50 dark:bg-slate-800/60 text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-hidden focus:ring-2 focus:ring-violet-500/20 focus:border-violet-500"
-                />
-              </div>
-
-              {/* Active / Hidden */}
-              <div className="flex items-center gap-2 pt-1">
-                <input
-                  type="checkbox"
-                  id="editProfileIsActive"
-                  checked={editIsActive}
-                  onChange={(e) => setEditIsActive(e.target.checked)}
-                  className="rounded text-violet-600 focus:ring-violet-500 size-4 cursor-pointer"
-                />
-                <label
-                  htmlFor="editProfileIsActive"
-                  className="text-xs font-medium text-slate-700 dark:text-slate-300 cursor-pointer"
-                >
-                  Active Profile (uncheck to hide from selection)
-                </label>
-              </div>
-
-              <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-slate-100 dark:border-white/[0.06]">
-                <button
-                  type="button"
-                  onClick={() => setEditingProfile(null)}
-                  className="px-3.5 py-1.5 rounded-xl text-xs font-semibold text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"
-                >
-                  Close
-                </button>
-                <button
-                  type="submit"
-                  disabled={isSubmittingEdit}
-                  className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-xl text-xs font-semibold bg-violet-600 hover:bg-violet-500 text-white disabled:opacity-50"
-                >
-                  {isSubmittingEdit ? <Loader2 className="size-3.5 animate-spin" /> : <Check className="size-3.5" />}
-                  Save Changes
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
+            <div className="flex items-center justify-end gap-2.5 pt-2">
+              <Button variant="sec" size="sm" onClick={() => setEditingProfile(null)}>
+                Cancel
+              </Button>
+              <Button type="submit" variant="primary" size="sm" loading={isSubmittingEdit}>
+                Update Profile
+              </Button>
+            </div>
+          </form>
+        </Modal>
       )}
 
-      {/* View Profile Details Modal */}
+      {/* View Modal */}
       {viewingProfile && (
-        <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="w-full max-w-md bg-white dark:bg-[#0c1220] rounded-2xl border border-slate-200 dark:border-white/[0.1] shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-150">
-            <div className="p-4 sm:p-5 border-b border-slate-200/80 dark:border-white/[0.08] flex items-center justify-between">
-              <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                <UserCheck2 className="size-4 text-violet-500" />
-                Profile Details: {viewingProfile.name}
-              </h3>
-              <button
-                onClick={() => setViewingProfile(null)}
-                className="p-1 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-white"
-              >
-                <X className="size-4" />
-              </button>
+        <Modal
+          open={Boolean(viewingProfile)}
+          onClose={() => setViewingProfile(null)}
+          title={`Profile Details: ${viewingProfile.name}`}
+          size="md"
+          footer={
+            <Button variant="sec" size="sm" onClick={() => setViewingProfile(null)}>
+              Close
+            </Button>
+          }
+        >
+          <div className="space-y-3 text-xs">
+            <div className="grid grid-cols-2 gap-3 p-3.5 rounded-xl bg-slate-50/60 dark:bg-white/[0.02] border border-slate-200/70 dark:border-white/[0.06]">
+              <div>
+                <span className="text-[10px] text-[var(--muted)] block">Department</span>
+                <span className="font-semibold">{viewingProfile.departmentName}</span>
+              </div>
+              <div>
+                <span className="text-[10px] text-[var(--muted)] block">Status</span>
+                <Badge tone={viewingProfile.isActive ? "ok" : "warn"} dot>
+                  {viewingProfile.isActive ? "Active" : "Hidden"}
+                </Badge>
+              </div>
+              <div>
+                <span className="text-[10px] text-[var(--muted)] block">Client Limit</span>
+                <span className="font-mono font-semibold">{viewingProfile.clientLimit}</span>
+              </div>
+              <div>
+                <span className="text-[10px] text-[var(--muted)] block">Invoice Limit</span>
+                <span className="font-mono font-semibold">{viewingProfile.invoiceLimit}</span>
+              </div>
+              <div>
+                <span className="text-[10px] text-[var(--muted)] block">Sales Limit</span>
+                <span className="font-mono font-semibold">{viewingProfile.salesLimit}</span>
+              </div>
             </div>
 
-            <div className="p-5 space-y-4 text-xs">
-              <div className="flex items-center justify-between p-3 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200/70 dark:border-white/[0.06]">
-                <div>
-                  <span className="text-[11px] text-slate-500 dark:text-slate-400">Designation Name</span>
-                  <div className="text-sm font-bold text-slate-900 dark:text-white">{viewingProfile.name}</div>
-                </div>
-                <span
-                  className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold ${
-                    viewingProfile.isActive
-                      ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20"
-                      : "bg-slate-500/10 text-slate-600 dark:text-slate-400 border border-slate-500/20"
-                  }`}
-                >
-                  <span
-                    className={`size-1.5 rounded-full ${
-                      viewingProfile.isActive ? "bg-emerald-500" : "bg-slate-400"
-                    }`}
-                  />
-                  {viewingProfile.isActive ? "Active" : "Hidden"}
-                </span>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200/70 dark:border-white/[0.06]">
-                  <span className="text-[11px] text-slate-500 dark:text-slate-400 flex items-center gap-1.5 mb-1">
-                    <Building2 className="size-3.5 text-violet-500" />
-                    Department
-                  </span>
-                  <span className="font-semibold text-slate-900 dark:text-white">
-                    {viewingProfile.departmentName}
-                  </span>
-                </div>
-                <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200/70 dark:border-white/[0.06]">
-                  <span className="text-[11px] text-slate-500 dark:text-slate-400 flex items-center gap-1.5 mb-1">
-                    <Users className="size-3.5 text-violet-500" />
-                    Client Limit
-                  </span>
-                  <span className="font-mono font-bold text-slate-900 dark:text-white">
-                    {viewingProfile.clientLimit}
-                  </span>
-                </div>
-                <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200/70 dark:border-white/[0.06]">
-                  <span className="text-[11px] text-slate-500 dark:text-slate-400 flex items-center gap-1.5 mb-1">
-                    <CreditCard className="size-3.5 text-violet-500" />
-                    Invoice Limit
-                  </span>
-                  <span className="font-mono font-bold text-slate-900 dark:text-white">
-                    {viewingProfile.invoiceLimit}
-                  </span>
-                </div>
-                <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200/70 dark:border-white/[0.06]">
-                  <span className="text-[11px] text-slate-500 dark:text-slate-400 flex items-center gap-1.5 mb-1">
-                    <TrendingUp className="size-3.5 text-violet-500" />
-                    Sales Limit
-                  </span>
-                  <span className="font-mono font-bold text-slate-900 dark:text-white">
-                    {viewingProfile.salesLimit}
-                  </span>
-                </div>
-              </div>
-
-              <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200/70 dark:border-white/[0.06]">
-                <span className="text-[11px] text-slate-500 dark:text-slate-400 mb-1 block">Description</span>
-                <p className="text-slate-700 dark:text-slate-300 whitespace-pre-wrap">
-                  {viewingProfile.description || "No description provided."}
+            {viewingProfile.description && (
+              <div>
+                <span className="text-[10px] text-[var(--muted)] block mb-1">Description</span>
+                <p className="p-3 rounded-xl bg-slate-50/60 dark:bg-white/[0.02] border border-slate-200/70 dark:border-white/[0.06]">
+                  {viewingProfile.description}
                 </p>
               </div>
-
-              <div className="flex items-center justify-between text-[11px] text-slate-400 px-1 pt-1">
-                <span>Created: {new Date(viewingProfile.createdAt).toLocaleDateString()}</span>
-                <span>Last Updated: {new Date(viewingProfile.updatedAt).toLocaleDateString()}</span>
-              </div>
-
-              <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100 dark:border-white/[0.06]">
-                <button
-                  type="button"
-                  onClick={() => {
-                    const toEdit = viewingProfile;
-                    setViewingProfile(null);
-                    openEditModal(toEdit);
-                  }}
-                  className="px-3.5 py-1.5 rounded-xl text-xs font-semibold bg-violet-600 hover:bg-violet-500 text-white"
-                >
-                  Edit Profile
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setViewingProfile(null)}
-                  className="px-3.5 py-1.5 rounded-xl text-xs font-semibold text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"
-                >
-                  Close
-                </button>
-              </div>
-            </div>
+            )}
           </div>
-        </div>
+        </Modal>
       )}
     </div>
   );
 }
-

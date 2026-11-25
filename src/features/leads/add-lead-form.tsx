@@ -30,6 +30,7 @@ import {
   Settings,
   Save,
 } from "lucide-react";
+import { useToast } from "@/src/components/ui";
 
 const INDIAN_STATES = [
   "Andhra Pradesh",
@@ -83,6 +84,7 @@ export function AddLeadForm({
 }: AddLeadFormProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
+  const toast = useToast();
 
   const basePath =
     portal === "manager"
@@ -191,6 +193,7 @@ export function AddLeadForm({
 
         if (!res.success) {
           setFormError(res.error || "Failed to create lead.");
+          toast.error("Creation failed", res.error || "Failed to create lead.");
           if (res.error === "This number already exists.") {
             setPhoneDuplicateError("This number already exists.");
           }
@@ -198,6 +201,7 @@ export function AddLeadForm({
         }
 
         setFormSuccess(`Lead "${formData.name.trim()}" has been recorded successfully!`);
+        toast.success("Lead created", `Lead "${formData.name.trim()}" has been recorded successfully!`);
         router.refresh();
 
         // Reset form fields
@@ -248,7 +252,7 @@ export function AddLeadForm({
           </Link>
           <Link
             href={`${basePath}?status=ALL`}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-white/70 dark:bg-white/[0.06] hover:bg-violet-500/10 text-slate-700 dark:text-slate-200 border border-slate-200/80 dark:border-white/[0.08] backdrop-blur-md shadow-xs transition-colors"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-white/70 dark:bg-white/[0.06] hover:bg-brand/10 text-slate-700 dark:text-slate-200 border border-slate-200/80 dark:border-white/[0.08] backdrop-blur-md shadow-xs transition-colors"
           >
             <Layers className="size-3.5" />
             <span>All</span>
@@ -256,7 +260,7 @@ export function AddLeadForm({
           {portal === "admin" && (
             <Link
               href="/admin/leads?status=UNALLOTTED"
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-white/70 dark:bg-white/[0.06] hover:bg-violet-500/10 text-slate-700 dark:text-slate-200 border border-slate-200/80 dark:border-white/[0.08] backdrop-blur-md shadow-xs transition-colors"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-white/70 dark:bg-white/[0.06] hover:bg-brand/10 text-slate-700 dark:text-slate-200 border border-slate-200/80 dark:border-white/[0.08] backdrop-blur-md shadow-xs transition-colors"
             >
               <UserX className="size-3.5" />
               <span>Unallotted</span>
@@ -264,42 +268,42 @@ export function AddLeadForm({
           )}
           <Link
             href={`${basePath}?status=UNREAD`}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-white/70 dark:bg-white/[0.06] hover:bg-violet-500/10 text-slate-700 dark:text-slate-200 border border-slate-200/80 dark:border-white/[0.08] backdrop-blur-md shadow-xs transition-colors"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-white/70 dark:bg-white/[0.06] hover:bg-brand/10 text-slate-700 dark:text-slate-200 border border-slate-200/80 dark:border-white/[0.08] backdrop-blur-md shadow-xs transition-colors"
           >
             <EyeOff className="size-3.5" />
             <span>Unread</span>
           </Link>
           <Link
             href={`${basePath}?status=READ`}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-white/70 dark:bg-white/[0.06] hover:bg-violet-500/10 text-slate-700 dark:text-slate-200 border border-slate-200/80 dark:border-white/[0.08] backdrop-blur-md shadow-xs transition-colors"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-white/70 dark:bg-white/[0.06] hover:bg-brand/10 text-slate-700 dark:text-slate-200 border border-slate-200/80 dark:border-white/[0.08] backdrop-blur-md shadow-xs transition-colors"
           >
             <Eye className="size-3.5" />
             <span>Read</span>
           </Link>
           <Link
             href={`${basePath}?status=FOLLOW_UP`}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-white/70 dark:bg-white/[0.06] hover:bg-violet-500/10 text-slate-700 dark:text-slate-200 border border-slate-200/80 dark:border-white/[0.08] backdrop-blur-md shadow-xs transition-colors"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-white/70 dark:bg-white/[0.06] hover:bg-brand/10 text-slate-700 dark:text-slate-200 border border-slate-200/80 dark:border-white/[0.08] backdrop-blur-md shadow-xs transition-colors"
           >
             <CalendarClock className="size-3.5" />
             <span>Followups</span>
           </Link>
           <Link
             href={`${basePath}?status=TRIALS`}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-white/70 dark:bg-white/[0.06] hover:bg-violet-500/10 text-slate-700 dark:text-slate-200 border border-slate-200/80 dark:border-white/[0.08] backdrop-blur-md shadow-xs transition-colors"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-white/70 dark:bg-white/[0.06] hover:bg-brand/10 text-slate-700 dark:text-slate-200 border border-slate-200/80 dark:border-white/[0.08] backdrop-blur-md shadow-xs transition-colors"
           >
             <ScrollText className="size-3.5" />
             <span>Trials</span>
           </Link>
           <Link
             href={`${basePath}?status=CLIENTS`}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-white/70 dark:bg-white/[0.06] hover:bg-violet-500/10 text-slate-700 dark:text-slate-200 border border-slate-200/80 dark:border-white/[0.08] backdrop-blur-md shadow-xs transition-colors"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-white/70 dark:bg-white/[0.06] hover:bg-brand/10 text-slate-700 dark:text-slate-200 border border-slate-200/80 dark:border-white/[0.08] backdrop-blur-md shadow-xs transition-colors"
           >
             <Contact className="size-3.5" />
             <span>Clients</span>
           </Link>
           <Link
             href={`${basePath}?status=DISPOSED`}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-white/70 dark:bg-white/[0.06] hover:bg-violet-500/10 text-slate-700 dark:text-slate-200 border border-slate-200/80 dark:border-white/[0.08] backdrop-blur-md shadow-xs transition-colors"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-white/70 dark:bg-white/[0.06] hover:bg-brand/10 text-slate-700 dark:text-slate-200 border border-slate-200/80 dark:border-white/[0.08] backdrop-blur-md shadow-xs transition-colors"
           >
             <CircleOff className="size-3.5" />
             <span>Disposed</span>
@@ -309,7 +313,7 @@ export function AddLeadForm({
         <button
           type="button"
           onClick={() => router.push(basePath)}
-          className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-semibold bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white shadow-xs transition-all shrink-0 cursor-pointer"
+          className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-semibold bg-brand hover:bg-brand-soft text-white shadow-xs transition-all shrink-0 cursor-pointer"
         >
           <Download className="size-3.5" />
           <span>Directory</span>
@@ -889,7 +893,7 @@ export function AddLeadForm({
           <button
             type="submit"
             disabled={isPending || !!phoneDuplicateError}
-            className="inline-flex items-center gap-2 px-6 py-2 text-xs font-semibold rounded-lg bg-gradient-to-r from-violet-600 to-blue-600 hover:from-violet-500 hover:to-blue-500 text-white shadow-md shadow-violet-500/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+            className="inline-flex items-center gap-2 px-6 py-2 text-xs font-semibold rounded-lg bg-brand hover:bg-brand-soft text-white shadow-md shadow-brand/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
           >
             {isPending ? (
               <>
@@ -909,7 +913,7 @@ export function AddLeadForm({
         <button
           type="submit"
           disabled={isPending || !!phoneDuplicateError}
-          className="fixed bottom-6 right-6 size-12 rounded-full bg-gradient-to-r from-violet-600 to-blue-600 hover:from-violet-500 hover:to-blue-500 text-white shadow-xl shadow-violet-500/30 flex items-center justify-center hover:scale-105 active:scale-95 transition-all z-30 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+          className="fixed bottom-6 right-6 size-12 rounded-full bg-brand hover:bg-brand-soft text-white shadow-xl shadow-brand/30 flex items-center justify-center hover:scale-105 active:scale-95 transition-all z-30 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
           title="Save Lead"
         >
           {isPending ? (

@@ -2,15 +2,25 @@
 
 import { useState, useTransition, useEffect } from "react";
 import {
-  X,
   Calendar,
   MessageSquare,
   Layers,
   Plus,
-  Loader2,
   Check,
 } from "lucide-react";
-import { updateLeadDetailsAction, getActiveLeadResponsesAction, type LeadListItem } from "./actions";
+import {
+  updateLeadDetailsAction,
+  getActiveLeadResponsesAction,
+  type LeadListItem,
+} from "./actions";
+import {
+  Modal,
+  Button,
+  Field,
+  Select,
+  Textarea,
+  useToast,
+} from "@/src/components/ui";
 
 interface LeadCallUpdateModalProps {
   lead: LeadListItem | null;
@@ -46,6 +56,7 @@ function LeadCallUpdateModalContent({
   onClose: () => void;
   onSuccess: () => void;
 }) {
+  const toast = useToast();
   const [isPending, startTransition] = useTransition();
   const [response, setResponse] = useState<string>(lead.leadResponse || "");
   const [activeResponses, setActiveResponses] = useState<string[]>([]);
@@ -83,8 +94,7 @@ function LeadCallUpdateModalContent({
     if (["FOLLOW UP", "FOLLOW_UP", "FOLLOWUP"].includes(upper)) {
       setIsFollowup(true);
     } else if (newResp) {
-      // If user selected any other response (like "FT", "Disposed", "Interested", "Busy", etc.),
-      // automatically turn off followup (unless the user explicitly toggles + Followup manually afterwards)
+      // If user selected any other response, turn off followup
       setIsFollowup(false);
     }
   };
@@ -111,180 +121,142 @@ function LeadCallUpdateModalContent({
         });
 
         if (res.success) {
+          toast?.success("Call update saved successfully.");
           onSuccess();
           onClose();
         } else {
           setErrorMessage(res.error || "Failed to save call update.");
+          toast?.error(res.error || "Failed to save call update.");
         }
       } catch {
         setErrorMessage("An unexpected error occurred while saving.");
+        toast?.error("An unexpected error occurred while saving.");
       }
     });
   };
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
-      onClick={(e) => e.stopPropagation()}
-    >
-      {/* Backdrop */}
-      <div
-        className="fixed inset-0 bg-slate-950/60 backdrop-blur-sm transition-opacity animate-in fade-in duration-150"
-        onClick={onClose}
-      />
-
-      {/* Modal Dialog Card */}
-      <div className="relative w-full max-w-lg rounded-2xl bg-white dark:bg-[#0c1220] border border-slate-200/90 dark:border-white/[0.12] shadow-2xl overflow-hidden z-10 animate-in fade-in zoom-in-95 duration-150">
-        {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200/80 dark:border-white/[0.08]">
-          <h2 className="text-base font-bold text-slate-800 dark:text-white tracking-tight">
-            Lead Id : # {lead.id.slice(-7)}
-          </h2>
-          <button
+    <Modal
+      open={true}
+      onClose={onClose}
+      size="md"
+      title={
+        <div className="flex items-center gap-2">
+          <span>Lead Id : # {lead.id.slice(-7)}</span>
+          <span className="text-xs font-normal text-[var(--muted)]">({lead.name})</span>
+        </div>
+      }
+      description={
+        <div className="flex items-center justify-between text-xs pt-1 border-t border-[var(--border)] mt-2">
+          <span className="font-semibold uppercase tracking-wider text-[11px] text-[var(--muted)]">
+            Call Response
+          </span>
+          <span className="text-[var(--muted)] font-medium">
+            Last Updated : {displayDate}
+          </span>
+        </div>
+      }
+      footer={
+        <div className="flex items-center justify-end gap-2.5">
+          <Button
             type="button"
+            variant="ghost"
+            size="sm"
+            disabled={isPending}
             onClick={onClose}
-            aria-label="Close modal"
-            className="p-1 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
           >
-            <X className="size-5" />
-          </button>
+            Close
+          </Button>
+          <Button
+            type="button"
+            variant="primary"
+            size="sm"
+            disabled={isPending}
+            loading={isPending}
+            onClick={handleSave}
+          >
+            Save
+          </Button>
         </div>
-
-        {/* Content Body */}
-        <div className="p-6 space-y-5">
-          {/* Section Header: Call Response & Last Updated */}
-          <div className="flex items-center justify-between text-xs">
-            <span className="font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider text-[11px]">
-              Call Response
-            </span>
-            <span className="text-slate-400 dark:text-slate-500 font-medium">
-              Last Updated : {displayDate}
-            </span>
+      }
+    >
+      <div className="space-y-4 pt-1">
+        {errorMessage && (
+          <div className="p-3 text-xs rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-600 dark:text-rose-400">
+            {errorMessage}
           </div>
+        )}
 
-          {errorMessage && (
-            <div className="p-3 text-xs rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/50 text-rose-700 dark:text-rose-300">
-              {errorMessage}
-            </div>
-          )}
-
-          {/* Form Fields Container */}
-          <div className="space-y-3.5">
-            {/* 1. Select Response & Add Followup Button */}
-            <div className="flex items-center gap-2.5">
-              <div className="flex-1 flex items-center rounded-xl border border-slate-200 dark:border-white/[0.1] bg-slate-50/60 dark:bg-white/[0.02] overflow-hidden focus-within:border-teal-500 focus-within:ring-2 focus-within:ring-teal-500/20 transition-all">
-                <div className="flex items-center justify-center w-11 h-10 bg-slate-100/80 dark:bg-white/[0.05] border-r border-slate-200 dark:border-white/[0.08] text-purple-600 dark:text-purple-400 shrink-0">
-                  <Layers className="size-4" />
-                </div>
-                <select
-                  value={response}
-                  onChange={(e) => handleResponseChange(e.target.value)}
-                  className="w-full h-10 px-3 bg-transparent text-xs text-slate-800 dark:text-slate-100 focus:outline-none cursor-pointer"
-                >
-                  {activeResponses.length === 0 && !response ? (
-                    <option value="" className="text-slate-400">
-                      {isLoadingResponses ? "Loading responses..." : "No responses configured in Settings"}
-                    </option>
-                  ) : (
-                    <>
-                      <option value="" className="text-slate-400">
-                        Select Response
-                      </option>
-                      {response &&
-                        !["CLIENT", "CLIENTS"].includes(response.trim().toUpperCase()) &&
-                        !activeResponses.includes(response) && (
-                        <option value={response} className="text-slate-800 dark:text-slate-900">
-                          {response} (Existing)
-                        </option>
-                      )}
-                      {activeResponses
-                        .filter((opt) => !["CLIENT", "CLIENTS"].includes(opt.trim().toUpperCase()))
-                        .map((opt) => (
-                          <option key={opt} value={opt} className="text-slate-800 dark:text-slate-900">
-                            {opt}
-                          </option>
-                        ))}
-                    </>
-                  )}
-                </select>
-              </div>
-
-              {/* Add Followup Button */}
-              <button
-                type="button"
-                onClick={handleAddFollowupClick}
-                className={`h-10 px-3.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all border ${
-                  isFollowup
-                    ? "bg-blue-600 text-white border-blue-600 shadow-sm"
-                    : "bg-white dark:bg-slate-900 text-blue-600 dark:text-blue-400 border-blue-200 dark:border-blue-900/60 hover:bg-blue-50 dark:hover:bg-blue-950/40"
-                }`}
+        {/* 1. Select Response & Add Followup Button */}
+        <Field label="Call Response" id="update-response">
+          <div className="flex items-center gap-2">
+            <div className="flex-1">
+              <Select
+                id="update-response"
+                value={response}
+                onChange={(e) => handleResponseChange(e.target.value)}
+                className="w-full text-xs"
               >
-                {isFollowup ? (
-                  <Check className="size-3.5" />
+                {activeResponses.length === 0 && !response ? (
+                  <option value="">
+                    {isLoadingResponses ? "Loading responses..." : "No responses configured"}
+                  </option>
                 ) : (
-                  <Plus className="size-3.5" />
+                  <>
+                    <option value="">Select Response</option>
+                    {response &&
+                      !["CLIENT", "CLIENTS"].includes(response.trim().toUpperCase()) &&
+                      !activeResponses.includes(response) && (
+                        <option value={response}>{response} (Existing)</option>
+                      )}
+                    {activeResponses
+                      .filter((opt) => !["CLIENT", "CLIENTS"].includes(opt.trim().toUpperCase()))
+                      .map((opt) => (
+                        <option key={opt} value={opt}>
+                          {opt}
+                        </option>
+                      ))}
+                  </>
                 )}
-                <span>Add Followup</span>
-              </button>
+              </Select>
             </div>
 
-            {/* 2. Select Date (Conditional or visible when user wants callback) */}
-            <div className="flex items-center rounded-xl border border-slate-200 dark:border-white/[0.1] bg-slate-50/60 dark:bg-white/[0.02] overflow-hidden focus-within:border-teal-500 focus-within:ring-2 focus-within:ring-teal-500/20 transition-all">
-              <div className="flex items-center justify-center w-11 h-10 bg-slate-100/80 dark:bg-white/[0.05] border-r border-slate-200 dark:border-white/[0.08] text-purple-600 dark:text-purple-400 shrink-0">
-                <Calendar className="size-4" />
-              </div>
-              <input
-                type="datetime-local"
-                value={callbackDate}
-                onChange={(e) => setCallbackDate(e.target.value)}
-                placeholder="Select Date"
-                className="w-full h-10 px-3 bg-transparent text-xs text-slate-800 dark:text-slate-100 focus:outline-none"
-              />
-            </div>
-
-            {/* 3. Description / Comment Box */}
-            <div className="flex items-start rounded-xl border border-slate-200 dark:border-white/[0.1] bg-slate-50/60 dark:bg-white/[0.02] overflow-hidden focus-within:border-teal-500 focus-within:ring-2 focus-within:ring-teal-500/20 transition-all">
-              <div className="flex items-center justify-center w-11 h-10 bg-slate-100/80 dark:bg-white/[0.05] border-r border-slate-200 dark:border-white/[0.08] text-purple-600 dark:text-purple-400 shrink-0">
-                <MessageSquare className="size-4" />
-              </div>
-              <textarea
-                value={comment}
-                onChange={(e) => setComment(e.target.value)}
-                rows={3}
-                placeholder="Description"
-                className="w-full p-2.5 bg-transparent text-xs text-slate-800 dark:text-slate-100 focus:outline-none resize-none"
-              />
-            </div>
-          </div>
-
-          {/* Action Buttons */}
-          <div className="flex items-center justify-end gap-2.5 pt-2">
-            <button
+            <Button
               type="button"
-              onClick={onClose}
-              disabled={isPending}
-              className="px-5 py-2 rounded-xl text-xs font-semibold bg-rose-500 hover:bg-rose-600 active:bg-rose-700 text-white shadow-sm transition-colors disabled:opacity-50"
+              variant={isFollowup ? "primary" : "secondary"}
+              size="sm"
+              onClick={handleAddFollowupClick}
+              className="shrink-0"
             >
-              Close
-            </button>
-            <button
-              type="button"
-              onClick={handleSave}
-              disabled={isPending}
-              className="px-6 py-2 rounded-xl text-xs font-semibold bg-teal-600 hover:bg-teal-500 active:bg-teal-700 text-white shadow-sm transition-colors flex items-center gap-1.5 disabled:opacity-50"
-            >
-              {isPending ? (
-                <>
-                  <Loader2 className="size-3.5 animate-spin" />
-                  <span>Saving...</span>
-                </>
-              ) : (
-                <span>Save</span>
-              )}
-            </button>
+              {isFollowup ? <Check className="size-3.5" /> : <Plus className="size-3.5" />}
+              <span>Add Followup</span>
+            </Button>
           </div>
-        </div>
+        </Field>
+
+        {/* 2. Select Date (native datetime-local preserved per audit) */}
+        <Field label="Callback Date & Time" id="update-callback">
+          <input
+            id="update-callback"
+            type="datetime-local"
+            value={callbackDate}
+            onChange={(e) => setCallbackDate(e.target.value)}
+            className="inp w-full text-xs py-2"
+          />
+        </Field>
+
+        {/* 3. Description / Comment Box */}
+        <Field label="Conversation Remarks / Description" id="update-comment">
+          <Textarea
+            id="update-comment"
+            value={comment}
+            onChange={(e) => setComment(e.target.value)}
+            rows={3}
+            placeholder="Add follow-up call notes, client feedback, or discussion remarks..."
+            className="w-full text-xs"
+          />
+        </Field>
       </div>
-    </div>
+    </Modal>
   );
 }

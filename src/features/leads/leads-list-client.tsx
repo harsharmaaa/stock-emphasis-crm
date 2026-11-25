@@ -12,7 +12,20 @@ import {
   getAdminLeadCountsSummaryAction,
   executeAdminLeadCountBulkAction,
 } from "./actions";
-import { normalizeStatusFilter } from "@/src/lib/utils";
+import { normalizeStatusFilter, cn } from "@/src/lib/utils";
+import type { Tone } from "@/src/types/ui-kit";
+import {
+  PageHeader,
+  Badge,
+  Button,
+  Card,
+  Tabs,
+  Pagination,
+  EmptyState,
+  ConfirmDialog,
+  Input,
+  useToast,
+} from "@/src/components/ui";
 import { LeadDetailsDrawer } from "./lead-details-drawer";
 import { LeadCallUpdateModal } from "./lead-call-update-modal";
 import {
@@ -23,14 +36,10 @@ import { AdminFetchModal } from "./admin-fetch-modal";
 import { AdminSelectedLeadsActionModal } from "./admin-selected-leads-action-modal";
 import { AdminLeadTimelineModal } from "./admin-lead-timeline-modal";
 import {
-  Inbox,
-  UserPlus,
   Search,
   Phone,
   Mail,
   MapPin,
-  ChevronLeft,
-  ChevronRight,
   TrendingUp,
   Loader2,
   Clock,
@@ -45,7 +54,6 @@ import {
   CircleOff,
   MessageCircle,
   X,
-  AlertTriangle,
   Headphones,
   BarChart2,
   Filter,
@@ -69,14 +77,14 @@ interface LeadsListClientProps {
  * All, Unfollowed, Unread, Read, Followups, Trials, Clients, Disposed.
  */
 const STATUS_FILTERS = [
-  { label: "All", value: "ALL" },
-  { label: "Unfollowed", value: "UNFOLLOWED" },
-  { label: "Unread", value: "UNREAD" },
-  { label: "Read", value: "READ" },
-  { label: "Followups", value: "FOLLOW_UP" },
-  { label: "Trials", value: "TRIAL" },
-  { label: "Clients", value: "CLIENT" },
-  { label: "Disposed", value: "DISPOSED" },
+  { id: "ALL", label: "All" },
+  { id: "UNFOLLOWED", label: "Unfollowed" },
+  { id: "UNREAD", label: "Unread" },
+  { id: "READ", label: "Read" },
+  { id: "FOLLOW_UP", label: "Followups" },
+  { id: "TRIAL", label: "Trials" },
+  { id: "CLIENT", label: "Clients" },
+  { id: "DISPOSED", label: "Disposed" },
 ];
 
 export function LeadsListClient({
@@ -92,12 +100,12 @@ export function LeadsListClient({
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  const toast = useToast();
 
   const [leads, setLeads] = useState<LeadListItem[]>(initialLeads);
   const [totalCount, setTotalCount] = useState(initialTotalCount);
   const [totalPages, setTotalPages] = useState(initialTotalPages);
   const [currentPage, setCurrentPage] = useState(initialPage);
-
   const [searchQuery, setSearchQuery] = useState(initialSearch);
   const [statusFilter, setStatusFilter] = useState(
     normalizeStatusFilter(initialStatus) || "ALL"
@@ -204,13 +212,19 @@ export function LeadsListClient({
       if (urlStatus) {
         const normalized = normalizeStatusFilter(urlStatus) || "ALL";
         setStatusFilter((prev) => (prev !== normalized ? normalized : prev));
+      } else {
+        setStatusFilter("ALL");
       }
       if (urlSearch !== null) {
         setSearchQuery((prev) => (prev !== urlSearch ? urlSearch : prev));
+      } else {
+        setSearchQuery("");
       }
       if (urlLeadId) {
         setSelectedLeadId((prev) => (prev !== urlLeadId ? urlLeadId : prev));
         setIsDrawerOpen((prev) => (!prev ? true : prev));
+      } else {
+        setSelectedLeadId(null);
       }
     }, 0);
 
@@ -417,12 +431,13 @@ export function LeadsListClient({
         setLeads((prev) =>
           prev.map((l) => (l.id === leadToDispose.id ? { ...l, status: "DISPOSED" } : l))
         );
+        toast?.success(`Lead "${leadToDispose.name}" marked as disposed.`);
         fetchLeads(currentPage, searchQuery, statusFilter);
       } else {
-        alert(res.error || "Failed to mark lead as disposed");
+        toast?.error(res.error || "Failed to mark lead as disposed");
       }
     } catch {
-      alert("An unexpected error occurred while disposing lead.");
+      toast?.error("An unexpected error occurred while disposing lead.");
     } finally {
       setIsDisposingId(null);
       setConfirmDisposeLead(null);
@@ -434,89 +449,90 @@ export function LeadsListClient({
     fetchLeads(currentPage, searchQuery, statusFilter, appliedCountFilters);
   };
 
-  const getStatusBadgeClass = (status: string) => {
+  const getStatusBadgeTone = (status: string): Tone => {
     switch (status) {
       case "CLIENT":
-        return "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20";
+        return "ok";
       case "TRIAL":
-        return "bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 border-cyan-500/20";
+        return "info";
       case "FOLLOW_UP":
-        return "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20";
+        return "warn";
       case "DISPOSED":
-        return "bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20";
+        return "err";
       case "READ":
-        return "bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20";
+        return "info";
       case "UNREAD":
-        return "bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border-indigo-500/20";
       case "UNFOLLOWED":
       default:
-        return "bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/20";
+        return "info";
     }
   };
 
   return (
     <div className="space-y-6 animate-in fade-in duration-200">
-      {/* Top Header Controls */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-2">
-            <h1 className="text-2xl font-extrabold text-slate-900 dark:text-white tracking-tight">
+      {/* Top Header Controls with PageHeader */}
+      <PageHeader
+        title={
+          <div className="flex items-center gap-2.5">
+            <h1 className="text-2xl font-extrabold text-[var(--text)] tracking-tight">
               Leads Management
             </h1>
-            <span className="px-2.5 py-0.5 text-xs font-semibold rounded-full bg-violet-500/10 text-violet-700 dark:text-violet-300 border border-violet-500/20">
+            <Badge tone="info">
               {totalCount} {totalCount === 1 ? "Lead" : "Leads"}
-            </span>
+            </Badge>
           </div>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-            Central repository of client inquiries, advisory prospects, and sales pipeline allotments.
-          </p>
-        </div>
+        }
+        description="Central repository of client inquiries, advisory prospects, and sales pipeline allotments."
+        breadcrumbs={[
+          { label: "Admin", href: "/admin" },
+          { label: "Leads" },
+        ]}
+        actions={
+          <div className="flex items-center gap-2">
+            {/* Filters Toggle Button */}
+            <Button
+              type="button"
+              variant={isQuickFiltersOpen || hasActiveQuickFilters ? "primary" : "secondary"}
+              size="sm"
+              onClick={() => setIsQuickFiltersOpen(!isQuickFiltersOpen)}
+              title="Toggle Quick Filters"
+            >
+              <Filter className="size-3.5" />
+              <span>Filters</span>
+              {hasActiveQuickFilters && (
+                <span className="size-1.5 rounded-full bg-cyan-400 animate-pulse ml-0.5" />
+              )}
+            </Button>
 
-        <div className="flex items-center gap-2">
-          {/* Filters Toggle Button */}
-          <button
-            type="button"
-            onClick={() => setIsQuickFiltersOpen(!isQuickFiltersOpen)}
-            className={`inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold rounded-xl transition-all shadow-xs cursor-pointer border ${isQuickFiltersOpen || hasActiveQuickFilters
-              ? "bg-violet-600 text-white border-violet-500 shadow-violet-600/20"
-              : "bg-slate-100/80 dark:bg-white/[0.06] text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-white/[0.1] border-slate-250 dark:border-white/[0.08]"
-              }`}
-            title="Toggle Quick Filters"
-          >
-            <Filter className="size-3.5" />
-            <span>Filters</span>
-            {hasActiveQuickFilters && (
-              <span className="size-1.5 rounded-full bg-cyan-400 animate-pulse" />
-            )}
-          </button>
-
-          {/* Fetch Button (Select Source Modal) */}
-          <button
-            type="button"
-            onClick={() => setIsFetchModalOpen(true)}
-            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-500 hover:to-cyan-500 text-white shadow-xs hover:scale-[1.02] active:scale-[0.98] transition-all cursor-pointer"
-            title="Open Select Source to claim leads"
-          >
-            <Download className="size-3.5 stroke-[2.5]" />
-            <span>Fetch</span>
-          </button>
-        </div>
-      </div>
+            {/* Fetch Button (Select Source Modal) */}
+            <Button
+              type="button"
+              variant="primary"
+              size="sm"
+              onClick={() => setIsFetchModalOpen(true)}
+              title="Open Select Source to claim leads"
+            >
+              <Download className="size-3.5 stroke-[2.5]" />
+              <span>Fetch</span>
+            </Button>
+          </div>
+        }
+      />
 
       {/* Quick Filters Collapsible Bar */}
       {isQuickFiltersOpen && (
-        <div className="p-4 rounded-2xl bg-white/90 dark:bg-[#0c1322]/90 backdrop-blur-xl border border-slate-200/80 dark:border-white/[0.08] shadow-sm space-y-3 animate-in fade-in slide-in-from-top-2 duration-150">
-          <div className="flex items-center justify-between pb-1 border-b border-slate-100 dark:border-white/[0.06]">
+        <Card className="p-4 space-y-3 animate-in fade-in slide-in-from-top-2 duration-150">
+          <div className="flex items-center justify-between pb-1 border-b border-[var(--border)]">
             <div className="flex items-center gap-2">
-              <Filter className="size-3.5 text-violet-600 dark:text-violet-400" />
-              <span className="text-xs font-bold text-slate-900 dark:text-white">
+              <Filter className="size-3.5 text-[var(--brand)]" />
+              <span className="text-xs font-bold text-[var(--text)]">
                 Quick Filters
               </span>
             </div>
             <button
               type="button"
               onClick={() => setIsQuickFiltersOpen(false)}
-              className="p-1 text-slate-400 hover:text-slate-600 dark:hover:text-white transition-colors cursor-pointer"
+              className="p-1 text-[var(--muted)] hover:text-[var(--text)] transition-colors cursor-pointer"
             >
               <X className="size-3.5" />
             </button>
@@ -525,13 +541,13 @@ export function LeadsListClient({
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2.5">
             {/* Source */}
             <div>
-              <label className="block text-[11px] font-semibold text-slate-500 dark:text-slate-400 mb-1">
+              <label className="block text-[11px] font-semibold text-[var(--muted)] mb-1">
                 Lead Source
               </label>
               <select
                 value={quickFilterSource}
                 onChange={(e) => setQuickFilterSource(e.target.value)}
-                className="w-full px-2.5 py-1.5 text-xs rounded-xl bg-slate-50 dark:bg-white/[0.04] border border-slate-200 dark:border-white/[0.08] text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-violet-500/40"
+                className="inp text-xs py-1.5 h-8 w-full"
               >
                 <option value="">All Sources</option>
                 {availableSources.map((s) => (
@@ -544,13 +560,13 @@ export function LeadsListClient({
 
             {/* Call Response */}
             <div>
-              <label className="block text-[11px] font-semibold text-slate-500 dark:text-slate-400 mb-1">
+              <label className="block text-[11px] font-semibold text-[var(--muted)] mb-1">
                 Call Response
               </label>
               <select
                 value={quickFilterResponse}
                 onChange={(e) => setQuickFilterResponse(e.target.value)}
-                className="w-full px-2.5 py-1.5 text-xs rounded-xl bg-slate-50 dark:bg-white/[0.04] border border-slate-200 dark:border-white/[0.08] text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-violet-500/40"
+                className="inp text-xs py-1.5 h-8 w-full"
               >
                 <option value="">All Responses</option>
                 {availableResponses.map((r) => (
@@ -563,13 +579,13 @@ export function LeadsListClient({
 
             {/* Lead Owner */}
             <div>
-              <label className="block text-[11px] font-semibold text-slate-500 dark:text-slate-400 mb-1">
+              <label className="block text-[11px] font-semibold text-[var(--muted)] mb-1">
                 Lead Owner
               </label>
               <select
                 value={quickFilterOwnerId}
                 onChange={(e) => setQuickFilterOwnerId(e.target.value)}
-                className="w-full px-2.5 py-1.5 text-xs rounded-xl bg-slate-50 dark:bg-white/[0.04] border border-slate-200 dark:border-white/[0.08] text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-violet-500/40"
+                className="inp text-xs py-1.5 h-8 w-full"
               >
                 <option value="">All Owners</option>
                 {allotmentUsers.map((u) => (
@@ -582,13 +598,13 @@ export function LeadsListClient({
 
             {/* Team */}
             <div>
-              <label className="block text-[11px] font-semibold text-slate-500 dark:text-slate-400 mb-1">
+              <label className="block text-[11px] font-semibold text-[var(--muted)] mb-1">
                 Team
               </label>
               <select
                 value={quickFilterTeamId}
                 onChange={(e) => setQuickFilterTeamId(e.target.value)}
-                className="w-full px-2.5 py-1.5 text-xs rounded-xl bg-slate-50 dark:bg-white/[0.04] border border-slate-200 dark:border-white/[0.08] text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-violet-500/40"
+                className="inp text-xs py-1.5 h-8 w-full"
               >
                 <option value="">All Teams</option>
                 {availableTeams.map((t) => (
@@ -601,13 +617,13 @@ export function LeadsListClient({
 
             {/* Lead Assignment */}
             <div>
-              <label className="block text-[11px] font-semibold text-slate-500 dark:text-slate-400 mb-1">
+              <label className="block text-[11px] font-semibold text-[var(--muted)] mb-1">
                 Assignment
               </label>
               <select
                 value={quickFilterAssignment}
                 onChange={(e) => setQuickFilterAssignment(e.target.value)}
-                className="w-full px-2.5 py-1.5 text-xs rounded-xl bg-slate-50 dark:bg-white/[0.04] border border-slate-200 dark:border-white/[0.08] text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-violet-500/40"
+                className="inp text-xs py-1.5 h-8 w-full"
               >
                 <option value="">Assigned / Fetched (Default)</option>
                 <option value="ALL">All (Assigned & Pool)</option>
@@ -616,68 +632,63 @@ export function LeadsListClient({
             </div>
           </div>
 
-          <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100 dark:border-white/[0.06]">
-            <button
+          <div className="flex items-center justify-end gap-2 pt-2 border-t border-[var(--border)]">
+            <Button
               type="button"
+              variant="ghost"
+              size="sm"
               onClick={handleResetQuickFilters}
-              className="px-3 py-1.5 rounded-xl text-xs font-semibold text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/[0.06] transition-colors cursor-pointer"
             >
               Reset
-            </button>
-            <button
+            </Button>
+            <Button
               type="button"
+              variant="primary"
+              size="sm"
               onClick={handleApplyQuickFilters}
-              className="px-4 py-1.5 rounded-xl text-xs font-bold text-white bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 shadow-xs cursor-pointer"
             >
               Apply Filters
-            </button>
+            </Button>
           </div>
-        </div>
+        </Card>
       )}
 
       {/* Filter Tabs & Search Controls */}
-      <div className="p-4 rounded-2xl bg-white/75 dark:bg-[#0c1322]/70 backdrop-blur-xl border border-slate-200/80 dark:border-white/[0.08] shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-[0_8px_30px_rgb(0,0,0,0.25)] space-y-3">
-        {/* Status Filter Badges (Exact 8 Filters) */}
-        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
-          {STATUS_FILTERS.map((f) => {
-            const active = statusFilter === f.value;
-            return (
-              <button
-                key={f.value}
-                type="button"
-                onClick={() => handleStatusFilterChange(f.value)}
-                className={`px-3 py-1.5 text-xs font-medium rounded-xl transition-all shrink-0 ${active
-                  ? "bg-gradient-to-r from-violet-600 to-indigo-600 text-white font-semibold shadow-xs"
-                  : "text-slate-600 dark:text-slate-400 hover:bg-slate-100/70 dark:hover:bg-white/[0.06] hover:text-slate-900 dark:hover:text-white"
-                  }`}
-              >
-                {f.label}
-              </button>
-            );
-          })}
+      <Card className="p-4 space-y-3">
+        {/* Status Filter Badges with Tabs in filter mode */}
+        <div className="overflow-x-auto pb-1 scrollbar-none">
+          <Tabs
+            mode="filter"
+            items={STATUS_FILTERS}
+            value={statusFilter}
+            onChange={handleStatusFilterChange}
+            label="Filter Leads by Status"
+          />
         </div>
 
         {/* Search Bar */}
         <form onSubmit={handleSearchSubmit} className="flex gap-2">
           <div className="relative flex-1">
-            <Search className="size-4 text-slate-400 absolute left-3.5 top-2.5 pointer-events-none" />
-            <input
+            <Search className="size-4 text-[var(--muted)] absolute left-3.5 top-2.5 pointer-events-none" />
+            <Input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search by name, mobile, email, city..."
-              className="w-full pl-9 pr-4 py-2 text-xs rounded-xl bg-slate-50/70 dark:bg-white/[0.04] border border-slate-200/80 dark:border-white/[0.08] text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-violet-500/40"
+              className="pl-9 pr-4 text-xs h-9"
             />
           </div>
-          <button
+          <Button
             type="submit"
+            variant="secondary"
+            size="sm"
+            loading={isPending}
             disabled={isPending}
-            className="px-4 py-2 text-xs font-semibold rounded-xl bg-slate-100/80 dark:bg-white/[0.06] text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-white/[0.1] transition-colors border border-slate-250 dark:border-white/[0.08] disabled:opacity-50"
           >
             {isPending ? <Loader2 className="size-3.5 animate-spin" /> : "Search"}
-          </button>
+          </Button>
         </form>
-      </div>
+      </Card>
 
       {/* Toolbar: Selection Info + Select All + Action + Count */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 px-1">
@@ -685,19 +696,19 @@ export function LeadsListClient({
         <div className="flex items-center gap-2 min-h-[28px]">
           {selectedLeadIds.length > 0 ? (
             <div className="flex items-center gap-2 animate-in fade-in duration-150">
-              <span className="text-xs font-bold text-violet-700 dark:text-violet-300 bg-violet-500/10 dark:bg-violet-500/20 px-2.5 py-1 rounded-lg border border-violet-500/20">
+              <Badge tone="info">
                 {selectedLeadIds.length} lead{selectedLeadIds.length === 1 ? "" : "s"} selected
-              </span>
+              </Badge>
               <button
                 type="button"
                 onClick={() => setSelectedLeadIds([])}
-                className="text-[11px] font-semibold text-slate-500 hover:text-rose-600 dark:text-slate-400 dark:hover:text-rose-400 cursor-pointer underline transition-colors"
+                className="text-[11px] font-semibold text-[var(--muted)] hover:text-rose-500 cursor-pointer underline transition-colors"
               >
                 Clear Selection
               </button>
             </div>
           ) : (
-            <span className="text-[11px] text-slate-400 font-medium hidden sm:inline">
+            <span className="text-[11px] text-[var(--muted)] font-medium hidden sm:inline">
               Select leads to perform batch operations
             </span>
           )}
@@ -706,26 +717,29 @@ export function LeadsListClient({
         {/* Right side: Select All + Action + Count */}
         <div className="flex items-center gap-2 self-end sm:self-auto">
           {/* Select All Checkbox */}
-          <label className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-100/80 dark:hover:bg-white/[0.06] transition-colors cursor-pointer select-none border border-transparent hover:border-slate-200 dark:hover:border-white/[0.08]">
+          <label className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-semibold text-[var(--text)] hover:bg-[var(--glass-stroke)] transition-colors cursor-pointer select-none border border-transparent hover:border-[var(--border)]">
             <input
               ref={selectAllCheckboxRef}
               type="checkbox"
               checked={isAllCurrentPageSelected}
               onChange={toggleSelectAllCurrentPage}
-              className="size-3.5 rounded border-slate-300 text-violet-600 focus:ring-violet-500/30 cursor-pointer"
+              className="size-3.5 rounded border-[var(--border)] text-[var(--brand)] focus:ring-[var(--brand)]/30 cursor-pointer"
             />
             <span>Select All</span>
           </label>
 
           {/* Action Button */}
-          <button
+          <Button
             type="button"
             disabled={selectedLeadIds.length === 0}
             onClick={() => setIsActionModalOpen(true)}
-            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold border transition-all cursor-pointer shadow-2xs ${selectedLeadIds.length > 0
-              ? "border-amber-300 dark:border-amber-700 bg-amber-50 hover:bg-amber-100 dark:bg-amber-950/40 dark:hover:bg-amber-900/50 text-amber-800 dark:text-amber-300 active:scale-95"
-              : "border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 text-slate-400 cursor-not-allowed opacity-50"
-              }`}
+            variant={selectedLeadIds.length > 0 ? "secondary" : "ghost"}
+            size="sm"
+            className={cn(
+              selectedLeadIds.length > 0
+                ? "!border-amber-400/50 !text-amber-700 dark:!text-amber-300 !bg-amber-500/10"
+                : "opacity-50"
+            )}
             title={
               selectedLeadIds.length > 0
                 ? "Perform bulk action on selected leads"
@@ -735,22 +749,24 @@ export function LeadsListClient({
             <Layers className="size-3.5" />
             <span>Action</span>
             {selectedLeadIds.length > 0 && (
-              <span className="px-1.5 py-0.2 rounded-full text-[10px] font-bold bg-amber-500 text-slate-950">
+              <Badge tone="warn" className="px-1.5 py-0 text-[10px]">
                 {selectedLeadIds.length}
-              </span>
+              </Badge>
             )}
-          </button>
+          </Button>
 
           {/* Existing Count Button */}
-          <button
+          <Button
             type="button"
             onClick={() => setIsCountModalOpen(true)}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold border border-rose-300 dark:border-rose-800 bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/40 dark:hover:bg-rose-900/50 text-rose-600 dark:text-rose-400 shadow-2xs transition-all cursor-pointer active:scale-95"
+            variant="secondary"
+            size="sm"
+            className="!border-rose-400/40 !text-rose-600 dark:!text-rose-400 !bg-rose-500/10"
             title="Open Lead Count Modal"
           >
             <BarChart2 className="size-3.5" />
             <span>Count</span>
-          </button>
+          </Button>
         </div>
       </div>
 
@@ -759,72 +775,68 @@ export function LeadsListClient({
         modalSelectedResponses.length > 0 ||
         appliedCountFilters ||
         hasActiveQuickFilters) && (
-          <div className="flex items-center justify-between gap-3 px-4 py-2.5 rounded-2xl bg-gradient-to-r from-blue-600/10 via-indigo-600/10 to-purple-600/10 border border-blue-500/20 text-xs">
+          <Card className="flex items-center justify-between gap-3 px-4 py-2.5 bg-[var(--brand)]/[0.05] border-[var(--brand)]/20 text-xs">
             <div className="flex items-center gap-2 flex-wrap">
-              <span className="font-semibold text-blue-700 dark:text-blue-300">
+              <span className="font-semibold text-[var(--brand)]">
                 Active Filters:
               </span>
               {modalSelectedStages.map((st) => (
-                <span
-                  key={st}
-                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-blue-500/15 text-blue-700 dark:text-blue-300 font-bold border border-blue-500/30 text-[11px]"
-                >
+                <Badge key={st} tone="info">
                   Stage: {st}
-                </span>
+                </Badge>
               ))}
               {modalSelectedResponses.map((r) => (
-                <span
-                  key={r}
-                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-purple-500/15 text-purple-700 dark:text-purple-300 font-bold border border-purple-500/30 text-[11px]"
-                >
+                <Badge key={r} tone="info">
                   Response: {r}
-                </span>
+                </Badge>
               ))}
               {appliedCountFilters?.leadSource && (
-                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-indigo-500/15 text-indigo-700 dark:text-indigo-300 font-medium border border-indigo-500/30 text-[11px]">
+                <Badge tone="info">
                   Source: {appliedCountFilters.leadSource}
-                </span>
+                </Badge>
               )}
               {appliedCountFilters?.leadResponse &&
                 !modalSelectedResponses.includes(appliedCountFilters.leadResponse) && (
-                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-purple-500/15 text-purple-700 dark:text-purple-300 font-medium border border-purple-500/30 text-[11px]">
+                  <Badge tone="info">
                     Response: {appliedCountFilters.leadResponse}
-                  </span>
+                  </Badge>
                 )}
               {appliedCountFilters?.leadOwnerId && (
-                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 font-medium border border-emerald-500/30 text-[11px]">
+                <Badge tone="ok">
                   Owner:{" "}
                   {allotmentUsers.find((u) => u.id === appliedCountFilters.leadOwnerId)?.name ||
                     appliedCountFilters.leadOwnerId}
-                </span>
+                </Badge>
               )}
               {appliedCountFilters?.teamId && (
-                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-amber-500/15 text-amber-700 dark:text-amber-300 font-medium border border-amber-500/30 text-[11px]">
+                <Badge tone="warn">
                   Team:{" "}
                   {availableTeams.find((t) => t.id === appliedCountFilters.teamId)?.name ||
                     appliedCountFilters.teamId}
-                </span>
+                </Badge>
               )}
               {appliedCountFilters?.leadAssignment && (
-                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-teal-500/15 text-teal-700 dark:text-teal-300 font-medium border border-teal-500/30 text-[11px]">
+                <Badge tone="info">
                   Assignment: {appliedCountFilters.leadAssignment}
-                </span>
+                </Badge>
               )}
               {appliedCountFilters?.startDate && appliedCountFilters?.endDate && (
-                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-cyan-500/15 text-cyan-700 dark:text-cyan-300 font-medium border border-cyan-500/30 text-[11px]">
+                <Badge tone="info">
                   Date: {appliedCountFilters.startDate} to {appliedCountFilters.endDate}
-                </span>
+                </Badge>
               )}
             </div>
-            <button
+            <Button
               type="button"
+              variant="ghost"
+              size="sm"
               onClick={handleResetAllFilters}
-              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-slate-500 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 font-semibold transition-colors cursor-pointer shrink-0"
+              className="!text-rose-500 hover:!bg-rose-500/10 shrink-0"
             >
               <X className="size-3.5" />
               <span>Clear Filters</span>
-            </button>
-          </div>
+            </Button>
+          </Card>
         )}
 
       {/* Horizontal Lead Cards List */}
@@ -835,19 +847,21 @@ export function LeadsListClient({
             const isSelected = selectedLeadIds.includes(lead.id);
 
             return (
-              <div
+              <Card
                 key={lead.id}
                 onClick={() => handleOpenLeadDrawer(lead.id)}
-                className={`group rounded-2xl p-4 transition-all duration-150 cursor-pointer border ${isSelected
-                  ? "bg-violet-500/[0.04] dark:bg-violet-500/10 border-violet-500/60 ring-2 ring-violet-500/30 shadow-md shadow-violet-500/10"
-                  : isHighlighted
-                    ? "bg-violet-500/[0.08] dark:bg-violet-500/15 border-violet-500/60 shadow-md shadow-violet-500/10 ring-1 ring-violet-500/30"
-                    : "bg-white/75 dark:bg-[#0c1322]/70 backdrop-blur-xl border-slate-200/80 dark:border-white/[0.08] hover:border-violet-400/50 dark:hover:border-violet-500/30 hover:shadow-md hover:bg-slate-50/70 dark:hover:bg-white/[0.02]"
-                  }`}
+                className={cn(
+                  "group p-4 transition-all duration-150 cursor-pointer overflow-visible",
+                  isSelected
+                    ? "border-[var(--brand)] ring-2 ring-[var(--brand)]/30 shadow-md bg-[var(--brand)]/[0.04] dark:bg-[var(--brand)]/10"
+                    : isHighlighted
+                    ? "border-[var(--brand)]/80 ring-1 ring-[var(--brand)]/30 shadow-md bg-[var(--brand)]/[0.06] dark:bg-[var(--brand)]/15"
+                    : "hover:border-[var(--brand)]/50 hover:shadow-md"
+                )}
               >
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 lg:gap-6 items-start">
                   {/* LEFT SECTION (Identification & Assignment) */}
-                  <div className="lg:col-span-4 space-y-2.5 lg:border-r border-slate-200/60 dark:border-white/[0.06] lg:pr-4">
+                  <div className="lg:col-span-4 space-y-2.5 lg:border-r border-[var(--border)] lg:pr-4">
                     <div className="flex items-center justify-between gap-2">
                       <div className="flex items-center gap-2">
                         <input
@@ -858,16 +872,16 @@ export function LeadsListClient({
                             toggleLeadSelection(lead.id);
                           }}
                           onClick={(e) => e.stopPropagation()}
-                          className="size-4 rounded-md border-slate-300 dark:border-slate-700 text-violet-600 focus:ring-violet-500/30 cursor-pointer"
+                          className="size-4 rounded border-[var(--border)] text-[var(--brand)] focus:ring-[var(--brand)]/30 cursor-pointer"
                           aria-label={`Select lead ${lead.name}`}
                         />
-                        <span className="inline-flex items-center gap-1 font-mono text-[11px] font-semibold text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-white/[0.06] px-2 py-0.5 rounded-md border border-slate-250 dark:border-white/[0.08]">
-                          <Hash className="size-3 text-slate-400" />
+                        <span className="inline-flex items-center gap-1 font-mono text-[11px] font-semibold text-[var(--muted)] bg-[var(--glass-stroke)] px-2 py-0.5 rounded-md border border-[var(--border)]">
+                          <Hash className="size-3 text-[var(--muted)]" />
                           ID: {lead.id.slice(-8)}
                         </span>
                       </div>
-                      <span className="flex items-center gap-1 text-[11px] text-slate-400">
-                        <Calendar className="size-3 text-slate-400" />
+                      <span className="flex items-center gap-1 text-[11px] text-[var(--muted)]">
+                        <Calendar className="size-3 text-[var(--muted)]" />
                         <span>
                           Created:{" "}
                           {new Date(lead.createdAt).toLocaleDateString('en-GB', {
@@ -880,65 +894,65 @@ export function LeadsListClient({
                     </div>
 
                     <div>
-                      <h3 className="text-sm font-bold text-slate-900 dark:text-white group-hover:text-violet-600 dark:group-hover:text-violet-400 transition-colors">
+                      <h3 className="text-sm font-bold text-[var(--text)] group-hover:text-[var(--brand)] transition-colors">
                         {lead.name}
                       </h3>
                     </div>
 
                     <div className="pt-0.5 flex items-center gap-2 text-xs">
-                      <span className="text-[10px] font-medium uppercase tracking-wider text-slate-400 shrink-0">
+                      <span className="text-[10px] font-medium uppercase tracking-wider text-[var(--muted)] shrink-0">
                         Assigned:
                       </span>
                       {lead.allotTo ? (
                         <div className="flex items-center gap-1.5 truncate">
-                          <span className="size-5 rounded-full bg-violet-500/15 text-violet-700 dark:text-violet-300 font-bold text-[9px] flex items-center justify-center shrink-0">
+                          <span className="size-5 rounded-full bg-[var(--brand)]/15 text-[var(--brand)] font-bold text-[9px] flex items-center justify-center shrink-0">
                             {lead.allotTo.name.slice(0, 1).toUpperCase()}
                           </span>
-                          <span className="font-semibold text-slate-800 dark:text-slate-200 truncate">
+                          <span className="font-semibold text-[var(--text)] truncate">
                             {lead.allotTo.name}
                           </span>
-                          <span className="text-[10px] font-mono text-slate-400 shrink-0">
+                          <span className="text-[10px] font-mono text-[var(--muted)] shrink-0">
                             ({lead.allotTo.role})
                           </span>
                         </div>
                       ) : (
-                        <span className="text-slate-400 italic text-[11px]">Unassigned</span>
+                        <span className="text-[var(--muted)] italic text-[11px]">Unassigned</span>
                       )}
                     </div>
                   </div>
 
                   {/* MIDDLE SECTION (Contact & Location) */}
-                  <div className="lg:col-span-4 space-y-2 lg:border-r border-slate-200/60 dark:border-white/[0.06] lg:pr-4">
-                    <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1">
-                      <User className="size-3 text-slate-400" /> Contact Details
+                  <div className="lg:col-span-4 space-y-2 lg:border-r border-[var(--border)] lg:pr-4">
+                    <div className="text-[10px] font-bold uppercase tracking-wider text-[var(--muted)] flex items-center gap-1">
+                      <User className="size-3 text-[var(--muted)]" /> Contact Details
                     </div>
 
                     <div className="space-y-1.5 text-xs">
-                      <div className="flex items-center gap-2 text-slate-800 dark:text-slate-200">
-                        <span className="text-slate-400 text-[11px] w-14 shrink-0">Name:</span>
+                      <div className="flex items-center gap-2 text-[var(--text)]">
+                        <span className="text-[var(--muted)] text-[11px] w-14 shrink-0">Name:</span>
                         <span className="font-semibold">{lead.name}</span>
                       </div>
 
                       <div className="flex items-center gap-2">
-                        <span className="text-slate-400 text-[11px] w-14 shrink-0">Mobile:</span>
-                        <div className="flex items-center gap-1 font-mono font-bold text-violet-600 dark:text-violet-400">
+                        <span className="text-[var(--muted)] text-[11px] w-14 shrink-0">Mobile:</span>
+                        <div className="flex items-center gap-1 font-mono font-bold text-[var(--brand)]">
                           <Phone className="size-3 shrink-0" />
                           <span>{lead.mobile}</span>
                         </div>
                       </div>
 
                       <div className="flex items-center gap-2">
-                        <span className="text-slate-400 text-[11px] w-14 shrink-0">Email:</span>
-                        <div className="flex items-center gap-1 text-slate-600 dark:text-slate-300 truncate">
-                          <Mail className="size-3 text-slate-400 shrink-0" />
+                        <span className="text-[var(--muted)] text-[11px] w-14 shrink-0">Email:</span>
+                        <div className="flex items-center gap-1 text-[var(--text)] truncate">
+                          <Mail className="size-3 text-[var(--muted)] shrink-0" />
                           <span className="truncate">{lead.email || "—"}</span>
                         </div>
                       </div>
 
                       <div className="flex items-center gap-2">
-                        <span className="text-slate-400 text-[11px] w-14 shrink-0">State:</span>
-                        <div className="flex items-center gap-1 text-slate-600 dark:text-slate-300">
-                          <MapPin className="size-3 text-slate-400 shrink-0" />
+                        <span className="text-[var(--muted)] text-[11px] w-14 shrink-0">State:</span>
+                        <div className="flex items-center gap-1 text-[var(--text)]">
+                          <MapPin className="size-3 text-[var(--muted)] shrink-0" />
                           <span>
                             {[lead.city, lead.state].filter(Boolean).join(", ") || lead.state || "—"}
                           </span>
@@ -951,17 +965,13 @@ export function LeadsListClient({
                   <div className="lg:col-span-4 space-y-2.5">
                     <div className="flex items-center justify-between gap-2">
                       <div className="flex items-center gap-2 flex-wrap">
-                        <span
-                          className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold border uppercase tracking-wider ${getStatusBadgeClass(
-                            lead.status
-                          )}`}
-                        >
+                        <Badge tone={getStatusBadgeTone(lead.status)}>
                           {lead.status}
-                        </span>
+                        </Badge>
 
                         {lead.segment && (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-semibold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
-                            <TrendingUp className="size-2.5 text-purple-500" />
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-semibold bg-[var(--glass-stroke)] text-[var(--text)] border border-[var(--border)]">
+                            <TrendingUp className="size-2.5 text-[var(--brand)]" />
                             {lead.segment}
                           </span>
                         )}
@@ -976,7 +986,7 @@ export function LeadsListClient({
                               type="button"
                               title="Actions"
                               aria-label="Actions"
-                              className="size-7 rounded-lg flex items-center justify-center bg-slate-100/90 hover:bg-purple-100/80 text-slate-600 hover:text-purple-700 dark:bg-white/[0.06] dark:hover:bg-purple-950/50 dark:text-slate-300 dark:hover:text-purple-300 border border-slate-200/90 dark:border-white/[0.08] transition-colors shadow-2xs"
+                              className="size-7 rounded-lg flex items-center justify-center bg-[var(--glass-stroke)] hover:bg-[var(--brand)]/15 text-[var(--text)] hover:text-[var(--brand)] border border-[var(--border)] transition-colors shadow-2xs cursor-pointer"
                             >
                               <SlidersHorizontal className="size-3.5" />
                             </button>
@@ -986,41 +996,41 @@ export function LeadsListClient({
                           </div>
 
                           {/* Hover Popup: 3 Rows with [Add Icon] [View Icon] */}
-                          <div className="absolute right-0 top-full mt-1.5 hidden group-hover/actions:block w-44 rounded-xl bg-white dark:bg-[#0c1220] border border-slate-200/90 dark:border-white/[0.12] shadow-2xl p-2 z-50 animate-in fade-in zoom-in-95 duration-100 space-y-1">
+                          <div className="absolute right-0 top-full mt-1.5 hidden group-hover/actions:block w-44 rounded-xl bg-[var(--panel-solid)] border border-[var(--border)] shadow-2xl p-2 z-50 animate-in fade-in zoom-in-95 duration-100 space-y-1">
                             {/* Trial Row */}
-                            <div className="flex items-center justify-between px-2 py-1.5 rounded-lg hover:bg-slate-50 dark:hover:bg-white/[0.04] transition-colors text-xs">
-                              <span className="font-semibold text-slate-700 dark:text-slate-300">Trial</span>
+                            <div className="flex items-center justify-between px-2 py-1.5 rounded-lg hover:bg-[var(--glass-stroke)] transition-colors text-xs">
+                              <span className="font-semibold text-[var(--text)]">Trial</span>
                               <div className="flex items-center gap-1">
-                                <button type="button" title="Add Trial" className="p-1 rounded-md hover:bg-emerald-50 dark:hover:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 transition-colors">
+                                <button type="button" title="Add Trial" className="p-1 rounded-md hover:bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 transition-colors cursor-pointer">
                                   <Plus className="size-3" />
                                 </button>
-                                <button type="button" title="View Trial" className="p-1 rounded-md hover:bg-blue-50 dark:hover:bg-blue-950/40 text-blue-600 dark:text-blue-400 transition-colors">
+                                <button type="button" title="View Trial" className="p-1 rounded-md hover:bg-blue-500/15 text-blue-600 dark:text-blue-400 transition-colors cursor-pointer">
                                   <Eye className="size-3" />
                                 </button>
                               </div>
                             </div>
 
                             {/* Payment Row */}
-                            <div className="flex items-center justify-between px-2 py-1.5 rounded-lg hover:bg-slate-50 dark:hover:bg-white/[0.04] transition-colors text-xs">
-                              <span className="font-semibold text-slate-700 dark:text-slate-300">Payment</span>
+                            <div className="flex items-center justify-between px-2 py-1.5 rounded-lg hover:bg-[var(--glass-stroke)] transition-colors text-xs">
+                              <span className="font-semibold text-[var(--text)]">Payment</span>
                               <div className="flex items-center gap-1">
-                                <button type="button" title="Add Payment" className="p-1 rounded-md hover:bg-emerald-50 dark:hover:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 transition-colors">
+                                <button type="button" title="Add Payment" className="p-1 rounded-md hover:bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 transition-colors cursor-pointer">
                                   <Plus className="size-3" />
                                 </button>
-                                <button type="button" title="View Payment" className="p-1 rounded-md hover:bg-blue-50 dark:hover:bg-blue-950/40 text-blue-600 dark:text-blue-400 transition-colors">
+                                <button type="button" title="View Payment" className="p-1 rounded-md hover:bg-blue-500/15 text-blue-600 dark:text-blue-400 transition-colors cursor-pointer">
                                   <Eye className="size-3" />
                                 </button>
                               </div>
                             </div>
 
                             {/* Invoice Row */}
-                            <div className="flex items-center justify-between px-2 py-1.5 rounded-lg hover:bg-slate-50 dark:hover:bg-white/[0.04] transition-colors text-xs">
-                              <span className="font-semibold text-slate-700 dark:text-slate-300">Invoice</span>
+                            <div className="flex items-center justify-between px-2 py-1.5 rounded-lg hover:bg-[var(--glass-stroke)] transition-colors text-xs">
+                              <span className="font-semibold text-[var(--text)]">Invoice</span>
                               <div className="flex items-center gap-1">
-                                <button type="button" title="Add Invoice" className="p-1 rounded-md hover:bg-emerald-50 dark:hover:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 transition-colors">
+                                <button type="button" title="Add Invoice" className="p-1 rounded-md hover:bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 transition-colors cursor-pointer">
                                   <Plus className="size-3" />
                                 </button>
-                                <button type="button" title="View Invoice" className="p-1 rounded-md hover:bg-blue-50 dark:hover:bg-blue-950/40 text-blue-600 dark:text-blue-400 transition-colors">
+                                <button type="button" title="View Invoice" className="p-1 rounded-md hover:bg-blue-500/15 text-blue-600 dark:text-blue-400 transition-colors cursor-pointer">
                                   <Eye className="size-3" />
                                 </button>
                               </div>
@@ -1035,7 +1045,7 @@ export function LeadsListClient({
                             onClick={() => setCallUpdateModalLead(lead)}
                             title="Add Update"
                             aria-label="Add Update"
-                            className="size-7 rounded-lg flex items-center justify-center bg-slate-100/90 hover:bg-indigo-100/80 text-slate-600 hover:text-indigo-700 dark:bg-white/[0.06] dark:hover:bg-indigo-950/50 dark:text-slate-300 dark:hover:text-indigo-300 border border-slate-200/90 dark:border-white/[0.08] transition-colors shadow-2xs"
+                            className="size-7 rounded-lg flex items-center justify-center bg-[var(--glass-stroke)] hover:bg-[var(--brand)]/15 text-[var(--text)] hover:text-[var(--brand)] border border-[var(--border)] transition-colors shadow-2xs cursor-pointer"
                           >
                             <Headphones className="size-3.5" />
                           </button>
@@ -1051,7 +1061,7 @@ export function LeadsListClient({
                             onClick={() => handleOpenLeadDrawer(lead.id)}
                             title="Edit"
                             aria-label="Edit lead"
-                            className="size-7 rounded-lg flex items-center justify-center bg-slate-100/90 hover:bg-emerald-100/80 text-slate-600 hover:text-emerald-700 dark:bg-white/[0.06] dark:hover:bg-emerald-950/50 dark:text-slate-300 dark:hover:text-emerald-300 border border-slate-200/90 dark:border-white/[0.08] transition-colors shadow-2xs"
+                            className="size-7 rounded-lg flex items-center justify-center bg-[var(--glass-stroke)] hover:bg-emerald-500/15 text-[var(--text)] hover:text-emerald-600 dark:hover:text-emerald-400 border border-[var(--border)] transition-colors shadow-2xs cursor-pointer"
                           >
                             <Pencil className="size-3.5" />
                           </button>
@@ -1060,7 +1070,7 @@ export function LeadsListClient({
                           </span>
                         </div>
 
-                        {/* 3. Call Icon (UI-Only Placeholder) */}
+                        {/* 3. Call Icon */}
                         <div className="relative group/tip flex items-center justify-center">
                           <button
                             type="button"
@@ -1069,7 +1079,7 @@ export function LeadsListClient({
                             }}
                             title="Call"
                             aria-label="Call lead"
-                            className="size-7 rounded-lg flex items-center justify-center bg-slate-100/90 hover:bg-blue-100/80 text-slate-600 hover:text-blue-700 dark:bg-white/[0.06] dark:hover:bg-blue-950/50 dark:text-slate-300 dark:hover:text-blue-300 border border-slate-200/90 dark:border-white/[0.08] transition-colors shadow-2xs"
+                            className="size-7 rounded-lg flex items-center justify-center bg-[var(--glass-stroke)] hover:bg-blue-500/15 text-[var(--text)] hover:text-blue-600 dark:hover:text-blue-400 border border-[var(--border)] transition-colors shadow-2xs cursor-pointer"
                           >
                             <Phone className="size-3.5" />
                           </button>
@@ -1078,7 +1088,7 @@ export function LeadsListClient({
                           </span>
                         </div>
 
-                        {/* 4. Dispose Icon (Triggers working lead disposition logic) */}
+                        {/* 4. Dispose Icon */}
                         <div className="relative group/tip flex items-center justify-center">
                           <button
                             type="button"
@@ -1086,10 +1096,12 @@ export function LeadsListClient({
                             onClick={() => setConfirmDisposeLead(lead)}
                             title={lead.status === "DISPOSED" ? "Already Disposed" : "Dispose"}
                             aria-label="Dispose lead"
-                            className={`size-7 rounded-lg flex items-center justify-center border transition-colors shadow-2xs ${lead.status === "DISPOSED"
-                              ? "bg-slate-100 text-slate-400 dark:bg-slate-800/60 dark:text-slate-600 border-slate-200 dark:border-slate-800 cursor-not-allowed"
-                              : "bg-slate-100/90 hover:bg-rose-100/80 text-slate-600 hover:text-rose-700 dark:bg-white/[0.06] dark:hover:bg-rose-950/50 dark:text-slate-300 dark:hover:text-rose-300 border-slate-200/90 dark:border-white/[0.08]"
-                              }`}
+                            className={cn(
+                              "size-7 rounded-lg flex items-center justify-center border transition-colors shadow-2xs",
+                              lead.status === "DISPOSED"
+                                ? "bg-[var(--glass-stroke)] text-[var(--muted)] opacity-50 cursor-not-allowed"
+                                : "bg-[var(--glass-stroke)] hover:bg-rose-500/15 text-[var(--text)] hover:text-rose-600 dark:hover:text-rose-400 border-[var(--border)] cursor-pointer"
+                            )}
                           >
                             {isDisposingId === lead.id ? (
                               <Loader2 className="size-3.5 animate-spin text-rose-500" />
@@ -1102,14 +1114,14 @@ export function LeadsListClient({
                           </span>
                         </div>
 
-                        {/* 5. Timeline Icon (Displays Created By & Created At timestamps) */}
+                        {/* 5. Timeline Icon */}
                         <div className="relative group/tip flex items-center justify-center">
                           <button
                             type="button"
                             onClick={() => setTimelineModalLead(lead)}
                             title="Timeline"
                             aria-label="View Timeline"
-                            className="size-7 rounded-lg flex items-center justify-center bg-slate-100/90 hover:bg-sky-100/80 text-slate-600 hover:text-sky-700 dark:bg-white/[0.06] dark:hover:bg-sky-950/50 dark:text-slate-300 dark:hover:text-sky-300 border border-slate-200/90 dark:border-white/[0.08] transition-colors shadow-2xs"
+                            className="size-7 rounded-lg flex items-center justify-center bg-[var(--glass-stroke)] hover:bg-cyan-500/15 text-[var(--text)] hover:text-cyan-600 dark:hover:text-cyan-400 border border-[var(--border)] transition-colors shadow-2xs cursor-pointer"
                           >
                             <Clock className="size-3.5" />
                           </button>
@@ -1118,7 +1130,7 @@ export function LeadsListClient({
                           </span>
                         </div>
 
-                        {/* 6. WhatsApp Icon (UI-Only Placeholder) */}
+                        {/* 6. WhatsApp Icon */}
                         <div className="relative group/tip flex items-center justify-center">
                           <button
                             type="button"
@@ -1129,7 +1141,7 @@ export function LeadsListClient({
                             }}
                             title="WhatsApp"
                             aria-label="WhatsApp"
-                            className="size-7 rounded-lg flex items-center justify-center bg-slate-100/90 hover:bg-emerald-100/80 text-emerald-600 hover:text-emerald-700 dark:bg-white/[0.06] dark:hover:bg-emerald-950/50 dark:text-emerald-400 dark:hover:text-emerald-300 border border-slate-200/90 dark:border-white/[0.08] transition-colors shadow-2xs"
+                            className="size-7 rounded-lg flex items-center justify-center bg-[var(--glass-stroke)] hover:bg-emerald-500/15 text-[var(--text)] hover:text-emerald-600 dark:hover:text-emerald-400 border border-[var(--border)] transition-colors shadow-2xs cursor-pointer"
                           >
                             <MessageCircle className="size-3.5" />
                           </button>
@@ -1142,19 +1154,21 @@ export function LeadsListClient({
 
                     <div className="space-y-1.5 text-xs">
                       <div className="flex items-center gap-2">
-                        <span className="text-slate-400 text-[11px] w-20 shrink-0">Response:</span>
-                        <span className="font-semibold text-slate-800 dark:text-slate-200">
+                        <span className="text-[var(--muted)] text-[11px] w-20 shrink-0">Response:</span>
+                        <span className="font-semibold text-[var(--text)]">
                           {lead.leadResponse || "—"}
                         </span>
                       </div>
 
                       <div className="flex items-center gap-2">
-                        <span className="text-slate-400 text-[11px] w-20 shrink-0">Comment:</span>
+                        <span className="text-[var(--muted)] text-[11px] w-20 shrink-0">Comment:</span>
                         <span
-                          className={`text-[11px] truncate max-w-[280px] ${lead.description
-                            ? "text-slate-700 dark:text-slate-300 font-medium not-italic"
-                            : "text-slate-400 italic"
-                            }`}
+                          className={cn(
+                            "text-[11px] truncate max-w-[280px]",
+                            lead.description
+                              ? "text-[var(--text)] font-medium not-italic"
+                              : "text-[var(--muted)] italic"
+                          )}
                           title={lead.description || undefined}
                         >
                           {lead.description || "—"}
@@ -1162,7 +1176,7 @@ export function LeadsListClient({
                       </div>
 
                       <div className="flex items-center gap-2">
-                        <span className="text-slate-400 text-[11px] w-20 shrink-0">Callback:</span>
+                        <span className="text-[var(--muted)] text-[11px] w-20 shrink-0">Callback:</span>
                         {lead.callbackDate ? (
                           <div className="flex items-center gap-1 text-[11px] text-amber-600 dark:text-amber-400 font-medium">
                             <Clock className="size-3 shrink-0" />
@@ -1176,75 +1190,55 @@ export function LeadsListClient({
                             </span>
                           </div>
                         ) : (
-                          <span className="text-slate-400 text-[11px]">—</span>
+                          <span className="text-[var(--muted)] text-[11px]">—</span>
                         )}
                       </div>
 
                       <div className="flex items-center gap-2">
-                        <span className="text-slate-400 text-[11px] w-20 shrink-0">Source:</span>
-                        <div className="flex items-center gap-1 text-slate-600 dark:text-slate-300">
-                          <Tag className="size-3 text-slate-400 shrink-0" />
+                        <span className="text-[var(--muted)] text-[11px] w-20 shrink-0">Source:</span>
+                        <div className="flex items-center gap-1 text-[var(--text)]">
+                          <Tag className="size-3 text-[var(--muted)] shrink-0" />
                           <span>{lead.leadSource || "—"}</span>
                         </div>
                       </div>
                     </div>
                   </div>
                 </div>
-              </div>
+              </Card>
             );
           })
         ) : (
-          <div className="p-12 text-center rounded-2xl bg-white/75 dark:bg-[#0c1322]/70 backdrop-blur-xl border border-slate-200/80 dark:border-white/[0.08] shadow-xs text-slate-400 space-y-2">
-            <div className="inline-flex items-center justify-center size-10 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-400 mb-1">
-              <Inbox className="size-5" />
-            </div>
-            <p className="text-sm font-semibold text-slate-700 dark:text-slate-300">
-              No leads found
-            </p>
-            <p className="text-xs text-slate-400 max-w-sm mx-auto">
-              {searchQuery || statusFilter !== "ALL"
+          <EmptyState
+            icon="Inbox"
+            title="No leads found"
+            description={
+              searchQuery || statusFilter !== "ALL"
                 ? "No leads match the selected filter or search query."
-                : "Start building your sales pipeline by adding your first lead."}
-            </p>
+                : "Start building your sales pipeline by adding your first lead."
+            }
+          >
             <div className="pt-2">
-              <Link
-                href="/admin/leads/add"
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-purple-600 text-white hover:bg-purple-500 transition-colors"
-              >
-                <UserPlus className="size-3.5" />
-                <span>Add First Lead</span>
+              <Link href="/admin/leads/add">
+                <Button variant="primary" size="sm">
+                  Add First Lead
+                </Button>
               </Link>
             </div>
-          </div>
+          </EmptyState>
         )}
 
-        {/* Pagination Footer */}
+        {/* Server Pagination Footer */}
         {totalPages > 1 && (
-          <div className="p-3.5 rounded-2xl bg-white/75 dark:bg-[#0c1322]/70 backdrop-blur-xl border border-slate-200/80 dark:border-white/[0.08] shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-[0_8px_30px_rgb(0,0,0,0.25)] flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
+          <Card className="p-3.5 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-[var(--muted)]">
             <span>
               Page {currentPage} of {totalPages} ({totalCount} total)
             </span>
-            <div className="flex items-center gap-1">
-              <button
-                type="button"
-                onClick={() => handlePageChange(currentPage - 1)}
-                disabled={currentPage <= 1 || isPending}
-                className="p-1.5 rounded-lg border border-slate-200 dark:border-white/[0.1] disabled:opacity-40 hover:bg-slate-100 dark:hover:bg-white/[0.08] transition-colors"
-                aria-label="Previous page"
-              >
-                <ChevronLeft className="size-4" />
-              </button>
-              <button
-                type="button"
-                onClick={() => handlePageChange(currentPage + 1)}
-                disabled={currentPage >= totalPages || isPending}
-                className="p-1.5 rounded-lg border border-slate-200 dark:border-white/[0.1] disabled:opacity-40 hover:bg-slate-100 dark:hover:bg-white/[0.08] transition-colors"
-                aria-label="Next page"
-              >
-                <ChevronRight className="size-4" />
-              </button>
-            </div>
-          </div>
+            <Pagination
+              page={currentPage}
+              pages={totalPages}
+              onChange={handlePageChange}
+            />
+          </Card>
         )}
       </div>
 
@@ -1255,51 +1249,26 @@ export function LeadsListClient({
         onClose={() => setTimelineModalLead(null)}
       />
 
-      {/* Confirmation Modal for Lead Disposition */}
-      {confirmDisposeLead && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={(e) => e.stopPropagation()}>
-          <div
-            className="fixed inset-0 bg-slate-950/60 backdrop-blur-sm transition-opacity"
-            onClick={() => setConfirmDisposeLead(null)}
-          />
-
-          <div className="relative w-full max-w-md rounded-2xl bg-white dark:bg-[#0c1220] border border-slate-200/90 dark:border-white/[0.12] shadow-2xl p-5 z-10 animate-in fade-in zoom-in-95 duration-150 space-y-4">
-            <div className="flex items-start gap-3">
-              <div className="p-2 rounded-xl bg-rose-100 dark:bg-rose-950/50 text-rose-600 dark:text-rose-400 shrink-0">
-                <AlertTriangle className="size-5" />
-              </div>
-              <div className="space-y-1">
-                <h3 className="text-sm font-bold text-slate-900 dark:text-white">
-                  Mark Lead as Disposed?
-                </h3>
-                <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
-                  Are you sure you want to dispose <strong className="text-slate-800 dark:text-slate-200">{confirmDisposeLead.name}</strong> ({confirmDisposeLead.mobile})? This updates the lead status to DISPOSED and refreshes your pipeline.
-                </p>
-              </div>
-            </div>
-
-            <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-200/80 dark:border-white/[0.08]">
-              <button
-                type="button"
-                disabled={isDisposingId !== null}
-                onClick={() => setConfirmDisposeLead(null)}
-                className="px-4 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-xs font-semibold transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                disabled={isDisposingId !== null}
-                onClick={() => handleDisposeLead(confirmDisposeLead)}
-                className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-700 text-white text-xs font-semibold transition-colors shadow-xs disabled:opacity-50"
-              >
-                {isDisposingId ? <Loader2 className="size-3.5 animate-spin" /> : <CircleOff className="size-3.5" />}
-                <span>Confirm Dispose</span>
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Confirmation Modal for Lead Disposition with ConfirmDialog */}
+      <ConfirmDialog
+        open={!!confirmDisposeLead}
+        onClose={() => setConfirmDisposeLead(null)}
+        onConfirm={() => confirmDisposeLead && handleDisposeLead(confirmDisposeLead)}
+        title="Mark Lead as Disposed?"
+        description={
+          confirmDisposeLead ? (
+            <span>
+              Are you sure you want to dispose{" "}
+              <strong className="text-[var(--text)]">{confirmDisposeLead.name}</strong> (
+              {confirmDisposeLead.mobile})? This updates the lead status to DISPOSED and refreshes your pipeline.
+            </span>
+          ) : undefined
+        }
+        confirmText="Confirm Dispose"
+        cancelText="Cancel"
+        tone="danger"
+        loading={isDisposingId !== null}
+      />
 
       {/* Call Response (Add Update) Modal */}
       <LeadCallUpdateModal

@@ -4,11 +4,17 @@ import { useState, useTransition } from "react";
 import type { SafeActivityLog } from "./actions";
 import { getActivityLogsAction } from "./actions";
 import {
+  PageHeader,
+  Card,
+  Button,
+  Badge,
+  Select,
+  Pagination,
+  EmptyState,
+} from "@/src/components/ui";
+import {
   History,
   Filter,
-  RefreshCw,
-  ChevronLeft,
-  ChevronRight,
   UserPlus,
   Edit2,
   KeyRound,
@@ -76,119 +82,120 @@ export function ActivityLogClient({
     fetchLogs(newPage, selectedAction);
   };
 
-  const getActionBadge = (action: string) => {
+  const getActionConfig = (action: string) => {
     switch (action) {
       case "USER_CREATED":
         return {
           icon: UserPlus,
           label: "User Created",
-          color: "bg-emerald-500/15 text-emerald-300 border-emerald-500/30",
+          tone: "ok" as const,
         };
       case "USER_UPDATED":
         return {
           icon: Edit2,
           label: "User Updated",
-          color: "bg-blue-500/15 text-blue-300 border-blue-500/30",
+          tone: "info" as const,
         };
       case "PASSWORD_RESET":
         return {
           icon: KeyRound,
           label: "Password Reset",
-          color: "bg-amber-500/15 text-amber-300 border-amber-500/30",
+          tone: "warn" as const,
         };
       case "STATUS_TOGGLED":
         return {
           icon: ToggleLeft,
           label: "Status Changed",
-          color: "bg-purple-500/15 text-purple-300 border-purple-500/30",
+          tone: "info" as const,
         };
       case "TEAM_CREATED":
         return {
           icon: Layers,
           label: "Team Created",
-          color: "bg-indigo-500/15 text-indigo-300 border-indigo-500/30",
+          tone: "ok" as const,
         };
       case "TEAM_UPDATED":
         return {
           icon: Edit2,
           label: "Team Updated",
-          color: "bg-indigo-500/15 text-indigo-300 border-indigo-500/30",
+          tone: "info" as const,
         };
       case "TEAM_DELETED":
         return {
           icon: Trash2,
           label: "Team Deleted",
-          color: "bg-rose-500/15 text-rose-300 border-rose-500/30",
+          tone: "err" as const,
         };
       case "TEAM_MEMBER_ASSIGNED":
         return {
           icon: UserCheck,
           label: "Assignment",
-          color: "bg-teal-500/15 text-teal-300 border-teal-500/30",
+          tone: "info" as const,
         };
       default:
         return {
           icon: History,
           label: action,
-          color: "bg-slate-700 text-slate-300 border-slate-600",
+          tone: "info" as const,
         };
     }
   };
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-300">
+    <div className="space-y-6 pb-12 animate-in fade-in duration-300">
       {/* Top Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-2.5">
-            <h1 className="text-2xl font-extrabold text-slate-900 dark:text-white tracking-tight">
-              Activity & Audit Log
-            </h1>
-            <span className="px-2.5 py-0.5 text-xs font-semibold rounded-full bg-violet-500/10 text-violet-700 dark:text-violet-300 border border-violet-500/20">
+      <PageHeader
+        title={
+          <div className="flex items-center gap-3">
+            <span>Activity & Audit Log</span>
+            <Badge tone="info">
               {totalCount} Recorded {totalCount === 1 ? "Event" : "Events"}
-            </span>
+            </Badge>
           </div>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-            Immutable, server-verified event trail documenting user provisioning, role assignments, and department allocations.
-          </p>
-        </div>
-
-        <div className="flex items-center gap-2.5">
-          <button
+        }
+        description="Immutable, server-verified event trail documenting user provisioning, role assignments, and department allocations."
+        breadcrumbs={[
+          { label: "Governance", href: "/admin/users" },
+          { label: "Activity Log" },
+        ]}
+        actions={
+          <Button
+            variant="sec"
+            size="sm"
+            icon="RefreshCw"
+            loading={isPending}
             onClick={() => fetchLogs()}
-            disabled={isPending}
-            className="p-2.5 rounded-xl bg-white/70 dark:bg-white/[0.06] border border-slate-200/80 dark:border-white/[0.08] text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/[0.1] transition-colors disabled:opacity-50 cursor-pointer"
-            title="Refresh audit trail"
-          >
-            <RefreshCw className={`size-4 ${isPending ? "animate-spin" : ""}`} />
-          </button>
-        </div>
-      </div>
+            aria-label="Refresh audit trail"
+          />
+        }
+      />
 
       {/* Filter Bar */}
-      <div className="p-4 rounded-2xl bg-white/75 dark:bg-[#0c1322]/70 border border-slate-200/80 dark:border-white/[0.08] backdrop-blur-xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-[0_8px_30px_rgb(0,0,0,0.25)] flex flex-col sm:flex-row items-center justify-between gap-3">
-        <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
-          <Filter className="size-3.5 text-violet-500" />
-          <span className="font-medium">Filter by Action:</span>
-        </div>
+      <Card className="p-3.5">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+          <div className="flex items-center gap-2 text-xs text-[var(--muted)]">
+            <Filter className="size-3.5 text-[var(--brand)]" />
+            <span className="font-medium">Filter by Action:</span>
+          </div>
 
-        <div className="w-full sm:w-auto">
-          <select
-            value={selectedAction}
-            onChange={(e) => handleActionChange(e.target.value)}
-            className="w-full sm:w-64 px-3.5 py-2 rounded-xl bg-slate-50/70 dark:bg-white/[0.04] border border-slate-200/90 dark:border-white/[0.08] text-xs text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-violet-500 focus:border-violet-500 transition-all"
-          >
-            {ACTION_OPTIONS.map((opt) => (
-              <option key={opt.value} value={opt.value}>
-                {opt.label}
-              </option>
-            ))}
-          </select>
+          <div className="w-full sm:w-auto">
+            <Select
+              value={selectedAction}
+              onChange={(e) => handleActionChange(e.target.value)}
+              className="text-xs w-full sm:w-64"
+            >
+              {ACTION_OPTIONS.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
+            </Select>
+          </div>
         </div>
-      </div>
+      </Card>
 
       {/* Audit Log Table */}
-      <div className="rounded-2xl bg-white/75 dark:bg-[#0c1322]/70 border border-slate-200/80 dark:border-white/[0.08] backdrop-blur-xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-[0_8px_30px_rgb(0,0,0,0.25)] overflow-hidden">
+      <Card className="p-0 overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse text-xs">
             <thead>
@@ -202,18 +209,18 @@ export function ActivityLogClient({
             <tbody className="divide-y divide-slate-200/70 dark:divide-white/[0.05]">
               {logs.length === 0 ? (
                 <tr>
-                  <td colSpan={4} className="py-12 text-center text-slate-400">
-                    <History className="size-8 mx-auto text-slate-400 mb-2" />
-                    <p className="font-semibold text-slate-700 dark:text-slate-300">No audit events recorded</p>
-                    <p className="text-[11px] text-slate-400 mt-0.5">
-                      Actions performed in User Management or Teams will automatically appear here.
-                    </p>
+                  <td colSpan={4} className="py-8">
+                    <EmptyState
+                      icon="Inbox"
+                      title="No Audit Events Recorded"
+                      description="Administrative operations performed in User Management or Teams will automatically appear here."
+                    />
                   </td>
                 </tr>
               ) : (
                 logs.map((log) => {
-                  const badge = getActionBadge(log.action);
-                  const Icon = badge.icon;
+                  const config = getActionConfig(log.action);
+                  const Icon = config.icon;
                   const logDate = new Date(log.createdAt);
 
                   return (
@@ -221,13 +228,12 @@ export function ActivityLogClient({
                       {/* Timestamp */}
                       <td className="py-3.5 px-4 sm:px-6 whitespace-nowrap">
                         <div className="flex items-center gap-1.5 text-slate-700 dark:text-slate-300 font-mono text-[11px]">
-                          <Clock className="size-3 text-slate-400" />
+                          <Clock className="size-3 text-[var(--muted)]" />
                           <span>
                             {logDate.toLocaleDateString(undefined, {
                               month: "short",
                               day: "numeric",
-                            })}
-                            {" "}
+                            })}{" "}
                             {logDate.toLocaleTimeString(undefined, {
                               hour: "2-digit",
                               minute: "2-digit",
@@ -238,26 +244,26 @@ export function ActivityLogClient({
 
                       {/* Action Badge */}
                       <td className="py-3.5 px-4 whitespace-nowrap">
-                        <span
-                          className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-semibold border ${badge.color}`}
-                        >
-                          <Icon className="size-3" />
-                          <span>{badge.label}</span>
-                        </span>
+                        <Badge tone={config.tone}>
+                          <span className="flex items-center gap-1">
+                            <Icon className="size-3" />
+                            <span>{config.label}</span>
+                          </span>
+                        </Badge>
                       </td>
 
                       {/* Narrative Details */}
                       <td className="py-3.5 px-4 sm:px-6 text-slate-800 dark:text-slate-200">
                         <span className="leading-relaxed block">{log.details}</span>
                         {(log.targetUser || log.targetTeam) && (
-                          <div className="flex flex-wrap items-center gap-2 mt-1 font-mono text-[10px] text-slate-500 dark:text-slate-400">
+                          <div className="flex flex-wrap items-center gap-2 mt-1 font-mono text-[10px] text-[var(--muted)]">
                             {log.targetUser && (
                               <span className="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-white/[0.04] border border-slate-200 dark:border-white/[0.08] text-slate-700 dark:text-slate-300">
                                 Target: {log.targetUser.name} ({log.targetUser.role})
                               </span>
                             )}
                             {log.targetTeam && (
-                              <span className="px-1.5 py-0.5 rounded bg-violet-500/10 border border-violet-500/20 text-violet-700 dark:text-violet-300">
+                              <span className="px-1.5 py-0.5 rounded bg-[var(--brand-soft)]/20 border border-[var(--brand)]/30 text-[var(--brand)]">
                                 Team: {log.targetTeam.name}
                               </span>
                             )}
@@ -269,20 +275,20 @@ export function ActivityLogClient({
                       <td className="py-3.5 px-4 whitespace-nowrap">
                         {log.actor ? (
                           <div className="flex items-center gap-2">
-                            <div className="size-6 rounded-lg bg-violet-500/10 text-violet-700 dark:text-violet-300 border border-violet-500/20 flex items-center justify-center font-bold text-[10px]">
+                            <div className="size-6 rounded-lg bg-[var(--brand-soft)]/20 text-[var(--brand)] border border-[var(--brand)]/20 flex items-center justify-center font-bold text-[10px]">
                               {log.actor.name.slice(0, 2).toUpperCase()}
                             </div>
                             <div className="min-w-0">
                               <span className="font-medium text-slate-900 dark:text-slate-200 text-xs block truncate">
                                 {log.actor.name}
                               </span>
-                              <span className="font-mono text-[10px] text-violet-600 dark:text-violet-400 block">
+                              <span className="font-mono text-[10px] text-[var(--brand)] block">
                                 {log.actor.role}
                               </span>
                             </div>
                           </div>
                         ) : (
-                          <span className="text-slate-400 italic text-[11px]">System</span>
+                          <span className="text-[var(--muted)] italic text-[11px]">System</span>
                         )}
                       </td>
                     </tr>
@@ -294,37 +300,20 @@ export function ActivityLogClient({
         </div>
 
         {/* Pagination Controls */}
-        <div className="p-4 border-t border-slate-200/80 dark:border-white/[0.08] bg-slate-50/60 dark:bg-white/[0.03] flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-600 dark:text-slate-400">
-          <div>
-            Showing <strong className="text-slate-900 dark:text-white">{logs.length}</strong> of{" "}
-            <strong className="text-slate-900 dark:text-white">{totalCount}</strong> recorded events
+        {totalPages > 1 && (
+          <div className="p-4 border-t border-slate-200/80 dark:border-white/[0.08] flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-[var(--muted)]">
+            <div>
+              Showing <strong className="text-slate-900 dark:text-white">{logs.length}</strong> of{" "}
+              <strong className="text-slate-900 dark:text-white">{totalCount}</strong> recorded events
+            </div>
+            <Pagination
+              page={currentPage}
+              pages={totalPages}
+              onChange={handlePageChange}
+            />
           </div>
-
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => handlePageChange(currentPage - 1)}
-              disabled={currentPage <= 1 || isPending}
-              className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-white/80 dark:bg-white/[0.06] border border-slate-200/80 dark:border-white/[0.08] text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/[0.1] disabled:opacity-40 disabled:cursor-not-allowed transition-all cursor-pointer"
-            >
-              <ChevronLeft className="size-4" />
-              <span>Previous</span>
-            </button>
-
-            <span className="font-mono px-2 text-slate-700 dark:text-slate-300">
-              Page {currentPage} of {totalPages}
-            </span>
-
-            <button
-              onClick={() => handlePageChange(currentPage + 1)}
-              disabled={currentPage >= totalPages || isPending}
-              className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-white/80 dark:bg-white/[0.06] border border-slate-200/80 dark:border-white/[0.08] text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/[0.1] disabled:opacity-40 disabled:cursor-not-allowed transition-all cursor-pointer"
-            >
-              <span>Next</span>
-              <ChevronRight className="size-4" />
-            </button>
-          </div>
-        </div>
-      </div>
+        )}
+      </Card>
     </div>
   );
 }
