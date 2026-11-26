@@ -4,6 +4,7 @@ import { requireManagerSession, handleActionError } from "@/src/lib/auth-guard";
 import { prisma } from "@/src/lib/prisma";
 import { Prisma } from "@prisma/client";
 import { getActiveLeadSourceNames } from "@/src/lib/lead-sources-helper";
+import { computeTrialDisplayStatus } from "@/src/features/trials/helpers";
 
 export interface TrialHistoryItem {
   id: string;
@@ -58,29 +59,6 @@ export interface GetTrialHistoryResult {
   currentPage?: number;
   pageSize?: number;
   error?: string;
-}
-
-/**
- * Computes dynamic visual status based on date window without mutating database rows.
- */
-function computeTrialDisplayStatus(
-  status: string,
-  startDate: Date,
-  endDate: Date
-): "Approved" | "Running" | "Expired" | "Pending" | "Rejected" {
-  const upper = (status || "").toUpperCase();
-  if (upper === "REJECTED") return "Rejected";
-  if (upper === "PENDING") return "Pending";
-  if (upper === "EXPIRED" || upper === "EXPIRE") return "Expired";
-
-  const now = new Date();
-  if (now < startDate) {
-    return "Approved";
-  }
-  if (now >= startDate && now <= endDate) {
-    return "Running";
-  }
-  return "Expired";
 }
 
 /**

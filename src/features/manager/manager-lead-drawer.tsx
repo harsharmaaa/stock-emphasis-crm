@@ -26,7 +26,10 @@ import {
   Building2,
   ShieldAlert,
   RotateCcw,
+  Plus,
+  Eye,
 } from "lucide-react";
+import { AddFreeTrialModal, ViewTrialModal } from "@/src/features/trials/trial-modals";
 
 interface ManagerLeadDrawerProps {
   leadId: string | null;
@@ -100,6 +103,11 @@ function ManagerLeadDrawerContent({
   const [isConfirmingDispose, setIsConfirmingDispose] = useState(false);
   const [isDisposing, setIsDisposing] = useState(false);
   const [isRestoring, setIsRestoring] = useState(false);
+
+  // Free Trial Modals state
+  const [isTrialMenuOpen, setIsTrialMenuOpen] = useState(false);
+  const [isAddTrialModalOpen, setIsAddTrialModalOpen] = useState(false);
+  const [isViewTrialModalOpen, setIsViewTrialModalOpen] = useState(false);
 
   useEffect(() => {
     getActiveManagerLeadResponsesAction().then((res) => {
@@ -299,13 +307,55 @@ function ManagerLeadDrawerContent({
               </div>
             </div>
 
-            <button
-              type="button"
-              onClick={handleCloseDrawer}
-              className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
-            >
-              <X className="size-5" />
-            </button>
+            <div className="flex items-center gap-2">
+              {/* Trial Dropdown Button */}
+              {lead && (
+                <div className="relative">
+                  <button
+                    type="button"
+                    onClick={() => setIsTrialMenuOpen((prev) => !prev)}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 active:scale-95 transition-all cursor-pointer shadow-xs"
+                  >
+                    <span>Trial</span>
+                    <ChevronDown className={`size-3.5 transition-transform ${isTrialMenuOpen ? "rotate-180" : ""}`} />
+                  </button>
+
+                  {isTrialMenuOpen && (
+                    <div
+                      className="absolute right-0 top-full mt-1.5 w-44 rounded-xl bg-white dark:bg-[#0c1220] border border-slate-200 dark:border-white/[0.1] shadow-2xl p-1.5 z-50 animate-in fade-in zoom-in-95 duration-100 space-y-1"
+                      onClick={() => setIsTrialMenuOpen(false)}
+                    >
+                      <button
+                        type="button"
+                        onClick={() => setIsAddTrialModalOpen(true)}
+                        className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs font-medium text-slate-700 dark:text-slate-300 hover:bg-blue-500/10 hover:text-blue-700 dark:hover:text-blue-300 transition-colors text-left cursor-pointer"
+                      >
+                        <Plus className="size-3.5 text-blue-600 dark:text-blue-400 stroke-[2.5]" />
+                        <span>Add Free Trial</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setIsViewTrialModalOpen(true)}
+                        className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs font-medium text-slate-700 dark:text-slate-300 hover:bg-blue-500/10 hover:text-blue-700 dark:hover:text-blue-300 transition-colors text-left cursor-pointer"
+                      >
+                        <Eye className="size-3.5 text-blue-600 dark:text-blue-400" />
+                        <span>View Trial</span>
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              <button
+                type="button"
+                onClick={handleCloseDrawer}
+                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                aria-label="Close drawer"
+              >
+                <X className="size-5" />
+              </button>
+            </div>
           </div>
 
           {/* Body Content */}
@@ -732,6 +782,33 @@ function ManagerLeadDrawerContent({
           </div>
         </div>
       </div>
+
+      {/* Free Trial Modals */}
+      {lead && (
+        <>
+          <AddFreeTrialModal
+            isOpen={isAddTrialModalOpen}
+            onClose={() => setIsAddTrialModalOpen(false)}
+            lead={lead}
+            onSuccess={() => {
+              onLeadUpdated();
+              if (leadId) {
+                getManagerLeadDetailsAction(leadId).then((leadRes) => {
+                  if (leadRes.success && leadRes.lead) {
+                    setLead(leadRes.lead);
+                    setEditStatus(leadRes.lead.status || "UNREAD");
+                  }
+                });
+              }
+            }}
+          />
+          <ViewTrialModal
+            isOpen={isViewTrialModalOpen}
+            onClose={() => setIsViewTrialModalOpen(false)}
+            lead={lead}
+          />
+        </>
+      )}
     </div>
   );
 }

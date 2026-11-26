@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -9,6 +10,10 @@ import {
   MessageSquare,
   PhoneCall,
   Boxes,
+  ScrollText,
+  CreditCard,
+  Receipt,
+  ChevronDown,
   X,
 } from "lucide-react";
 
@@ -19,14 +24,24 @@ interface EmployeeNavProps {
   employeeEmail: string;
 }
 
+interface SubNavItem {
+  title: string;
+  href?: string;
+  icon: React.ComponentType<{ className?: string }>;
+  badge?: string | null;
+  status: "active" | "upcoming";
+  tooltip?: string;
+}
+
 interface NavItem {
   title: string;
-  href: string;
+  href?: string;
   icon: React.ComponentType<{ className?: string }>;
   badge?: string | null;
   exact?: boolean;
   status: "active" | "upcoming";
   tooltip?: string;
+  children?: SubNavItem[];
 }
 
 const NAV_ITEMS: NavItem[] = [
@@ -36,7 +51,7 @@ const NAV_ITEMS: NavItem[] = [
     icon: LayoutDashboard,
     badge: null,
     exact: true,
-    status: "active" as const,
+    status: "active",
   },
   {
     title: "Leads",
@@ -44,16 +59,34 @@ const NAV_ITEMS: NavItem[] = [
     icon: Layers,
     badge: null,
     exact: false,
-    status: "active" as const,
+    status: "active",
   },
   {
     title: "History",
-    href: "/employee/history",
     icon: History,
-    badge: "Upcoming",
-    exact: false,
-    status: "upcoming" as const,
-    tooltip: "History records and archives scheduled for future release.",
+    status: "active",
+    children: [
+      {
+        title: "Trial",
+        href: "/employee/trials",
+        icon: ScrollText,
+        status: "active",
+      },
+      {
+        title: "Payment",
+        icon: CreditCard,
+        badge: "Phase 2",
+        status: "upcoming",
+        tooltip: "Payment history records scheduled for Phase 2.",
+      },
+      {
+        title: "Invoice",
+        icon: Receipt,
+        badge: "Phase 2",
+        status: "upcoming",
+        tooltip: "Invoice history records scheduled for Phase 2.",
+      },
+    ],
   },
   {
     title: "SMS",
@@ -61,7 +94,7 @@ const NAV_ITEMS: NavItem[] = [
     icon: MessageSquare,
     badge: "Upcoming",
     exact: false,
-    status: "upcoming" as const,
+    status: "upcoming",
     tooltip: "SMS messaging and client communication scheduled for future release.",
   },
   {
@@ -70,7 +103,7 @@ const NAV_ITEMS: NavItem[] = [
     icon: PhoneCall,
     badge: "Upcoming",
     exact: false,
-    status: "upcoming" as const,
+    status: "upcoming",
     tooltip: "Telephony calling dialer scheduled for future release.",
   },
 ];
@@ -83,7 +116,13 @@ export function EmployeeNav({
 }: EmployeeNavProps) {
   const pathname = usePathname();
 
-  const isLinkActive = (item: (typeof NAV_ITEMS)[number]) => {
+  const isHistoryRoute =
+    pathname.startsWith("/employee/trials") || pathname.startsWith("/employee/history");
+  const [manualExpanded, setManualExpanded] = useState<boolean | null>(null);
+  const isHistoryExpanded = manualExpanded !== null ? manualExpanded : isHistoryRoute;
+
+  const isLinkActive = (item: NavItem) => {
+    if (!item.href) return false;
     if (item.exact) {
       return pathname === item.href;
     }
@@ -116,7 +155,7 @@ export function EmployeeNav({
           {/* Close button for mobile */}
           <button
             onClick={onClose}
-            className="lg:hidden p-1.5 rounded-lg text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+            className="lg:hidden p-1.5 rounded-lg text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
             aria-label="Close menu"
           >
             <X className="size-5" />
@@ -134,6 +173,98 @@ export function EmployeeNav({
         <nav className="px-3 space-y-1">
           {NAV_ITEMS.map((item) => {
             const Icon = item.icon;
+
+            // Expandable dropdown items (History)
+            if (item.children && item.children.length > 0) {
+              const isParentActive = isHistoryRoute;
+
+              return (
+                <div key={item.title} className="space-y-1">
+                  <button
+                    type="button"
+                    onClick={() => setManualExpanded(!isHistoryExpanded)}
+                    className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+                      isParentActive
+                        ? "bg-cyan-500/10 text-cyan-700 dark:text-cyan-300 border border-cyan-500/30"
+                        : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 hover:bg-slate-100/70 dark:hover:bg-white/[0.06] border border-transparent"
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <Icon
+                        className={`size-4 transition-colors ${
+                          isParentActive
+                            ? "text-cyan-600 dark:text-cyan-400"
+                            : "text-slate-500 dark:text-slate-400"
+                        }`}
+                      />
+                      <span>{item.title}</span>
+                    </div>
+
+                    <ChevronDown
+                      className={`size-3.5 text-slate-400 transition-transform duration-200 ${
+                        isHistoryExpanded ? "rotate-180 text-cyan-600 dark:text-cyan-400" : ""
+                      }`}
+                    />
+                  </button>
+
+                  {/* Submenu links */}
+                  {isHistoryExpanded && (
+                    <div className="pl-6 pr-1 space-y-1 pt-0.5 animate-in fade-in slide-in-from-top-1 duration-150">
+                      {item.children.map((child) => {
+                        const ChildIcon = child.icon;
+
+                        if (child.status === "active" && child.href) {
+                          const isChildActive =
+                            pathname === child.href || pathname.startsWith(child.href);
+                          return (
+                            <Link
+                              key={child.href}
+                              href={child.href}
+                              onClick={onClose}
+                              className={`flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold transition-all ${
+                                isChildActive
+                                  ? "bg-cyan-500/15 dark:bg-cyan-500/20 text-cyan-700 dark:text-cyan-200 border border-cyan-500/30 dark:border-cyan-400/40 shadow-xs"
+                                  : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 hover:bg-slate-100/70 dark:hover:bg-white/[0.06] border border-transparent"
+                              }`}
+                            >
+                              <div className="flex items-center gap-2.5 min-w-0">
+                                <ChildIcon
+                                  className={`size-3.5 transition-colors ${
+                                    isChildActive
+                                      ? "text-cyan-600 dark:text-cyan-400"
+                                      : "text-slate-500 dark:text-slate-400"
+                                  }`}
+                                />
+                                <span className="truncate">{child.title}</span>
+                              </div>
+                            </Link>
+                          );
+                        }
+
+                        return (
+                          <div
+                            key={child.title}
+                            title={child.tooltip}
+                            className="flex items-center justify-between px-3 py-1.5 rounded-xl text-xs font-medium text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-400 hover:bg-slate-100/50 dark:hover:bg-white/[0.03] transition-all border border-transparent select-none cursor-default"
+                          >
+                            <div className="flex items-center gap-2.5 min-w-0">
+                              <ChildIcon className="size-3.5 text-slate-400 dark:text-slate-500 opacity-70" />
+                              <span className="truncate">{child.title}</span>
+                            </div>
+
+                            {child.badge && (
+                              <span className="px-1.5 py-0.5 text-[9px] font-semibold tracking-wider rounded-md bg-slate-100 dark:bg-slate-800/80 text-slate-400 dark:text-slate-500 border border-slate-200/80 dark:border-slate-700/60">
+                                {child.badge}
+                              </span>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              );
+            }
 
             if (item.status === "upcoming") {
               return (
@@ -161,7 +292,7 @@ export function EmployeeNav({
             return (
               <Link
                 key={item.href}
-                href={item.href}
+                href={item.href!}
                 onClick={onClose}
                 className={`flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all group ${
                   active

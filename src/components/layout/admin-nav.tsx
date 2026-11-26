@@ -32,8 +32,10 @@ import {
   Building2,
   UserCheck2,
   SlidersHorizontal,
+  ScrollText,
 } from "lucide-react";
 import { Badge } from "@/src/components/ui/Badge";
+import { getPendingTrialsCountAction } from "@/src/features/trials/actions";
 
 interface AdminNavProps {
   isOpen: boolean;
@@ -56,6 +58,7 @@ interface NavItem {
   exact?: boolean;
   status: "active" | "upcoming";
   tooltip?: string;
+  children?: NavItem[];
 }
 
 interface NavGroup {
@@ -193,6 +196,19 @@ const NAVIGATION_GROUPS: NavGroup[] = [
     ],
   },
   {
+    id: "history",
+    title: "History",
+    collapsible: true,
+    items: [
+      {
+        title: "Trial History",
+        href: "/admin/history/trials",
+        icon: ScrollText,
+        status: "active",
+      },
+    ],
+  },
+  {
     id: "operations",
     title: "Operations & Reports",
     collapsible: true,
@@ -200,9 +216,29 @@ const NAVIGATION_GROUPS: NavGroup[] = [
       {
         title: "Approvals",
         icon: CheckSquare,
-        badge: "Upcoming",
-        status: "upcoming",
-        tooltip: "Payment and invoice approvals scheduled for Phase 2.",
+        status: "active",
+        children: [
+          {
+            title: "Trial",
+            href: "/admin/approvals/trials",
+            icon: ScrollText,
+            status: "active",
+          },
+          {
+            title: "Payment",
+            icon: CheckSquare,
+            badge: "Phase 2",
+            status: "upcoming",
+            tooltip: "Payment approvals scheduled for Phase 2.",
+          },
+          {
+            title: "Invoice",
+            icon: CheckSquare,
+            badge: "Phase 2",
+            status: "upcoming",
+            tooltip: "Invoice approvals scheduled for Phase 2.",
+          },
+        ],
       },
       {
         title: "Compliance",
@@ -244,11 +280,25 @@ export function AdminNav({
   const pathname = usePathname();
   const searchParams = useSearchParams();
 
-  // Collapsible section state for Leads and Operations groups
+  // Collapsible section state for Leads, History and Operations groups
   const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({
     leads: false,
+    history: false,
     operations: false,
   });
+
+  const [pendingTrialCount, setPendingTrialCount] = useState<number>(0);
+  const [expandedNavItems, setExpandedNavItems] = useState<Record<string, boolean>>({
+    Approvals: true,
+  });
+
+  useEffect(() => {
+    getPendingTrialsCountAction().then((res) => {
+      if (res.success && res.count !== undefined) {
+        setPendingTrialCount(res.count);
+      }
+    });
+  }, [pathname]);
 
   // Active toast/info message when an upcoming item is clicked
   const [activeNotice, setActiveNotice] = useState<string | null>(null);
@@ -396,6 +446,112 @@ export function AdminNav({
                   <nav className="space-y-1">
                     {group.items.map((item) => {
                       const IconComponent = item.icon;
+
+                      if (item.children && item.children.length > 0) {
+                        const isChildActive = item.children.some((c) => c.href && pathname.startsWith(c.href));
+                        const isExpanded = expandedNavItems[item.title] ?? isChildActive;
+
+                        return (
+                          <div key={item.title} className="space-y-1">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setExpandedNavItems((prev) => ({
+                                  ...prev,
+                                  [item.title]: !isExpanded,
+                                }));
+                              }}
+                              className={`w-full group relative flex items-center ${
+                                collapsed ? "justify-center px-2 py-2.5" : "justify-between px-3.5 py-2.5"
+                              } rounded-xl text-xs font-medium transition-all cursor-pointer ${
+                                isChildActive
+                                  ? "bg-[#4F6DF5]/12 dark:bg-[#4F6DF5]/20 text-[#4F6DF5] dark:text-[#60A5FA] border border-[#4F6DF5]/30 font-semibold"
+                                  : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 hover:bg-slate-100/70 dark:hover:bg-white/[0.06] border border-transparent"
+                              }`}
+                            >
+                              <div className="flex items-center gap-3 min-w-0">
+                                <IconComponent
+                                  className={`size-4.5 shrink-0 transition-colors ${
+                                    isChildActive
+                                      ? "text-[#4F6DF5] dark:text-[#60A5FA]"
+                                      : "text-slate-500 dark:text-slate-400 group-hover:text-slate-800 dark:group-hover:text-slate-200"
+                                  }`}
+                                />
+                                {!collapsed && <span className="truncate">{item.title}</span>}
+                              </div>
+
+                              {!collapsed && (
+                                <div className="flex items-center gap-2">
+                                  {pendingTrialCount > 0 && (
+                                    <span className="px-1.5 py-0.2 rounded-full text-[10px] font-bold bg-amber-500 text-white shadow-2xs">
+                                      {pendingTrialCount}
+                                    </span>
+                                  )}
+                                  <ChevronDown
+                                    className={`size-3 text-slate-400 transition-transform duration-150 ${
+                                      isExpanded ? "rotate-180" : ""
+                                    }`}
+                                  />
+                                </div>
+                              )}
+                            </button>
+
+                            {/* Submenu Items */}
+                            {isExpanded && !collapsed && (
+                              <div className="pl-6 space-y-1 pt-0.5">
+                                {item.children.map((child) => {
+                                  const ChildIcon = child.icon;
+
+                                  if (child.status === "active" && child.href) {
+                                    const childActive = pathname === child.href || pathname.startsWith(child.href);
+                                    return (
+                                      <Link
+                                        key={child.href}
+                                        href={child.href}
+                                        onClick={onClose}
+                                        className={`flex items-center justify-between px-3 py-2 rounded-xl text-xs font-medium transition-all ${
+                                          childActive
+                                            ? "bg-[#4F6DF5]/15 text-[#4F6DF5] dark:text-[#60A5FA] font-bold border border-[#4F6DF5]/30"
+                                            : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 hover:bg-slate-100/60 dark:hover:bg-white/[0.04]"
+                                        }`}
+                                      >
+                                        <div className="flex items-center gap-2.5 truncate">
+                                          <ChildIcon className="size-3.5 text-slate-400" />
+                                          <span className="truncate">{child.title}</span>
+                                        </div>
+                                        {child.title === "Trial" && pendingTrialCount > 0 && (
+                                          <span className="px-1.5 py-0.2 rounded-full text-[10px] font-bold bg-amber-500 text-white">
+                                            {pendingTrialCount}
+                                          </span>
+                                        )}
+                                      </Link>
+                                    );
+                                  }
+
+                                  return (
+                                    <button
+                                      key={child.title}
+                                      type="button"
+                                      onClick={() =>
+                                        setActiveNotice(
+                                          child.tooltip || `${child.title} approvals scheduled for Phase 2.`
+                                        )
+                                      }
+                                      className="w-full flex items-center justify-between px-3 py-1.5 rounded-xl text-xs text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-900/40 transition-all cursor-pointer"
+                                    >
+                                      <div className="flex items-center gap-2.5 truncate">
+                                        <ChildIcon className="size-3.5 text-slate-400 opacity-60" />
+                                        <span className="truncate">{child.title}</span>
+                                      </div>
+                                      {child.badge && <Badge tone="info">{child.badge}</Badge>}
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      }
 
                       if (item.status === "active" && item.href) {
                         const active = isLinkActive(item);

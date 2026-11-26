@@ -35,6 +35,7 @@ import {
 import { AdminFetchModal } from "./admin-fetch-modal";
 import { AdminSelectedLeadsActionModal } from "./admin-selected-leads-action-modal";
 import { AdminLeadTimelineModal } from "./admin-lead-timeline-modal";
+import { AddFreeTrialModal, ViewTrialModal } from "@/src/features/trials/trial-modals";
 import {
   Search,
   Phone,
@@ -145,6 +146,10 @@ export function LeadsListClient({
   const [selectedLeadIds, setSelectedLeadIds] = useState<string[]>([]);
   const [isActionModalOpen, setIsActionModalOpen] = useState(false);
   const selectAllCheckboxRef = useRef<HTMLInputElement>(null);
+
+  // Free Trial Modals State
+  const [addTrialModalLead, setAddTrialModalLead] = useState<LeadListItem | null>(null);
+  const [viewTrialModalLead, setViewTrialModalLead] = useState<LeadListItem | null>(null);
 
   // Handle indeterminate checkbox state for Select All
   const currentPageLeadIds = leads.map((l) => l.id);
@@ -1001,10 +1006,20 @@ export function LeadsListClient({
                             <div className="flex items-center justify-between px-2 py-1.5 rounded-lg hover:bg-[var(--glass-stroke)] transition-colors text-xs">
                               <span className="font-semibold text-[var(--text)]">Trial</span>
                               <div className="flex items-center gap-1">
-                                <button type="button" title="Add Trial" className="p-1 rounded-md hover:bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 transition-colors cursor-pointer">
+                                <button
+                                  type="button"
+                                  onClick={() => setAddTrialModalLead(lead)}
+                                  title="Add Trial"
+                                  className="p-1 rounded-md hover:bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 transition-colors cursor-pointer"
+                                >
                                   <Plus className="size-3" />
                                 </button>
-                                <button type="button" title="View Trial" className="p-1 rounded-md hover:bg-blue-500/15 text-blue-600 dark:text-blue-400 transition-colors cursor-pointer">
+                                <button
+                                  type="button"
+                                  onClick={() => setViewTrialModalLead(lead)}
+                                  title="View Trial"
+                                  className="p-1 rounded-md hover:bg-blue-500/15 text-blue-600 dark:text-blue-400 transition-colors cursor-pointer"
+                                >
                                   <Eye className="size-3" />
                                 </button>
                               </div>
@@ -1325,6 +1340,21 @@ export function LeadsListClient({
         allotmentUsers={allotmentUsers}
         availableSources={availableSources}
         availableTeams={availableTeams}
+      />
+
+      {/* Free Trial Modals */}
+      <AddFreeTrialModal
+        isOpen={Boolean(addTrialModalLead)}
+        onClose={() => setAddTrialModalLead(null)}
+        lead={addTrialModalLead}
+        onSuccess={() => {
+          fetchLeads(currentPage, searchQuery, statusFilter, appliedCountFilters);
+        }}
+      />
+      <ViewTrialModal
+        isOpen={Boolean(viewTrialModalLead)}
+        onClose={() => setViewTrialModalLead(null)}
+        lead={viewTrialModalLead}
       />
     </div>
   );

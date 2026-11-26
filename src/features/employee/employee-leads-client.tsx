@@ -20,6 +20,10 @@ import { EmployeeFetchModal } from "./employee-fetch-modal";
 import { EmployeeLeadDetailsModal } from "./employee-lead-details-modal";
 import { EmployeeLeadTimelineModal } from "./employee-lead-timeline-modal";
 import {
+  AddFreeTrialModal,
+  ViewTrialModal,
+} from "@/src/features/trials/trial-modals";
+import {
   LeadCountModal,
   type LeadCountFilterApplyPayload,
 } from "@/src/components/leads/lead-count-modal";
@@ -200,6 +204,8 @@ export function EmployeeLeadsClient({
   const [detailsModalLead, setDetailsModalLead] = useState<EmployeeLeadItem | null>(null);
   const [timelineModalLead, setTimelineModalLead] = useState<EmployeeLeadItem | null>(null);
   const [callUpdateModalLead, setCallUpdateModalLead] = useState<EmployeeLeadItem | null>(null);
+  const [addTrialModalLead, setAddTrialModalLead] = useState<EmployeeLeadItem | null>(null);
+  const [viewTrialModalLead, setViewTrialModalLead] = useState<EmployeeLeadItem | null>(null);
   const [editDrawerLeadId, setEditDrawerLeadId] = useState<string | null>(null);
   const [confirmDisposeLead, setConfirmDisposeLead] = useState<EmployeeLeadItem | null>(null);
   const [disposeReason, setDisposeReason] = useState<string>("");
@@ -1221,8 +1227,63 @@ export function EmployeeLeadsClient({
 
                   {/* COL 4: Quick Actions & Timestamps */}
                   <div className="lg:col-span-3 space-y-2.5 flex flex-col justify-between h-full">
-                    {/* 7 Action buttons container */}
+                    {/* Action buttons container */}
                     <div className="flex items-center gap-1 p-1 rounded-xl bg-slate-100/90 dark:bg-white/[0.06] border border-slate-200/80 dark:border-white/[0.08] w-fit shadow-2xs">
+                      {/* 0. Action Menu Popup (SlidersHorizontal) */}
+                      <div className="relative group/actions inline-block">
+                        <div className="relative group/tip flex items-center justify-center">
+                          <button
+                            type="button"
+                            title="Actions"
+                            aria-label="Actions"
+                            className="size-7 rounded-lg flex items-center justify-center text-slate-600 dark:text-slate-300 hover:text-cyan-600 dark:hover:text-cyan-400 hover:bg-white dark:hover:bg-slate-800 shadow-2xs transition-all cursor-pointer"
+                          >
+                            <SlidersHorizontal className="size-3.5" />
+                          </button>
+                          <span className="absolute -top-7 hidden group-hover/tip:block text-[10px] font-medium bg-slate-900 text-white px-1.5 py-0.5 rounded shadow pointer-events-none whitespace-nowrap z-50">
+                            Actions
+                          </span>
+                        </div>
+
+                        {/* Hover Popup: 3 Rows with [Add Icon] [View Icon] */}
+                        <div className="absolute left-0 top-full mt-1.5 hidden group-hover/actions:block w-48 rounded-xl bg-white dark:bg-[#0c1220] border border-slate-200 dark:border-white/[0.1] shadow-2xl p-2 z-50 animate-in fade-in zoom-in-95 duration-100 space-y-1">
+                          {/* Trial Row */}
+                          <div className="flex items-center justify-between px-2 py-1.5 rounded-lg hover:bg-slate-100/80 dark:hover:bg-white/[0.05] transition-colors text-xs">
+                            <span className="font-semibold text-slate-800 dark:text-white">Trial</span>
+                            <div className="flex items-center gap-1">
+                              <button
+                                type="button"
+                                onClick={() => setAddTrialModalLead(lead)}
+                                title="Add Free Trial"
+                                className="p-1 rounded-md hover:bg-cyan-500/15 text-cyan-600 dark:text-cyan-400 transition-colors cursor-pointer"
+                              >
+                                <Plus className="size-3.5 stroke-[2.5]" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setViewTrialModalLead(lead)}
+                                title="View Previous Trials"
+                                className="p-1 rounded-md hover:bg-blue-500/15 text-blue-600 dark:text-blue-400 transition-colors cursor-pointer"
+                              >
+                                <Eye className="size-3.5" />
+                              </button>
+                            </div>
+                          </div>
+
+                          {/* Payment Row (Phase 2 placeholder) */}
+                          <div className="flex items-center justify-between px-2 py-1.5 rounded-lg text-xs opacity-60">
+                            <span className="font-medium text-slate-500">Payment</span>
+                            <span className="text-[10px] text-slate-400 italic">Phase 2</span>
+                          </div>
+
+                          {/* Invoice Row (Phase 2 placeholder) */}
+                          <div className="flex items-center justify-between px-2 py-1.5 rounded-lg text-xs opacity-60">
+                            <span className="font-medium text-slate-500">Invoice</span>
+                            <span className="text-[10px] text-slate-400 italic">Phase 2</span>
+                          </div>
+                        </div>
+                      </div>
+
                       {/* 1. View Details Modal */}
                       <button
                         type="button"
@@ -1407,6 +1468,8 @@ export function EmployeeLeadsClient({
         onNavigateLead={(newId) => setEditDrawerLeadId(newId)}
         onOpenCallModal={(lead) => setCallUpdateModalLead(lead)}
         onOpenTimelineModal={(lead) => setTimelineModalLead(lead)}
+        onOpenAddTrialModal={(lead) => setAddTrialModalLead(lead)}
+        onOpenViewTrialModal={(lead) => setViewTrialModalLead(lead)}
       />
 
       {/* 3. Call Update / Disposition Modal */}
@@ -1449,6 +1512,21 @@ export function EmployeeLeadsClient({
         }}
         onApplyFilters={handleApplyCountModalFilters}
         onResetFilters={handleResetCountModalFilters}
+      />
+
+      {/* 5c. Add Free Trial Modal */}
+      <AddFreeTrialModal
+        isOpen={Boolean(addTrialModalLead)}
+        onClose={() => setAddTrialModalLead(null)}
+        lead={addTrialModalLead}
+        onSuccess={handleRefreshLeads}
+      />
+
+      {/* 5d. View Trial Modal */}
+      <ViewTrialModal
+        isOpen={Boolean(viewTrialModalLead)}
+        onClose={() => setViewTrialModalLead(null)}
+        lead={viewTrialModalLead}
       />
 
       {/* 6. Confirm Dispose Dialog */}

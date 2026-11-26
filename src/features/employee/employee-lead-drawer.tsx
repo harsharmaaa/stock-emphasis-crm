@@ -26,7 +26,12 @@ import {
   AlertCircle,
   Loader2,
   Plus,
+  Eye,
 } from "lucide-react";
+import {
+  AddFreeTrialModal,
+  ViewTrialModal,
+} from "@/src/features/trials/trial-modals";
 
 type ActiveTab = "basic" | "address" | "other" | "investment";
 
@@ -39,6 +44,8 @@ interface EmployeeLeadDrawerProps {
   onNavigateLead?: (nextId: string) => void;
   onOpenCallModal?: (lead: EmployeeLeadItem) => void;
   onOpenTimelineModal?: (lead: EmployeeLeadItem) => void;
+  onOpenAddTrialModal?: (lead: EmployeeLeadItem) => void;
+  onOpenViewTrialModal?: (lead: EmployeeLeadItem) => void;
 }
 
 export function EmployeeLeadDrawer({
@@ -50,6 +57,8 @@ export function EmployeeLeadDrawer({
   onNavigateLead,
   onOpenCallModal,
   onOpenTimelineModal,
+  onOpenAddTrialModal,
+  onOpenViewTrialModal,
 }: EmployeeLeadDrawerProps) {
   if (!isOpen || !leadId) return null;
 
@@ -63,6 +72,8 @@ export function EmployeeLeadDrawer({
       onNavigateLead={onNavigateLead}
       onOpenCallModal={onOpenCallModal}
       onOpenTimelineModal={onOpenTimelineModal}
+      onOpenAddTrialModal={onOpenAddTrialModal}
+      onOpenViewTrialModal={onOpenViewTrialModal}
     />
   );
 }
@@ -75,6 +86,8 @@ function EmployeeLeadDrawerContent({
   onNavigateLead,
   onOpenCallModal,
   onOpenTimelineModal,
+  onOpenAddTrialModal,
+  onOpenViewTrialModal,
 }: {
   leadId: string;
   onClose: () => void;
@@ -83,11 +96,18 @@ function EmployeeLeadDrawerContent({
   onNavigateLead?: (nextId: string) => void;
   onOpenCallModal?: (lead: EmployeeLeadItem) => void;
   onOpenTimelineModal?: (lead: EmployeeLeadItem) => void;
+  onOpenAddTrialModal?: (lead: EmployeeLeadItem) => void;
+  onOpenViewTrialModal?: (lead: EmployeeLeadItem) => void;
 }) {
   const [activeTab, setActiveTab] = useState<ActiveTab>("investment");
   const [lead, setLead] = useState<EmployeeLeadItem | null>(null);
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState<string | null>(null);
+  const [isTrialMenuOpen, setIsTrialMenuOpen] = useState(false);
+  const [isPaymentMenuOpen, setIsPaymentMenuOpen] = useState(false);
+  const [isInvoiceMenuOpen, setIsInvoiceMenuOpen] = useState(false);
+  const [isAddTrialModalOpen, setIsAddTrialModalOpen] = useState(false);
+  const [isViewTrialModalOpen, setIsViewTrialModalOpen] = useState(false);
 
   // Form states across tabs
   const [name, setName] = useState<string>("");
@@ -325,33 +345,111 @@ function EmployeeLeadDrawerContent({
             <div className="relative">
               <button
                 type="button"
+                onClick={() => {
+                  setIsTrialMenuOpen((prev) => !prev);
+                  setIsPaymentMenuOpen(false);
+                  setIsInvoiceMenuOpen(false);
+                }}
                 className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold text-white bg-[#00bcd4] hover:bg-[#00acc1] transition-colors cursor-pointer shadow-2xs"
               >
                 <span>Trial</span>
-                <ChevronDown className="size-3.5" />
+                <ChevronDown className={`size-3.5 transition-transform ${isTrialMenuOpen ? "rotate-180" : ""}`} />
               </button>
+
+              {isTrialMenuOpen && (
+                <div
+                  className="absolute left-0 top-full mt-1.5 w-44 rounded-xl bg-white dark:bg-[#0c1220] border border-slate-200 dark:border-white/[0.1] shadow-2xl p-1.5 z-50 animate-in fade-in zoom-in-95 duration-100 space-y-1"
+                  onClick={() => setIsTrialMenuOpen(false)}
+                >
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (lead) {
+                        if (onOpenAddTrialModal) onOpenAddTrialModal(lead);
+                        else setIsAddTrialModalOpen(true);
+                      }
+                    }}
+                    className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs font-medium text-slate-700 dark:text-slate-300 hover:bg-cyan-500/10 hover:text-cyan-700 dark:hover:text-cyan-300 transition-colors text-left cursor-pointer"
+                  >
+                    <Plus className="size-3.5 text-cyan-600 dark:text-cyan-400 stroke-[2.5]" />
+                    <span>Add Free Trial</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (lead) {
+                        if (onOpenViewTrialModal) onOpenViewTrialModal(lead);
+                        else setIsViewTrialModalOpen(true);
+                      }
+                    }}
+                    className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs font-medium text-slate-700 dark:text-slate-300 hover:bg-blue-500/10 hover:text-blue-700 dark:hover:text-blue-300 transition-colors text-left cursor-pointer"
+                  >
+                    <Eye className="size-3.5 text-blue-600 dark:text-blue-400" />
+                    <span>View Trial</span>
+                  </button>
+                </div>
+              )}
             </div>
 
             {/* Payment Dropdown Button */}
             <div className="relative">
               <button
                 type="button"
+                onClick={() => {
+                  setIsPaymentMenuOpen((prev) => !prev);
+                  setIsTrialMenuOpen(false);
+                  setIsInvoiceMenuOpen(false);
+                }}
                 className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold text-white bg-[#00bcd4] hover:bg-[#00acc1] transition-colors cursor-pointer shadow-2xs"
               >
                 <span>Payment</span>
-                <ChevronDown className="size-3.5" />
+                <ChevronDown className={`size-3.5 transition-transform ${isPaymentMenuOpen ? "rotate-180" : ""}`} />
               </button>
+
+              {isPaymentMenuOpen && (
+                <div
+                  className="absolute left-0 top-full mt-1.5 w-52 rounded-xl bg-white dark:bg-[#0c1220] border border-slate-200 dark:border-white/[0.1] shadow-2xl p-2.5 z-50 animate-in fade-in zoom-in-95 duration-100"
+                  onClick={() => setIsPaymentMenuOpen(false)}
+                >
+                  <div className="text-[11px] font-semibold text-slate-700 dark:text-slate-300">
+                    Payment Gateway
+                  </div>
+                  <div className="text-[10px] text-slate-400 mt-0.5">
+                    Razorpay collection and payments scheduled for Phase 2.
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Invoice Dropdown Button */}
             <div className="relative">
               <button
                 type="button"
+                onClick={() => {
+                  setIsInvoiceMenuOpen((prev) => !prev);
+                  setIsTrialMenuOpen(false);
+                  setIsPaymentMenuOpen(false);
+                }}
                 className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold text-white bg-[#00bcd4] hover:bg-[#00acc1] transition-colors cursor-pointer shadow-2xs"
               >
                 <span>Invoice</span>
-                <ChevronDown className="size-3.5" />
+                <ChevronDown className={`size-3.5 transition-transform ${isInvoiceMenuOpen ? "rotate-180" : ""}`} />
               </button>
+
+              {isInvoiceMenuOpen && (
+                <div
+                  className="absolute left-0 top-full mt-1.5 w-52 rounded-xl bg-white dark:bg-[#0c1220] border border-slate-200 dark:border-white/[0.1] shadow-2xl p-2.5 z-50 animate-in fade-in zoom-in-95 duration-100"
+                  onClick={() => setIsInvoiceMenuOpen(false)}
+                >
+                  <div className="text-[11px] font-semibold text-slate-700 dark:text-slate-300">
+                    Invoicing Engine
+                  </div>
+                  <div className="text-[10px] text-slate-400 mt-0.5">
+                    GST invoicing and proforma generation scheduled for Phase 2.
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* SMS Dropdown Button */}
@@ -894,6 +992,30 @@ function EmployeeLeadDrawerContent({
           </div>
         </div>
       </div>
+
+      {lead && (
+        <>
+          <AddFreeTrialModal
+            isOpen={isAddTrialModalOpen}
+            onClose={() => setIsAddTrialModalOpen(false)}
+            lead={lead}
+            onSuccess={() => {
+              onLeadUpdated();
+              getEmployeeLeadDetailsAction(leadId).then((leadRes) => {
+                if (leadRes.success && leadRes.lead) {
+                  setLead(leadRes.lead);
+                  setLeadStatus(leadRes.lead.status || "UNREAD");
+                }
+              });
+            }}
+          />
+          <ViewTrialModal
+            isOpen={isViewTrialModalOpen}
+            onClose={() => setIsViewTrialModalOpen(false)}
+            lead={lead}
+          />
+        </>
+      )}
     </div>
   );
 }

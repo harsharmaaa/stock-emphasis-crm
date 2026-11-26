@@ -44,6 +44,7 @@ interface TrialHistoryClientProps {
     sortBy?: "createdAt" | "clientName" | "productName" | "startDate" | "endDate" | "status";
     sortOrder?: "asc" | "desc";
   };
+  basePath?: string;
 }
 
 type SortColumn = "createdAt" | "clientName" | "productName" | "startDate" | "endDate" | "status";
@@ -56,6 +57,7 @@ export function TrialHistoryClient({
   initialPage,
   initialPageSize,
   initialParams,
+  basePath = "/manager/history/trials",
 }: TrialHistoryClientProps) {
   const router = useRouter();
 
@@ -123,7 +125,7 @@ export function TrialHistoryClient({
     if (targetPage > 1) params.set("page", String(targetPage));
     if (targetPageSize !== 10) params.set("pageSize", String(targetPageSize));
 
-    router.replace(`/manager/history/trials?${params.toString()}`, { scroll: false });
+    router.replace(`${basePath}?${params.toString()}`, { scroll: false });
 
     startTransition(async () => {
       const res = await getManagerTrialHistoryAction({
@@ -657,8 +659,13 @@ export function TrialHistoryClient({
                       </td>
 
                       {/* Product */}
-                      <td className="py-3.5 px-3.5 font-medium text-slate-800 dark:text-slate-200 whitespace-nowrap max-w-[200px] truncate" title={trial.productName}>
-                        {trial.productName}
+                      <td className="py-3.5 px-3.5 font-medium text-slate-800 dark:text-slate-200 whitespace-nowrap max-w-[200px]" title={trial.productName}>
+                        <div className="truncate">{trial.productName}</div>
+                        {trial.remarks && (
+                          <div className="text-[10px] text-slate-400 dark:text-slate-500 italic truncate max-w-[190px]" title={trial.remarks}>
+                            Note: {trial.remarks}
+                          </div>
+                        )}
                       </td>
 
                       {/* From Date */}
