@@ -36,6 +36,7 @@ import { AdminFetchModal } from "./admin-fetch-modal";
 import { AdminSelectedLeadsActionModal } from "./admin-selected-leads-action-modal";
 import { AdminLeadTimelineModal } from "./admin-lead-timeline-modal";
 import { AddFreeTrialModal, ViewTrialModal } from "@/src/features/trials/trial-modals";
+import { AddPaymentModal, ViewPaymentModal } from "@/src/features/payments/payment-modals";
 import {
   Search,
   Phone,
@@ -150,6 +151,10 @@ export function LeadsListClient({
   // Free Trial Modals State
   const [addTrialModalLead, setAddTrialModalLead] = useState<LeadListItem | null>(null);
   const [viewTrialModalLead, setViewTrialModalLead] = useState<LeadListItem | null>(null);
+
+  // Payment Modals State
+  const [addPaymentModalLead, setAddPaymentModalLead] = useState<LeadListItem | null>(null);
+  const [viewPaymentModalLead, setViewPaymentModalLead] = useState<LeadListItem | null>(null);
 
   // Handle indeterminate checkbox state for Select All
   const currentPageLeadIds = leads.map((l) => l.id);
@@ -1029,10 +1034,20 @@ export function LeadsListClient({
                             <div className="flex items-center justify-between px-2 py-1.5 rounded-lg hover:bg-[var(--glass-stroke)] transition-colors text-xs">
                               <span className="font-semibold text-[var(--text)]">Payment</span>
                               <div className="flex items-center gap-1">
-                                <button type="button" title="Add Payment" className="p-1 rounded-md hover:bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 transition-colors cursor-pointer">
+                                <button
+                                  type="button"
+                                  onClick={() => setAddPaymentModalLead(lead)}
+                                  title="Add Payment"
+                                  className="p-1 rounded-md hover:bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 transition-colors cursor-pointer"
+                                >
                                   <Plus className="size-3" />
                                 </button>
-                                <button type="button" title="View Payment" className="p-1 rounded-md hover:bg-blue-500/15 text-blue-600 dark:text-blue-400 transition-colors cursor-pointer">
+                                <button
+                                  type="button"
+                                  onClick={() => setViewPaymentModalLead(lead)}
+                                  title="View Payment"
+                                  className="p-1 rounded-md hover:bg-blue-500/15 text-blue-600 dark:text-blue-400 transition-colors cursor-pointer"
+                                >
                                   <Eye className="size-3" />
                                 </button>
                               </div>
@@ -1355,6 +1370,21 @@ export function LeadsListClient({
         isOpen={Boolean(viewTrialModalLead)}
         onClose={() => setViewTrialModalLead(null)}
         lead={viewTrialModalLead}
+      />
+
+      {/* Payment Modals */}
+      <AddPaymentModal
+        isOpen={Boolean(addPaymentModalLead)}
+        onClose={() => setAddPaymentModalLead(null)}
+        lead={addPaymentModalLead}
+        onSuccess={() => {
+          fetchLeads(currentPage, searchQuery, statusFilter, appliedCountFilters);
+        }}
+      />
+      <ViewPaymentModal
+        isOpen={Boolean(viewPaymentModalLead)}
+        onClose={() => setViewPaymentModalLead(null)}
+        lead={viewPaymentModalLead}
       />
     </div>
   );

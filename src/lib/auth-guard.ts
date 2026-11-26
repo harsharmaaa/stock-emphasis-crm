@@ -264,6 +264,108 @@ export const requireEmployeeSession = cache(async (options?: {
   return result.user;
 });
 
+export interface AuthenticatedComplianceOrAdminUser {
+  id: string;
+  name: string;
+  email: string;
+  role: Role;
+  isCompliance: boolean;
+  departmentName: string | null;
+  profileName: string | null;
+}
+
+/**
+ * Cached per-request Compliance Officer or Admin session and database verification.
+ * Grants access if user has role ADMIN OR belongs to a Compliance department / profile.
+ */
+const getCachedComplianceOrAdminSession = cache(
+  async (): Promise<AuthGuardResult<AuthenticatedComplianceOrAdminUser>> => {
+    await connection();
+    const session = await auth();
+
+    if (!session?.user?.id || !session?.user?.email) {
+      return {
+        success: false,
+        redirectUrl: "/login",
+        errorMessage: "Unauthorized: Active session required.",
+      };
+    }
+
+    const { id, name, email } = session.user;
+
+    const dbUser = await prisma.user.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        role: true,
+        isActive: true,
+        deletedAt: true,
+        department: { select: { name: true } },
+        employeeProfile: { select: { name: true } },
+      },
+    });
+
+    if (!dbUser || !dbUser.isActive || dbUser.deletedAt) {
+      return {
+        success: false,
+        redirectUrl: "/login",
+        errorMessage: "Forbidden: Account is inactive or does not exist.",
+      };
+    }
+
+    const deptName = dbUser.department?.name || "";
+    const profName = dbUser.employeeProfile?.name || "";
+    const isCompliance =
+      deptName.toLowerCase().includes("compliance") ||
+      profName.toLowerCase().includes("compliance");
+
+    if (dbUser.role !== "ADMIN" && !isCompliance) {
+      return {
+        success: false,
+        redirectUrl: dbUser.role === "MANAGER" ? "/manager" : "/employee",
+        errorMessage: "Forbidden: Compliance Officer or Administrator privileges required.",
+      };
+    }
+
+    return {
+      success: true,
+      user: {
+        id,
+        name: name ?? dbUser.name ?? "Compliance Officer",
+        email,
+        role: dbUser.role,
+        isCompliance,
+        departmentName: dbUser.department?.name || null,
+        profileName: dbUser.employeeProfile?.name || null,
+      },
+    };
+  }
+);
+
+/**
+ * Server-side security guard for Compliance/Admin Server Components and Actions.
+ * Validates that an active session belongs to an ADMIN or an authorized COMPLIANCE staff member.
+ */
+export const requireComplianceOrAdminSession = cache(
+  async (options?: {
+    redirect?: boolean;
+  }): Promise<AuthenticatedComplianceOrAdminUser> => {
+    const result = await getCachedComplianceOrAdminSession();
+    const shouldRedirect = options?.redirect ?? true;
+
+    if (!result.success) {
+      if (!shouldRedirect) {
+        throw new Error(result.errorMessage);
+      }
+      redirect(result.redirectUrl);
+    }
+
+    return result.user;
+  }
+);
+
 /**
  * Validates safety rules for modifying user status or role:
  * 1. An Admin cannot deactivate their own account.

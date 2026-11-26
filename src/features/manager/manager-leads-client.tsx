@@ -18,6 +18,7 @@ import { ManagerCallUpdateModal } from "./manager-call-update-modal";
 import { ManagerLeadDrawer } from "./manager-lead-drawer";
 import { ManagerFetchModal } from "./manager-fetch-modal";
 import { AddFreeTrialModal, ViewTrialModal } from "@/src/features/trials/trial-modals";
+import { AddPaymentModal, ViewPaymentModal } from "@/src/features/payments/payment-modals";
 import {
   Plus,
   Search,
@@ -156,6 +157,8 @@ export function ManagerLeadsClient({
   // Free Trial Modals state
   const [addTrialModalLead, setAddTrialModalLead] = useState<ManagerLeadItem | null>(null);
   const [viewTrialModalLead, setViewTrialModalLead] = useState<ManagerLeadItem | null>(null);
+  const [addPaymentModalLead, setAddPaymentModalLead] = useState<ManagerLeadItem | null>(null);
+  const [viewPaymentModalLead, setViewPaymentModalLead] = useState<ManagerLeadItem | null>(null);
 
   // ALL Lead Count Modal states
   const [isCountModalOpen, setIsCountModalOpen] = useState(false);
@@ -986,10 +989,27 @@ export function ManagerLeadsClient({
                             </div>
                           </div>
 
-                          {/* Payment Row (Phase 2 placeholder) */}
-                          <div className="flex items-center justify-between px-2 py-1.5 rounded-lg text-xs opacity-60">
-                            <span className="font-medium text-slate-500">Payment</span>
-                            <span className="text-[10px] text-slate-400 italic">Phase 2</span>
+                          {/* Payment Row */}
+                          <div className="flex items-center justify-between px-2 py-1.5 rounded-lg hover:bg-slate-100/80 dark:hover:bg-white/[0.05] transition-colors text-xs">
+                            <span className="font-semibold text-slate-800 dark:text-white">Payment</span>
+                            <div className="flex items-center gap-1">
+                              <button
+                                type="button"
+                                onClick={() => setAddPaymentModalLead(lead)}
+                                title="Add Payment"
+                                className="p-1 rounded-md hover:bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 transition-colors cursor-pointer"
+                              >
+                                <Plus className="size-3.5 stroke-[2.5]" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setViewPaymentModalLead(lead)}
+                                title="View Previous Payments"
+                                className="p-1 rounded-md hover:bg-blue-500/15 text-blue-600 dark:text-blue-400 transition-colors cursor-pointer"
+                              >
+                                <Eye className="size-3.5" />
+                              </button>
+                            </div>
                           </div>
 
                           {/* Invoice Row (Phase 2 placeholder) */}
@@ -1547,6 +1567,17 @@ export function ManagerLeadsClient({
         isOpen={Boolean(viewTrialModalLead)}
         onClose={() => setViewTrialModalLead(null)}
         lead={viewTrialModalLead}
+      />
+      <AddPaymentModal
+        isOpen={Boolean(addPaymentModalLead)}
+        onClose={() => setAddPaymentModalLead(null)}
+        lead={addPaymentModalLead}
+        onSuccess={handleRefreshLeads}
+      />
+      <ViewPaymentModal
+        isOpen={Boolean(viewPaymentModalLead)}
+        onClose={() => setViewPaymentModalLead(null)}
+        lead={viewPaymentModalLead}
       />
     </div>
   );

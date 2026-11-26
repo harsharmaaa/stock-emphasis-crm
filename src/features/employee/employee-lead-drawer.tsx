@@ -32,6 +32,10 @@ import {
   AddFreeTrialModal,
   ViewTrialModal,
 } from "@/src/features/trials/trial-modals";
+import {
+  AddPaymentModal,
+  ViewPaymentModal,
+} from "@/src/features/payments/payment-modals";
 
 type ActiveTab = "basic" | "address" | "other" | "investment";
 
@@ -46,6 +50,8 @@ interface EmployeeLeadDrawerProps {
   onOpenTimelineModal?: (lead: EmployeeLeadItem) => void;
   onOpenAddTrialModal?: (lead: EmployeeLeadItem) => void;
   onOpenViewTrialModal?: (lead: EmployeeLeadItem) => void;
+  onOpenAddPaymentModal?: (lead: EmployeeLeadItem) => void;
+  onOpenViewPaymentModal?: (lead: EmployeeLeadItem) => void;
 }
 
 export function EmployeeLeadDrawer({
@@ -59,6 +65,8 @@ export function EmployeeLeadDrawer({
   onOpenTimelineModal,
   onOpenAddTrialModal,
   onOpenViewTrialModal,
+  onOpenAddPaymentModal,
+  onOpenViewPaymentModal,
 }: EmployeeLeadDrawerProps) {
   if (!isOpen || !leadId) return null;
 
@@ -74,6 +82,8 @@ export function EmployeeLeadDrawer({
       onOpenTimelineModal={onOpenTimelineModal}
       onOpenAddTrialModal={onOpenAddTrialModal}
       onOpenViewTrialModal={onOpenViewTrialModal}
+      onOpenAddPaymentModal={onOpenAddPaymentModal}
+      onOpenViewPaymentModal={onOpenViewPaymentModal}
     />
   );
 }
@@ -88,6 +98,8 @@ function EmployeeLeadDrawerContent({
   onOpenTimelineModal,
   onOpenAddTrialModal,
   onOpenViewTrialModal,
+  onOpenAddPaymentModal,
+  onOpenViewPaymentModal,
 }: {
   leadId: string;
   onClose: () => void;
@@ -98,6 +110,8 @@ function EmployeeLeadDrawerContent({
   onOpenTimelineModal?: (lead: EmployeeLeadItem) => void;
   onOpenAddTrialModal?: (lead: EmployeeLeadItem) => void;
   onOpenViewTrialModal?: (lead: EmployeeLeadItem) => void;
+  onOpenAddPaymentModal?: (lead: EmployeeLeadItem) => void;
+  onOpenViewPaymentModal?: (lead: EmployeeLeadItem) => void;
 }) {
   const [activeTab, setActiveTab] = useState<ActiveTab>("investment");
   const [lead, setLead] = useState<EmployeeLeadItem | null>(null);
@@ -108,6 +122,8 @@ function EmployeeLeadDrawerContent({
   const [isInvoiceMenuOpen, setIsInvoiceMenuOpen] = useState(false);
   const [isAddTrialModalOpen, setIsAddTrialModalOpen] = useState(false);
   const [isViewTrialModalOpen, setIsViewTrialModalOpen] = useState(false);
+  const [isAddPaymentModalOpen, setIsAddPaymentModalOpen] = useState(false);
+  const [isViewPaymentModalOpen, setIsViewPaymentModalOpen] = useState(false);
 
   // Form states across tabs
   const [name, setName] = useState<string>("");
@@ -409,15 +425,35 @@ function EmployeeLeadDrawerContent({
 
               {isPaymentMenuOpen && (
                 <div
-                  className="absolute left-0 top-full mt-1.5 w-52 rounded-xl bg-white dark:bg-[#0c1220] border border-slate-200 dark:border-white/[0.1] shadow-2xl p-2.5 z-50 animate-in fade-in zoom-in-95 duration-100"
+                  className="absolute left-0 top-full mt-1.5 w-48 rounded-xl bg-white dark:bg-[#0c1220] border border-slate-200 dark:border-white/[0.1] shadow-2xl p-1.5 z-50 animate-in fade-in zoom-in-95 duration-100 space-y-1"
                   onClick={() => setIsPaymentMenuOpen(false)}
                 >
-                  <div className="text-[11px] font-semibold text-slate-700 dark:text-slate-300">
-                    Payment Gateway
-                  </div>
-                  <div className="text-[10px] text-slate-400 mt-0.5">
-                    Razorpay collection and payments scheduled for Phase 2.
-                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (lead) {
+                        if (onOpenAddPaymentModal) onOpenAddPaymentModal(lead);
+                        else setIsAddPaymentModalOpen(true);
+                      }
+                    }}
+                    className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors text-left cursor-pointer"
+                  >
+                    <Plus className="size-3.5" />
+                    <span>Add Payment</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (lead) {
+                        if (onOpenViewPaymentModal) onOpenViewPaymentModal(lead);
+                        else setIsViewPaymentModalOpen(true);
+                      }
+                    }}
+                    className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-blue-50 dark:hover:bg-blue-950/40 hover:text-blue-600 dark:hover:text-blue-400 transition-colors text-left cursor-pointer"
+                  >
+                    <Eye className="size-3.5" />
+                    <span>View Payment</span>
+                  </button>
                 </div>
               )}
             </div>
@@ -1012,6 +1048,25 @@ function EmployeeLeadDrawerContent({
           <ViewTrialModal
             isOpen={isViewTrialModalOpen}
             onClose={() => setIsViewTrialModalOpen(false)}
+            lead={lead}
+          />
+          <AddPaymentModal
+            isOpen={isAddPaymentModalOpen}
+            onClose={() => setIsAddPaymentModalOpen(false)}
+            lead={lead}
+            onSuccess={() => {
+              onLeadUpdated();
+              getEmployeeLeadDetailsAction(leadId).then((leadRes) => {
+                if (leadRes.success && leadRes.lead) {
+                  setLead(leadRes.lead);
+                  setLeadStatus(leadRes.lead.status || "UNREAD");
+                }
+              });
+            }}
+          />
+          <ViewPaymentModal
+            isOpen={isViewPaymentModalOpen}
+            onClose={() => setIsViewPaymentModalOpen(false)}
             lead={lead}
           />
         </>

@@ -1,21 +1,22 @@
+import { Suspense } from "react";
 import { requireManagerSession } from "@/src/lib/auth-guard";
 import {
-  getManagerInvoiceHistoryAction,
-  getManagerInvoiceHistoryFiltersAction,
+  getInvoiceHistoryAction,
+  getInvoiceHistoryFiltersAction,
   type InvoiceHistoryItem,
   type GetInvoiceHistoryFilterOptions,
-} from "@/src/features/manager/invoice-history-actions";
-import { InvoiceHistoryClient } from "@/src/features/manager/invoice-history-client";
+} from "@/src/features/invoices/invoice-history-actions";
+import { InvoiceHistoryClient } from "@/src/features/invoices/invoice-history-client";
+import type { Metadata } from "next";
+import { Loader2 } from "lucide-react";
 
-export const instant = false;
-
-export const metadata = {
+export const metadata: Metadata = {
   title: "Invoice History | Manager Portal",
   description: "Supervise client billing records, service durations, tax breakdown, and invoices across your team.",
 };
 
 interface ManagerInvoiceHistoryPageProps {
-  searchParams: Promise<{
+  searchParams?: Promise<{
     profile?: string;
     employeeId?: string;
     productId?: string;
@@ -24,64 +25,51 @@ interface ManagerInvoiceHistoryPageProps {
     fromDate?: string;
     toDate?: string;
     search?: string;
-    sortBy?: string;
-    sortOrder?: string;
+    sortBy?: "invoiceDate" | "totalAmount" | "serialNo" | "clientName" | "status" | "createdAt";
+    sortOrder?: "asc" | "desc";
     page?: string;
     pageSize?: string;
   }>;
 }
 
-const VALID_SORT_COLUMNS = [
-  "invoiceDate",
-  "totalAmount",
-  "serialNo",
-  "clientName",
-  "status",
-  "createdAt",
-] as const;
+function ManagerInvoiceHistoryLoadingSkeleton() {
+  return (
+    <div className="space-y-4 max-w-7xl mx-auto pb-16 animate-pulse">
+      <div className="h-16 rounded-2xl bg-white/70 dark:bg-slate-900/70 border border-slate-200/80 dark:border-slate-800" />
+      <div className="rounded-2xl bg-white/70 dark:bg-slate-900/70 border border-slate-200/80 dark:border-slate-800 p-12 flex flex-col items-center justify-center gap-2 text-slate-400 min-h-[320px]">
+        <Loader2 className="size-8 animate-spin text-blue-500" />
+        <span className="text-xs font-medium">Loading team invoice history...</span>
+      </div>
+    </div>
+  );
+}
 
-export default async function ManagerInvoiceHistoryPage({
-  searchParams,
-}: ManagerInvoiceHistoryPageProps) {
+async function ManagerInvoiceHistoryLoader({ searchParams }: ManagerInvoiceHistoryPageProps) {
   await requireManagerSession();
 
-  const resolvedParams = await searchParams;
+  const resolvedParams = searchParams ? await searchParams : {};
+  const page = Math.max(1, Number(resolvedParams.page) || 1);
+  const pageSize = Math.min(100, Math.max(5, Number(resolvedParams.pageSize) || 10));
 
-  const profile = resolvedParams.profile || undefined;
-  const employeeId = resolvedParams.employeeId || undefined;
-  const productId = resolvedParams.productId || undefined;
-  const teamId = resolvedParams.teamId || undefined;
-  const status = resolvedParams.status || undefined;
-  const fromDate = resolvedParams.fromDate || undefined;
-  const toDate = resolvedParams.toDate || undefined;
-  const search = resolvedParams.search ? resolvedParams.search.trim() : undefined;
-
-  const rawSortBy = resolvedParams.sortBy as (typeof VALID_SORT_COLUMNS)[number] | undefined;
-  const sortBy = rawSortBy && VALID_SORT_COLUMNS.includes(rawSortBy) ? rawSortBy : "invoiceDate";
-  const sortOrder = resolvedParams.sortOrder === "asc" ? "asc" : "desc";
-
-  const page = resolvedParams.page ? Math.max(1, parseInt(resolvedParams.page, 10) || 1) : 1;
-  const pageSize = resolvedParams.pageSize
-    ? Math.max(1, Math.min(100, parseInt(resolvedParams.pageSize, 10) || 10))
-    : 10;
-
-  // Run filter options query and initial invoice list query in parallel
   const [filtersRes, invoicesRes] = await Promise.all([
-    getManagerInvoiceHistoryFiltersAction(),
-    getManagerInvoiceHistoryAction({
-      profile,
-      employeeId,
-      productId,
-      teamId,
-      status,
-      fromDate,
-      toDate,
-      search,
-      sortBy,
-      sortOrder,
-      page,
-      pageSize,
-    }),
+    getInvoiceHistoryFiltersAction("MANAGER"),
+    getInvoiceHistoryAction(
+      {
+        profile: resolvedParams.profile,
+        employeeId: resolvedParams.employeeId,
+        productId: resolvedParams.productId,
+        teamId: resolvedParams.teamId,
+        status: resolvedParams.status,
+        fromDate: resolvedParams.fromDate,
+        toDate: resolvedParams.toDate,
+        search: resolvedParams.search,
+        sortBy: resolvedParams.sortBy,
+        sortOrder: resolvedParams.sortOrder,
+        page,
+        pageSize,
+      },
+      "MANAGER"
+    ),
   ]);
 
   const defaultFilters: GetInvoiceHistoryFilterOptions = {
@@ -98,6 +86,8 @@ export default async function ManagerInvoiceHistoryPage({
   const initialTotalPages = invoicesRes.totalPages ?? 1;
   const initialTotalAmount = invoicesRes.totalAmount ?? 0;
   const initialUniqueClientCount = invoicesRes.uniqueClientCount ?? 0;
+  const initialPendingCount = invoicesRes.pendingCount ?? 0;
+  const initialApprovedCount = invoicesRes.approvedCount ?? 0;
 
   return (
     <InvoiceHistoryClient
@@ -109,18 +99,32 @@ export default async function ManagerInvoiceHistoryPage({
       initialPageSize={pageSize}
       initialTotalAmount={initialTotalAmount}
       initialUniqueClientCount={initialUniqueClientCount}
+      initialPendingCount={initialPendingCount}
+      initialApprovedCount={initialApprovedCount}
       initialParams={{
-        profile,
-        employeeId,
-        productId,
-        teamId,
-        status,
-        fromDate,
-        toDate,
-        search,
-        sortBy,
-        sortOrder,
+        profile: resolvedParams.profile,
+        employeeId: resolvedParams.employeeId,
+        productId: resolvedParams.productId,
+        teamId: resolvedParams.teamId,
+        status: resolvedParams.status,
+        fromDate: resolvedParams.fromDate,
+        toDate: resolvedParams.toDate,
+        search: resolvedParams.search,
+        sortBy: resolvedParams.sortBy,
+        sortOrder: resolvedParams.sortOrder,
       }}
+      portalRole="MANAGER"
+      baseRoute="/manager/history/invoices"
     />
+  );
+}
+
+export default function ManagerInvoiceHistoryPage({ searchParams }: ManagerInvoiceHistoryPageProps) {
+  return (
+    <div className="p-4 sm:p-6 max-w-[1600px] mx-auto space-y-6">
+      <Suspense fallback={<ManagerInvoiceHistoryLoadingSkeleton />}>
+        <ManagerInvoiceHistoryLoader searchParams={searchParams} />
+      </Suspense>
+    </div>
   );
 }

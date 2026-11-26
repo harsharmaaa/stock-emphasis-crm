@@ -30,6 +30,7 @@ import {
   Eye,
 } from "lucide-react";
 import { AddFreeTrialModal, ViewTrialModal } from "@/src/features/trials/trial-modals";
+import { AddPaymentModal, ViewPaymentModal } from "@/src/features/payments/payment-modals";
 
 interface ManagerLeadDrawerProps {
   leadId: string | null;
@@ -108,6 +109,11 @@ function ManagerLeadDrawerContent({
   const [isTrialMenuOpen, setIsTrialMenuOpen] = useState(false);
   const [isAddTrialModalOpen, setIsAddTrialModalOpen] = useState(false);
   const [isViewTrialModalOpen, setIsViewTrialModalOpen] = useState(false);
+
+  // Payment Modals state
+  const [isPaymentMenuOpen, setIsPaymentMenuOpen] = useState(false);
+  const [isAddPaymentModalOpen, setIsAddPaymentModalOpen] = useState(false);
+  const [isViewPaymentModalOpen, setIsViewPaymentModalOpen] = useState(false);
 
   useEffect(() => {
     getActiveManagerLeadResponsesAction().then((res) => {
@@ -341,6 +347,48 @@ function ManagerLeadDrawerContent({
                       >
                         <Eye className="size-3.5 text-blue-600 dark:text-blue-400" />
                         <span>View Trial</span>
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Payment Dropdown Button */}
+              {lead && (
+                <div className="relative">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsPaymentMenuOpen((prev) => !prev);
+                      setIsTrialMenuOpen(false);
+                    }}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold text-white bg-emerald-600 hover:bg-emerald-700 active:scale-95 transition-all cursor-pointer shadow-xs"
+                  >
+                    <span>Payment</span>
+                    <ChevronDown className={`size-3.5 transition-transform ${isPaymentMenuOpen ? "rotate-180" : ""}`} />
+                  </button>
+
+                  {isPaymentMenuOpen && (
+                    <div
+                      className="absolute right-0 top-full mt-1.5 w-44 rounded-xl bg-white dark:bg-[#0c1220] border border-slate-200 dark:border-white/[0.1] shadow-2xl p-1.5 z-50 animate-in fade-in zoom-in-95 duration-100 space-y-1"
+                      onClick={() => setIsPaymentMenuOpen(false)}
+                    >
+                      <button
+                        type="button"
+                        onClick={() => setIsAddPaymentModalOpen(true)}
+                        className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs font-medium text-slate-700 dark:text-slate-300 hover:bg-emerald-500/10 hover:text-emerald-700 dark:hover:text-emerald-300 transition-colors text-left cursor-pointer"
+                      >
+                        <Plus className="size-3.5 text-emerald-600 dark:text-emerald-400 stroke-[2.5]" />
+                        <span>Add Payment</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setIsViewPaymentModalOpen(true)}
+                        className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs font-medium text-slate-700 dark:text-slate-300 hover:bg-blue-500/10 hover:text-blue-700 dark:hover:text-blue-300 transition-colors text-left cursor-pointer"
+                      >
+                        <Eye className="size-3.5 text-blue-600 dark:text-blue-400" />
+                        <span>View Payment</span>
                       </button>
                     </div>
                   )}
@@ -805,6 +853,27 @@ function ManagerLeadDrawerContent({
           <ViewTrialModal
             isOpen={isViewTrialModalOpen}
             onClose={() => setIsViewTrialModalOpen(false)}
+            lead={lead}
+          />
+          <AddPaymentModal
+            isOpen={isAddPaymentModalOpen}
+            onClose={() => setIsAddPaymentModalOpen(false)}
+            lead={lead}
+            onSuccess={() => {
+              onLeadUpdated();
+              if (leadId) {
+                getManagerLeadDetailsAction(leadId).then((leadRes) => {
+                  if (leadRes.success && leadRes.lead) {
+                    setLead(leadRes.lead);
+                    setEditStatus(leadRes.lead.status || "UNREAD");
+                  }
+                });
+              }
+            }}
+          />
+          <ViewPaymentModal
+            isOpen={isViewPaymentModalOpen}
+            onClose={() => setIsViewPaymentModalOpen(false)}
             lead={lead}
           />
         </>

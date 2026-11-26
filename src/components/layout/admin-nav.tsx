@@ -33,9 +33,13 @@ import {
   UserCheck2,
   SlidersHorizontal,
   ScrollText,
+  CreditCard,
+  FileText,
 } from "lucide-react";
 import { Badge } from "@/src/components/ui/Badge";
 import { getPendingTrialsCountAction } from "@/src/features/trials/actions";
+import { getPendingPaymentsCountAction } from "@/src/features/payments/actions";
+import { getPendingInvoicesCountAction } from "@/src/features/invoices/actions";
 
 interface AdminNavProps {
   isOpen: boolean;
@@ -206,6 +210,18 @@ const NAVIGATION_GROUPS: NavGroup[] = [
         icon: ScrollText,
         status: "active",
       },
+      {
+        title: "Payment History",
+        href: "/admin/history/payments",
+        icon: CreditCard,
+        status: "active",
+      },
+      {
+        title: "Invoice History",
+        href: "/admin/history/invoices",
+        icon: FileText,
+        status: "active",
+      },
     ],
   },
   {
@@ -226,17 +242,15 @@ const NAVIGATION_GROUPS: NavGroup[] = [
           },
           {
             title: "Payment",
+            href: "/admin/approvals/payments",
             icon: CheckSquare,
-            badge: "Phase 2",
-            status: "upcoming",
-            tooltip: "Payment approvals scheduled for Phase 2.",
+            status: "active",
           },
           {
             title: "Invoice",
+            href: "/admin/approvals/invoices",
             icon: CheckSquare,
-            badge: "Phase 2",
-            status: "upcoming",
-            tooltip: "Invoice approvals scheduled for Phase 2.",
+            status: "active",
           },
         ],
       },
@@ -288,6 +302,8 @@ export function AdminNav({
   });
 
   const [pendingTrialCount, setPendingTrialCount] = useState<number>(0);
+  const [pendingPaymentCount, setPendingPaymentCount] = useState<number>(0);
+  const [pendingInvoiceCount, setPendingInvoiceCount] = useState<number>(0);
   const [expandedNavItems, setExpandedNavItems] = useState<Record<string, boolean>>({
     Approvals: true,
   });
@@ -296,6 +312,16 @@ export function AdminNav({
     getPendingTrialsCountAction().then((res) => {
       if (res.success && res.count !== undefined) {
         setPendingTrialCount(res.count);
+      }
+    });
+    getPendingPaymentsCountAction().then((res) => {
+      if (res.success && res.count !== undefined) {
+        setPendingPaymentCount(res.count);
+      }
+    });
+    getPendingInvoicesCountAction().then((res) => {
+      if (res.success && res.count !== undefined) {
+        setPendingInvoiceCount(res.count);
       }
     });
   }, [pathname]);
@@ -482,9 +508,9 @@ export function AdminNav({
 
                               {!collapsed && (
                                 <div className="flex items-center gap-2">
-                                  {pendingTrialCount > 0 && (
+                                  {(pendingTrialCount > 0 || pendingPaymentCount > 0) && (
                                     <span className="px-1.5 py-0.2 rounded-full text-[10px] font-bold bg-amber-500 text-white shadow-2xs">
-                                      {pendingTrialCount}
+                                      {pendingTrialCount + pendingPaymentCount}
                                     </span>
                                   )}
                                   <ChevronDown
@@ -522,6 +548,16 @@ export function AdminNav({
                                         {child.title === "Trial" && pendingTrialCount > 0 && (
                                           <span className="px-1.5 py-0.2 rounded-full text-[10px] font-bold bg-amber-500 text-white">
                                             {pendingTrialCount}
+                                          </span>
+                                        )}
+                                        {child.title === "Payment" && pendingPaymentCount > 0 && (
+                                          <span className="px-1.5 py-0.2 rounded-full text-[10px] font-bold bg-amber-500 text-white">
+                                            {pendingPaymentCount}
+                                          </span>
+                                        )}
+                                        {child.title === "Invoice" && pendingInvoiceCount > 0 && (
+                                          <span className="px-1.5 py-0.2 rounded-full text-[10px] font-bold bg-amber-500 text-white">
+                                            {pendingInvoiceCount}
                                           </span>
                                         )}
                                       </Link>

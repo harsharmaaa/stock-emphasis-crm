@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { requireManagerSession } from "@/src/lib/auth-guard";
 import {
   getManagerPaymentHistoryAction,
@@ -6,16 +7,16 @@ import {
   type GetPaymentHistoryFilterOptions,
 } from "@/src/features/manager/payment-history-actions";
 import { PaymentHistoryClient } from "@/src/features/manager/payment-history-client";
+import type { Metadata } from "next";
+import { Loader2 } from "lucide-react";
 
-export const instant = false;
-
-export const metadata = {
+export const metadata: Metadata = {
   title: "Payment History | Manager Portal",
   description: "View verified client collection transactions, payment methods, and billing ledger across your team.",
 };
 
 interface ManagerPaymentHistoryPageProps {
-  searchParams: Promise<{
+  searchParams?: Promise<{
     fromDate?: string;
     toDate?: string;
     status?: string;
@@ -45,12 +46,24 @@ const VALID_SORT_COLUMNS = [
   "createdAt",
 ] as const;
 
-export default async function ManagerPaymentHistoryPage({
-  searchParams,
-}: ManagerPaymentHistoryPageProps) {
+function ManagerPaymentHistoryLoadingSkeleton() {
+  return (
+    <div className="space-y-4 max-w-7xl mx-auto pb-16 animate-pulse">
+      <div className="flex items-center justify-between p-4 rounded-2xl bg-white/70 dark:bg-[#0c1220]/75 border border-slate-200/80 dark:border-white/[0.08]">
+        <div className="h-6 w-44 rounded-lg bg-slate-200/70 dark:bg-white/[0.08]" />
+      </div>
+      <div className="rounded-2xl bg-white/70 dark:bg-[#0c1220]/75 border border-slate-200/80 dark:border-white/[0.08] p-12 flex flex-col items-center justify-center gap-2 text-slate-400 min-h-[320px]">
+        <Loader2 className="size-8 animate-spin text-blue-500" />
+        <span className="text-xs font-medium">Loading payment records...</span>
+      </div>
+    </div>
+  );
+}
+
+async function ManagerPaymentHistoryLoader({ searchParams }: ManagerPaymentHistoryPageProps) {
   await requireManagerSession();
 
-  const resolvedParams = await searchParams;
+  const resolvedParams = searchParams ? await searchParams : {};
 
   const fromDate = resolvedParams.fromDate || undefined;
   const toDate = resolvedParams.toDate || undefined;
@@ -140,5 +153,13 @@ export default async function ManagerPaymentHistoryPage({
         sortOrder,
       }}
     />
+  );
+}
+
+export default function ManagerPaymentHistoryPage({ searchParams }: ManagerPaymentHistoryPageProps) {
+  return (
+    <Suspense fallback={<ManagerPaymentHistoryLoadingSkeleton />}>
+      <ManagerPaymentHistoryLoader searchParams={searchParams} />
+    </Suspense>
   );
 }

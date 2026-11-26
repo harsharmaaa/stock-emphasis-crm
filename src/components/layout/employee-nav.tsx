@@ -74,17 +74,15 @@ const NAV_ITEMS: NavItem[] = [
       },
       {
         title: "Payment",
+        href: "/employee/payments",
         icon: CreditCard,
-        badge: "Phase 2",
-        status: "upcoming",
-        tooltip: "Payment history records scheduled for Phase 2.",
+        status: "active",
       },
       {
         title: "Invoice",
+        href: "/employee/invoices",
         icon: Receipt,
-        badge: "Phase 2",
-        status: "upcoming",
-        tooltip: "Invoice history records scheduled for Phase 2.",
+        status: "active",
       },
     ],
   },
@@ -117,7 +115,10 @@ export function EmployeeNav({
   const pathname = usePathname();
 
   const isHistoryRoute =
-    pathname.startsWith("/employee/trials") || pathname.startsWith("/employee/history");
+    pathname.startsWith("/employee/trials") ||
+    pathname.startsWith("/employee/payments") ||
+    pathname.startsWith("/employee/invoices") ||
+    pathname.startsWith("/employee/history");
   const [manualExpanded, setManualExpanded] = useState<boolean | null>(null);
   const isHistoryExpanded = manualExpanded !== null ? manualExpanded : isHistoryRoute;
 
@@ -183,27 +184,24 @@ export function EmployeeNav({
                   <button
                     type="button"
                     onClick={() => setManualExpanded(!isHistoryExpanded)}
-                    className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
-                      isParentActive
-                        ? "bg-cyan-500/10 text-cyan-700 dark:text-cyan-300 border border-cyan-500/30"
-                        : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 hover:bg-slate-100/70 dark:hover:bg-white/[0.06] border border-transparent"
-                    }`}
+                    className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${isParentActive
+                      ? "bg-cyan-500/10 text-cyan-700 dark:text-cyan-300 border border-cyan-500/30"
+                      : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 hover:bg-slate-100/70 dark:hover:bg-white/[0.06] border border-transparent"
+                      }`}
                   >
                     <div className="flex items-center gap-3">
                       <Icon
-                        className={`size-4 transition-colors ${
-                          isParentActive
-                            ? "text-cyan-600 dark:text-cyan-400"
-                            : "text-slate-500 dark:text-slate-400"
-                        }`}
+                        className={`size-4 transition-colors ${isParentActive
+                          ? "text-cyan-600 dark:text-cyan-400"
+                          : "text-slate-500 dark:text-slate-400"
+                          }`}
                       />
                       <span>{item.title}</span>
                     </div>
 
                     <ChevronDown
-                      className={`size-3.5 text-slate-400 transition-transform duration-200 ${
-                        isHistoryExpanded ? "rotate-180 text-cyan-600 dark:text-cyan-400" : ""
-                      }`}
+                      className={`size-3.5 text-slate-400 transition-transform duration-200 ${isHistoryExpanded ? "rotate-180 text-cyan-600 dark:text-cyan-400" : ""
+                        }`}
                     />
                   </button>
 
@@ -221,19 +219,17 @@ export function EmployeeNav({
                               key={child.href}
                               href={child.href}
                               onClick={onClose}
-                              className={`flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold transition-all ${
-                                isChildActive
-                                  ? "bg-cyan-500/15 dark:bg-cyan-500/20 text-cyan-700 dark:text-cyan-200 border border-cyan-500/30 dark:border-cyan-400/40 shadow-xs"
-                                  : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 hover:bg-slate-100/70 dark:hover:bg-white/[0.06] border border-transparent"
-                              }`}
+                              className={`flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold transition-all ${isChildActive
+                                ? "bg-cyan-500/15 dark:bg-cyan-500/20 text-cyan-700 dark:text-cyan-200 border border-cyan-500/30 dark:border-cyan-400/40 shadow-xs"
+                                : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 hover:bg-slate-100/70 dark:hover:bg-white/[0.06] border border-transparent"
+                                }`}
                             >
                               <div className="flex items-center gap-2.5 min-w-0">
                                 <ChildIcon
-                                  className={`size-3.5 transition-colors ${
-                                    isChildActive
-                                      ? "text-cyan-600 dark:text-cyan-400"
-                                      : "text-slate-500 dark:text-slate-400"
-                                  }`}
+                                  className={`size-3.5 transition-colors ${isChildActive
+                                    ? "text-cyan-600 dark:text-cyan-400"
+                                    : "text-slate-500 dark:text-slate-400"
+                                    }`}
                                 />
                                 <span className="truncate">{child.title}</span>
                               </div>
@@ -294,19 +290,17 @@ export function EmployeeNav({
                 key={item.href}
                 href={item.href!}
                 onClick={onClose}
-                className={`flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all group ${
-                  active
-                    ? "bg-cyan-500/15 dark:bg-cyan-500/20 text-cyan-700 dark:text-cyan-200 border border-cyan-500/30 dark:border-cyan-400/40 shadow-xs"
-                    : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 hover:bg-slate-100/70 dark:hover:bg-white/[0.06] border border-transparent"
-                }`}
+                className={`flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all group ${active
+                  ? "bg-cyan-500/15 dark:bg-cyan-500/20 text-cyan-700 dark:text-cyan-200 border border-cyan-500/30 dark:border-cyan-400/40 shadow-xs"
+                  : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 hover:bg-slate-100/70 dark:hover:bg-white/[0.06] border border-transparent"
+                  }`}
               >
                 <div className="flex items-center gap-3">
                   <Icon
-                    className={`size-4 transition-colors ${
-                      active
-                        ? "text-cyan-600 dark:text-cyan-400"
-                        : "text-slate-500 dark:text-slate-400 group-hover:text-slate-800 dark:group-hover:text-slate-200"
-                    }`}
+                    className={`size-4 transition-colors ${active
+                      ? "text-cyan-600 dark:text-cyan-400"
+                      : "text-slate-500 dark:text-slate-400 group-hover:text-slate-800 dark:group-hover:text-slate-200"
+                      }`}
                   />
                   <span>{item.title}</span>
                 </div>
