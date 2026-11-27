@@ -3,9 +3,11 @@ import { requireAdminSession } from "@/src/lib/auth-guard";
 import {
   getPaymentHistoryAction,
   getPaymentHistoryFiltersAction,
-  type PaymentHistoryItem,
-  type GetPaymentHistoryFilterOptions,
 } from "@/src/features/payments/payment-history-actions";
+import type {
+  PaymentHistoryItem,
+  GetPaymentHistoryFilterOptions,
+} from "@/src/features/payments/types";
 import { PaymentHistoryClient } from "@/src/features/payments/payment-history-client";
 import type { Metadata } from "next";
 import { Loader2 } from "lucide-react";

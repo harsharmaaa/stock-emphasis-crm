@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import type {
   PaymentHistoryItem,
   GetPaymentHistoryFilterOptions,
-} from "./payment-history-actions";
+} from "./types";
 import { getPaymentHistoryAction } from "./payment-history-actions";
 import {
   Search,

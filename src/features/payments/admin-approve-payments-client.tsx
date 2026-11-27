@@ -19,8 +19,8 @@ import {
   denyPaymentAction,
   batchApprovePaymentsAction,
   batchDenyPaymentsAction,
-  type AdminApprovalPaymentItem,
 } from "./actions";
+import type { AdminApprovalPaymentItem } from "./types";
 
 interface AdminApprovePaymentsClientProps {
   initialPayments: AdminApprovalPaymentItem[];

@@ -12,7 +12,7 @@ import {
   History,
   ShieldCheck,
 } from "lucide-react";
-import type { InvoiceTimelineEvent } from "./actions";
+import type { InvoiceTimelineEvent } from "./types";
 import { getInvoiceTimelineAction, logInvoicePrintAction } from "./actions";
 
 export interface ViewInvoiceData {
@@ -23,6 +23,9 @@ export interface ViewInvoiceData {
   clientEmail: string | null;
   pan: string | null;
   dob?: string | null;
+  clientState?: string | null;
+  clientGstin?: string | null;
+  latestNote?: string | null;
   productName: string;
   planType: string;
   durationLabel: string;
@@ -104,15 +107,17 @@ export function ViewInvoiceModal({
 }: ViewInvoiceModalProps) {
   const [activeTab, setActiveTab] = useState<"invoice" | "timeline">(initialTab);
   const [timeline, setTimeline] = useState<InvoiceTimelineEvent[]>([]);
+  const [latestNote, setLatestNote] = useState<string | null>(invoice?.latestNote || null);
   const [isLoadingTimeline, setIsLoadingTimeline] = useState(false);
   const [, startTransition] = useTransition();
 
   useEffect(() => {
     const timer = setTimeout(() => {
       setActiveTab(initialTab);
+      setLatestNote(invoice?.latestNote || null);
     }, 0);
     return () => clearTimeout(timer);
-  }, [initialTab]);
+  }, [initialTab, invoice?.latestNote]);
 
   useEffect(() => {
     if (!isOpen || !invoice) return;
@@ -124,8 +129,13 @@ export function ViewInvoiceModal({
         invoiceId: invoice.id,
         serialNo: invoice.serialNo,
       });
-      if (isMounted && res.success && res.timeline) {
-        setTimeline(res.timeline);
+      if (isMounted && res.success) {
+        if (res.timeline) {
+          setTimeline(res.timeline);
+        }
+        if (res.latestNote) {
+          setLatestNote(res.latestNote);
+        }
       }
       if (isMounted) {
         setIsLoadingTimeline(false);
@@ -178,6 +188,17 @@ export function ViewInvoiceModal({
       </span>
     );
   };
+
+  // Indian GST split calculation: CGST (9%) + SGST (9%) vs IGST (18%)
+  const stateStr = (invoice.clientState || "").toLowerCase();
+  const isCgstSgst =
+    stateStr.includes("madhya") ||
+    stateStr === "mp" ||
+    Boolean(invoice.clientGstin?.startsWith("23"));
+
+  const totalGst = Number(invoice.gstAmount);
+  const cgstAmount = Math.round((totalGst / 2) * 100) / 100;
+  const sgstAmount = Math.round((totalGst - cgstAmount) * 100) / 100;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
@@ -234,11 +255,10 @@ export function ViewInvoiceModal({
               <button
                 type="button"
                 onClick={() => setActiveTab("invoice")}
-                className={`px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5 ${
-                  activeTab === "invoice"
-                    ? "bg-white dark:bg-slate-700 text-blue-600 dark:text-blue-400 shadow-sm"
-                    : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
-                }`}
+                className={`px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5 ${activeTab === "invoice"
+                  ? "bg-white dark:bg-slate-700 text-blue-600 dark:text-blue-400 shadow-sm"
+                  : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
+                  }`}
               >
                 <FileText className="w-3.5 h-3.5" />
                 Tax Invoice
@@ -246,11 +266,10 @@ export function ViewInvoiceModal({
               <button
                 type="button"
                 onClick={() => setActiveTab("timeline")}
-                className={`px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5 ${
-                  activeTab === "timeline"
-                    ? "bg-white dark:bg-slate-700 text-blue-600 dark:text-blue-400 shadow-sm"
-                    : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
-                }`}
+                className={`px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5 ${activeTab === "timeline"
+                  ? "bg-white dark:bg-slate-700 text-blue-600 dark:text-blue-400 shadow-sm"
+                  : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
+                  }`}
               >
                 <History className="w-3.5 h-3.5" />
                 Audit Timeline
@@ -288,7 +307,20 @@ export function ViewInvoiceModal({
         </div>
 
         {/* Modal Body */}
-        <div className="flex-1 overflow-y-auto p-4 sm:p-6">
+        <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4">
+          {/* Internal Remarks / Compliance Note (On-screen ONLY, excluded from printable/downloadable Tax Invoice) */}
+          {latestNote && activeTab === "invoice" && (
+            <div className="no-print p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/25 text-xs animate-in fade-in duration-150">
+              <div className="flex items-center gap-1.5 font-bold text-amber-700 dark:text-amber-400 mb-1">
+                <FileText className="w-4 h-4" />
+                <span>Internal Remarks / Approval Comment:</span>
+              </div>
+              <p className="text-slate-800 dark:text-slate-200 italic font-medium leading-relaxed">
+                &ldquo;{latestNote}&rdquo;
+              </p>
+            </div>
+          )}
+
           {activeTab === "invoice" ? (
             /* PRINTABLE TAX INVOICE */
             <div
@@ -350,6 +382,16 @@ export function ViewInvoiceModal({
                   <p className="text-slate-600 dark:text-slate-300">
                     PAN: <span className="font-mono font-semibold">{invoice.pan || "N/A"}</span>
                   </p>
+                  {invoice.clientGstin && (
+                    <p className="text-slate-600 dark:text-slate-300">
+                      GSTIN: <span className="font-mono font-semibold">{invoice.clientGstin}</span>
+                    </p>
+                  )}
+                  {invoice.clientState && (
+                    <p className="text-slate-600 dark:text-slate-300">
+                      State: <span className="font-medium">{invoice.clientState}</span>
+                    </p>
+                  )}
                   {invoice.dob && (
                     <p className="text-slate-600 dark:text-slate-300">
                       DOB: <span className="font-mono">{invoice.dob}</span>
@@ -376,6 +418,9 @@ export function ViewInvoiceModal({
                   <p className="text-slate-500 text-[11px] mt-1">
                     Place of Supply: Madhya Pradesh (State Code: 23)
                   </p>
+                  <p className="text-blue-600 dark:text-blue-400 text-[11px] font-semibold mt-0.5">
+                    Taxation: {isCgstSgst ? "Intra-State Supply (CGST + SGST)" : "Inter-State Supply (IGST)"}
+                  </p>
                 </div>
               </div>
 
@@ -389,7 +434,14 @@ export function ViewInvoiceModal({
                       <th className="py-2.5 px-3">HSN / SAC</th>
                       <th className="py-2.5 px-3">Validity</th>
                       <th className="py-2.5 px-3 text-right">Taxable Value</th>
-                      <th className="py-2.5 px-3 text-right">IGST (18%)</th>
+                      {isCgstSgst ? (
+                        <>
+                          <th className="py-2.5 px-3 text-right">CGST (9%)</th>
+                          <th className="py-2.5 px-3 text-right">SGST (9%)</th>
+                        </>
+                      ) : (
+                        <th className="py-2.5 px-3 text-right">IGST (18%)</th>
+                      )}
                       <th className="py-2.5 px-3 text-right">Total Amount</th>
                     </tr>
                   </thead>
@@ -413,9 +465,20 @@ export function ViewInvoiceModal({
                       <td className="py-3 px-3 text-right font-mono font-medium">
                         ₹{invoice.baseAmount.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
                       </td>
-                      <td className="py-3 px-3 text-right font-mono font-medium">
-                        ₹{invoice.gstAmount.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
-                      </td>
+                      {isCgstSgst ? (
+                        <>
+                          <td className="py-3 px-3 text-right font-mono font-medium">
+                            ₹{cgstAmount.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                          </td>
+                          <td className="py-3 px-3 text-right font-mono font-medium">
+                            ₹{sgstAmount.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                          </td>
+                        </>
+                      ) : (
+                        <td className="py-3 px-3 text-right font-mono font-medium">
+                          ₹{invoice.gstAmount.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                        </td>
+                      )}
                       <td className="py-3 px-3 text-right font-mono font-bold text-slate-900 dark:text-white">
                         ₹{invoice.totalAmount.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
                       </td>
@@ -435,7 +498,7 @@ export function ViewInvoiceModal({
                   </p>
                   <div className="pt-2 text-[10px] text-slate-500 space-y-0.5">
                     <p>• Reverse Charge Applicable: <strong>NO</strong></p>
-                    <p>• Inclusive 18% Integrated Goods & Service Tax (IGST)</p>
+                    <p>• {isCgstSgst ? "Inclusive 9% CGST + 9% SGST (Intra-state Supply)" : "Inclusive 18% Integrated Goods & Service Tax (IGST)"}</p>
                   </div>
                 </div>
 
@@ -444,10 +507,23 @@ export function ViewInvoiceModal({
                     <span>Taxable Base Value:</span>
                     <span className="font-mono">₹{invoice.baseAmount.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span>
                   </div>
-                  <div className="flex justify-between text-slate-600 dark:text-slate-400">
-                    <span>IGST (18%):</span>
-                    <span className="font-mono">₹{invoice.gstAmount.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span>
-                  </div>
+                  {isCgstSgst ? (
+                    <>
+                      <div className="flex justify-between text-slate-600 dark:text-slate-400">
+                        <span>CGST (9%):</span>
+                        <span className="font-mono">₹{cgstAmount.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span>
+                      </div>
+                      <div className="flex justify-between text-slate-600 dark:text-slate-400">
+                        <span>SGST (9%):</span>
+                        <span className="font-mono">₹{sgstAmount.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span>
+                      </div>
+                    </>
+                  ) : (
+                    <div className="flex justify-between text-slate-600 dark:text-slate-400">
+                      <span>IGST (18%):</span>
+                      <span className="font-mono">₹{invoice.gstAmount.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span>
+                    </div>
+                  )}
                   <div className="flex justify-between pt-2 border-t border-slate-200 dark:border-slate-700 font-bold text-sm text-slate-900 dark:text-white">
                     <span>Total Paid:</span>
                     <span className="font-mono text-emerald-600 dark:text-emerald-400">

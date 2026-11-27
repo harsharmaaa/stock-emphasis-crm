@@ -15,7 +15,7 @@ import {
   Eye,
 } from "lucide-react";
 import { useToast } from "@/src/components/ui/Toast";
-import type { AdminApprovalInvoiceItem } from "./actions";
+import type { AdminApprovalInvoiceItem } from "./types";
 import {
   getAdminApprovalInvoicesAction,
   approveInvoiceAction,
@@ -57,7 +57,13 @@ export function AdminApproveInvoicesClient({
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
   // Per-row comments / reasons typed by approver
-  const [comments, setComments] = useState<Record<string, string>>({});
+  const [comments, setComments] = useState<Record<string, string>>(() => {
+    const map: Record<string, string> = {};
+    for (const inv of initialInvoices) {
+      if (inv.comment) map[inv.id] = inv.comment;
+    }
+    return map;
+  });
 
   // Pagination
   const [pageSize, setPageSize] = useState<number>(10);
@@ -88,6 +94,11 @@ export function AdminApproveInvoicesClient({
 
       if (res.success && res.invoices) {
         setInvoices(res.invoices);
+        const map: Record<string, string> = {};
+        for (const inv of res.invoices) {
+          if (inv.comment) map[inv.id] = inv.comment;
+        }
+        setComments((prev) => ({ ...map, ...prev }));
         if (res.pendingCount !== undefined) setPendingCount(res.pendingCount);
         if (res.approvedCount !== undefined) setApprovedCount(res.approvedCount);
         if (res.cancelledCount !== undefined) setCancelledCount(res.cancelledCount);
@@ -692,6 +703,9 @@ export function AdminApproveInvoicesClient({
             clientEmail: viewingInvoice.clientEmail,
             pan: viewingInvoice.pan,
             dob: viewingInvoice.dob,
+            clientState: viewingInvoice.clientState,
+            clientGstin: viewingInvoice.clientGstin,
+            latestNote: viewingInvoice.latestNote,
             productName: viewingInvoice.productName,
             planType: viewingInvoice.planType,
             durationLabel: viewingInvoice.durationLabel,

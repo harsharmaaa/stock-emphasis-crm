@@ -3,9 +3,11 @@ import { requireAdminSession } from "@/src/lib/auth-guard";
 import {
   getInvoiceHistoryAction,
   getInvoiceHistoryFiltersAction,
-  type InvoiceHistoryItem,
-  type GetInvoiceHistoryFilterOptions,
 } from "@/src/features/invoices/invoice-history-actions";
+import type {
+  InvoiceHistoryItem,
+  GetInvoiceHistoryFilterOptions,
+} from "@/src/features/invoices/types";
 import { InvoiceHistoryClient } from "@/src/features/invoices/invoice-history-client";
 import type { Metadata } from "next";
 import { Loader2 } from "lucide-react";

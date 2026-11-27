@@ -11,56 +11,11 @@ import { Prisma } from "@prisma/client";
 import { logActivity } from "@/src/lib/activity-logger";
 import { revalidatePath } from "next/cache";
 
-export interface AdminApprovalInvoiceItem {
-  id: string;
-  serialNo: string;
-  leadId: string;
-  clientName: string;
-  clientMobile: string;
-  clientEmail: string | null;
-  pan: string | null;
-  dob: string | null;
-  productName: string;
-  productId: string | null;
-  planType: string;
-  durationLabel: string;
-  startDate: string | null;
-  endDate: string | null;
-  invoiceDate: string;
-  baseAmount: number;
-  gstAmount: number;
-  totalAmount: number;
-  status: string; // "Approved" | "Pending" | "Cancelled"
-  mailStatus: string | null;
-  createdByName: string;
-  assignedToName: string | null;
-  teamName: string | null;
-  createdAt: string;
-}
-
-export interface InvoiceTimelineEvent {
-  id: string;
-  action: string;
-  label: string;
-  timestamp: string; // ISO string
-  displayTime: string;
-  actorName: string;
-  actorRole?: string;
-  notes?: string;
-  badgeColor: "emerald" | "amber" | "rose" | "blue" | "slate";
-}
-
-export interface UpdateInvoiceInput {
-  invoiceId: string;
-  productName?: string;
-  productId?: string;
-  planType?: string;
-  durationLabel?: string;
-  startDate?: string;
-  endDate?: string;
-  totalAmount?: number;
-  notes?: string;
-}
+import type {
+  AdminApprovalInvoiceItem,
+  InvoiceTimelineEvent,
+  UpdateInvoiceInput,
+} from "./types";
 
 const MONTH_NAMES = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
@@ -151,6 +106,8 @@ export async function getAdminApprovalInvoicesAction(params?: {
               email: true,
               pan: true,
               dob: true,
+              state: true,
+              gstin: true,
             },
           },
           createdBy: { select: { name: true } },
@@ -164,6 +121,35 @@ export async function getAdminApprovalInvoicesAction(params?: {
       prisma.invoice.count({ where: { status: "APPROVED" } }),
       prisma.invoice.count({ where: { status: "CANCELLED" } }),
     ]);
+
+    const serials = invoices.map((inv) => inv.serialNo);
+    const commentsBySerial: Record<string, string> = {};
+
+    if (serials.length > 0) {
+      const logs = await prisma.activityLog.findMany({
+        where: {
+          action: { in: ["INVOICE_APPROVED", "UPDATE_INVOICE", "APPROVE_PAYMENT", "INVOICE_CANCELLED"] },
+          OR: serials.map((s) => ({ details: { contains: s } })),
+        },
+        orderBy: { createdAt: "desc" },
+        select: { details: true },
+      });
+
+      for (const log of logs) {
+        if (!log.details) continue;
+        for (const s of serials) {
+          if (!commentsBySerial[s] && log.details.includes(s)) {
+            const match =
+              log.details.match(/Note:\s*"([^"]+)"/i) ||
+              log.details.match(/Reason:\s*"([^"]+)"/i) ||
+              log.details.match(/Approval Comment:\s*([^|.]+)/i);
+            if (match && match[1]?.trim()) {
+              commentsBySerial[s] = match[1].trim();
+            }
+          }
+        }
+      }
+    }
 
     const items: AdminApprovalInvoiceItem[] = invoices.map((inv) => {
       const rawStatus = (inv.status || "PENDING").toUpperCase();
@@ -183,6 +169,9 @@ export async function getAdminApprovalInvoicesAction(params?: {
         clientEmail: inv.lead?.email || null,
         pan: inv.lead?.pan || null,
         dob: formatDob(inv.lead?.dob),
+        clientState: inv.lead?.state || null,
+        clientGstin: inv.lead?.gstin || null,
+        comment: commentsBySerial[inv.serialNo] || null,
         productName: inv.productName || inv.product?.name || "Advisory Service Package",
         productId: inv.productId || null,
         planType: inv.planType || "Monthly",
@@ -493,6 +482,10 @@ export async function updateInvoiceAction(
       diffs.push(`Total Amount: ₹${Number(existing.totalAmount)} -> ₹${totalAmount} (Base: ₹${baseAmount}, GST: ₹${gstAmount})`);
     }
 
+    if (input.gstType) {
+      diffs.push(`Tax Scheme: "${input.gstType === "CGST_SGST" ? "CGST (9%) + SGST (9%)" : "IGST (18%)"}"`);
+    }
+
     await prisma.invoice.update({
       where: { id: input.invoiceId },
       data: updates,
@@ -532,6 +525,7 @@ export async function getInvoiceTimelineAction({
 }): Promise<{
   success: boolean;
   timeline?: InvoiceTimelineEvent[];
+  latestNote?: string | null;
   error?: string;
 }> {
   try {
@@ -648,7 +642,20 @@ export async function getInvoiceTimelineAction({
     // Sort all events chronologically
     events.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
 
-    return { success: true, timeline: events };
+    // Extract the latest recorded note or reason from activity logs
+    let latestNote: string | null = null;
+    for (let i = events.length - 1; i >= 0; i--) {
+      const ev = events[i];
+      if (ev.notes) {
+        const noteMatch = ev.notes.match(/Note:\s*"([^"]+)"/i) || ev.notes.match(/Reason:\s*"([^"]+)"/i);
+        if (noteMatch && noteMatch[1]) {
+          latestNote = noteMatch[1];
+          break;
+        }
+      }
+    }
+
+    return { success: true, timeline: events, latestNote };
   } catch (err) {
     return handleActionError(err, "Failed to load invoice timeline.");
   }

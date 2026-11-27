@@ -6,7 +6,7 @@ import type {
   InvoiceHistoryItem,
   GetInvoiceHistoryFilterOptions,
   GetInvoiceHistoryInput,
-} from "./invoice-history-actions";
+} from "./types";
 import { getInvoiceHistoryAction } from "./invoice-history-actions";
 import {
   Search,
@@ -544,6 +544,7 @@ export function InvoiceHistoryClient({
                     {renderSortIcon("status")}
                   </div>
                 </th>
+                <th className="py-3 px-3 min-w-[130px]">Comment</th>
                 <th className="py-3 px-3">Raised By</th>
                 <th className="py-3 px-3 text-right">Actions</th>
               </tr>
@@ -552,13 +553,13 @@ export function InvoiceHistoryClient({
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60">
               {isPending && invoices.length === 0 ? (
                 <tr>
-                  <td colSpan={12} className="py-12 text-center text-slate-400">
+                  <td colSpan={13} className="py-12 text-center text-slate-400">
                     Loading invoices...
                   </td>
                 </tr>
               ) : invoices.length === 0 ? (
                 <tr>
-                  <td colSpan={12} className="py-12 text-center text-slate-400">
+                  <td colSpan={13} className="py-12 text-center text-slate-400">
                     No invoice records found.
                   </td>
                 </tr>
@@ -638,6 +639,20 @@ export function InvoiceHistoryClient({
 
                       {/* Status */}
                       <td className="py-3 px-3">{renderStatusBadge(inv.status)}</td>
+
+                      {/* Comment */}
+                      <td className="py-3 px-3">
+                        {inv.comment ? (
+                          <span
+                            className="text-xs text-slate-700 dark:text-slate-300 font-medium truncate max-w-[180px] block"
+                            title={inv.comment}
+                          >
+                            {inv.comment}
+                          </span>
+                        ) : (
+                          <span className="text-slate-400 font-mono">—</span>
+                        )}
+                      </td>
 
                       {/* Raised By */}
                       <td className="py-3 px-3">
@@ -736,6 +751,8 @@ export function InvoiceHistoryClient({
             clientEmail: viewingInvoice.clientEmail,
             pan: viewingInvoice.pan,
             dob: viewingInvoice.dob,
+            clientState: viewingInvoice.clientState,
+            clientGstin: viewingInvoice.clientGstin,
             productName: viewingInvoice.productName,
             planType: viewingInvoice.planType,
             durationLabel: viewingInvoice.durationLabel,
@@ -750,6 +767,7 @@ export function InvoiceHistoryClient({
             createdByName: viewingInvoice.createdByName,
             assignedToName: viewingInvoice.assignedToName,
             teamName: viewingInvoice.teamName,
+            latestNote: viewingInvoice.comment,
           }}
           isOpen={Boolean(viewingInvoice)}
           onClose={() => setViewingInvoice(null)}
@@ -768,6 +786,8 @@ export function InvoiceHistoryClient({
             clientEmail: editingInvoice.clientEmail,
             pan: editingInvoice.pan,
             dob: editingInvoice.dob,
+            clientState: editingInvoice.clientState,
+            clientGstin: editingInvoice.clientGstin,
             productName: editingInvoice.productName,
             productId: editingInvoice.productId,
             planType: editingInvoice.planType,

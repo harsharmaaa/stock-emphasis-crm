@@ -5,69 +5,12 @@ import { prisma } from "@/src/lib/prisma";
 import { Prisma } from "@prisma/client";
 import { getActiveLeadSourceNames } from "@/src/lib/lead-sources-helper";
 
-export interface PaymentHistoryItem {
-  id: string;
-  serialNo: string;
-  leadAddedByName: string;
-  paymentAddedByName: string;
-  leadOwnerName: string;
-  clientName: string;
-  clientMobile: string;
-  leadId: string;
-  amount: number;
-  modeName: string;
-  paymentModeId: string | null;
-  transactionId: string;
-  status: string; // e.g. "Approved", "Pending", "Rejected"
-  invoiceNumber: string;
-  description: string;
-  paymentDate: string; // Formatted date e.g. "03-Nov-26"
-  rawPaymentDate: string; // ISO date
-  leadSource: string;
-  paymentType: string;
-  teamName: string;
-  createdAt: string;
-}
-
-export interface GetPaymentHistoryFilterOptions {
-  statuses: string[];
-  users: { id: string; name: string }[];
-  teams: { id: string; name: string }[];
-  paymentModes: { id: string; name: string }[];
-  leadSources: string[];
-  paymentTypes: string[];
-}
-
-export interface GetPaymentHistoryInput {
-  fromDate?: string;
-  toDate?: string;
-  status?: string;
-  leadAddedById?: string;
-  paymentAddedById?: string;
-  leadOwnerId?: string;
-  teamId?: string;
-  paymentModeId?: string;
-  leadSource?: string;
-  invoiceId?: string;
-  paymentType?: string;
-  search?: string;
-  sortBy?: "paymentDate" | "amount" | "status" | "clientName" | "serialNo" | "invoiceNumber" | "createdAt";
-  sortOrder?: "asc" | "desc";
-  page?: number;
-  pageSize?: number;
-}
-
-export interface GetPaymentHistoryResult {
-  success: boolean;
-  payments?: PaymentHistoryItem[];
-  totalCount?: number;
-  totalPages?: number;
-  currentPage?: number;
-  pageSize?: number;
-  totalAmount?: number;
-  uniqueClientCount?: number;
-  error?: string;
-}
+import type {
+  PaymentHistoryItem,
+  GetPaymentHistoryFilterOptions,
+  GetPaymentHistoryInput,
+  GetPaymentHistoryResult,
+} from "./types";
 
 const MONTH_NAMES = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 

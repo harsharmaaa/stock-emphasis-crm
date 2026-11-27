@@ -9,9 +9,14 @@ import {
   IndianRupee,
   AlertCircle,
   Save,
+  Sparkles,
 } from "lucide-react";
-import type { AdminApprovalInvoiceItem } from "./actions";
-import { updateInvoiceAction, getInvoiceProductsAction } from "./actions";
+import type { AdminApprovalInvoiceItem } from "./types";
+import {
+  updateInvoiceAction,
+  getInvoiceProductsAction,
+} from "./actions";
+import { getLeadServiceRenewalAction } from "@/src/features/payments/actions";
 
 interface EditInvoiceModalProps {
   invoice: AdminApprovalInvoiceItem | null;
@@ -33,7 +38,9 @@ export function EditInvoiceModal({
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [totalAmount, setTotalAmount] = useState<number>(0);
+  const [gstType, setGstType] = useState<"CGST_SGST" | "IGST">("CGST_SGST");
   const [notes, setNotes] = useState("");
+  const [renewalHint, setRenewalHint] = useState<string | null>(null);
 
   const [availableProducts, setAvailableProducts] = useState<{ id: string; name: string }[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -66,7 +73,17 @@ export function EditInvoiceModal({
       setStartDate(invoice.startDate || "");
       setEndDate(invoice.endDate || "");
       setTotalAmount(invoice.totalAmount || 0);
-      setNotes("");
+
+      // Auto-detect GST scheme from client's state or GSTIN prefix (23 for Madhya Pradesh)
+      const stateStr = (invoice.clientState || "").toLowerCase();
+      const isMP =
+        stateStr.includes("madhya") ||
+        stateStr === "mp" ||
+        invoice.clientGstin?.startsWith("23");
+      setGstType(isMP ? "CGST_SGST" : "IGST");
+
+      setNotes(invoice.latestNote || "");
+      setRenewalHint(null);
       setError(null);
     }, 0);
 
@@ -75,9 +92,11 @@ export function EditInvoiceModal({
 
   if (!isOpen || !invoice) return null;
 
-  // 18% Inclusive GST calculations
+  // 18% Inclusive GST calculations with CGST/SGST vs IGST split
   const baseAmount = totalAmount > 0 ? Math.round(((totalAmount * 100) / 118) * 100) / 100 : 0;
-  const gstAmount = totalAmount > 0 ? Math.round((totalAmount - baseAmount) * 100) / 100 : 0;
+  const totalGst = totalAmount > 0 ? Math.round((totalAmount - baseAmount) * 100) / 100 : 0;
+  const cgstAmount = Math.round((totalGst / 2) * 100) / 100;
+  const sgstAmount = Math.round((totalGst - cgstAmount) * 100) / 100;
 
   const handleProductSelect = (id: string) => {
     if (id === "custom") {
@@ -95,6 +114,36 @@ export function EditInvoiceModal({
     setDurationLabel(label);
     if (startDate) {
       const start = new Date(startDate);
+      if (!isNaN(start.getTime())) {
+        const end = new Date(start);
+        end.setDate(end.getDate() + days);
+        const yyyy = end.getFullYear();
+        const mm = String(end.getMonth() + 1).padStart(2, "0");
+        const dd = String(end.getDate()).padStart(2, "0");
+        setEndDate(`${yyyy}-${mm}-${dd}`);
+      }
+    }
+  };
+
+  // Smart auto-next start date from previous service plan (+1 day)
+  const handleAutoNextStartDate = async () => {
+    if (!invoice?.leadId) return;
+    const res = await getLeadServiceRenewalAction({
+      leadId: invoice.leadId,
+      productId,
+    });
+    if (res.success && res.recommendedStartDate) {
+      setStartDate(res.recommendedStartDate);
+      setRenewalHint(res.hint || "Auto-set after previous plan (+1 Day)");
+
+      // Adjust endDate accordingly
+      let days = 30;
+      if (durationLabel.includes("90") || planType.includes("Quarterly")) days = 90;
+      else if (durationLabel.includes("60")) days = 60;
+      else if (durationLabel.includes("180") || planType.includes("Half")) days = 180;
+      else if (durationLabel.includes("365") || planType.includes("Year")) days = 365;
+
+      const start = new Date(res.recommendedStartDate);
       if (!isNaN(start.getTime())) {
         const end = new Date(start);
         end.setDate(end.getDate() + days);
@@ -125,6 +174,7 @@ export function EditInvoiceModal({
         startDate: startDate || undefined,
         endDate: endDate || undefined,
         totalAmount,
+        gstType,
         notes: notes || undefined,
       });
 
@@ -269,16 +319,35 @@ export function EditInvoiceModal({
           {/* Start and End Dates */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <label className="font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
-                <Calendar className="w-3.5 h-3.5 text-blue-500" />
-                Service Start Date
-              </label>
+              <div className="flex items-center justify-between">
+                <label className="font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+                  <Calendar className="w-3.5 h-3.5 text-blue-500" />
+                  Service Start Date
+                </label>
+                <button
+                  type="button"
+                  onClick={handleAutoNextStartDate}
+                  title="Auto-set next service start date based on previous plan (+1 Day)"
+                  className="text-[10px] text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1 font-semibold"
+                >
+                  <Sparkles className="w-3 h-3 text-amber-500" />
+                  Auto-next (+1D)
+                </button>
+              </div>
               <input
                 type="date"
                 value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
+                onChange={(e) => {
+                  setStartDate(e.target.value);
+                  setRenewalHint(null);
+                }}
                 className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
+              {renewalHint && (
+                <span className="text-[10px] text-blue-600 dark:text-blue-400 font-medium block">
+                  ℹ️ {renewalHint}
+                </span>
+              )}
             </div>
 
             <div className="space-y-1.5">
@@ -292,6 +361,37 @@ export function EditInvoiceModal({
                 onChange={(e) => setEndDate(e.target.value)}
                 className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
+            </div>
+          </div>
+
+          {/* GST Scheme Selector */}
+          <div className="space-y-1.5">
+            <label className="font-semibold text-slate-700 dark:text-slate-300">
+              Taxation Scheme / GST Type
+            </label>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => setGstType("CGST_SGST")}
+                className={`py-1.5 px-3 rounded-xl border text-xs font-semibold transition-all ${
+                  gstType === "CGST_SGST"
+                    ? "bg-blue-500/15 border-blue-500/40 text-blue-700 dark:text-blue-300 shadow-xs"
+                    : "border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800"
+                }`}
+              >
+                CGST 9% + SGST 9% (Intra-state MP)
+              </button>
+              <button
+                type="button"
+                onClick={() => setGstType("IGST")}
+                className={`py-1.5 px-3 rounded-xl border text-xs font-semibold transition-all ${
+                  gstType === "IGST"
+                    ? "bg-blue-500/15 border-blue-500/40 text-blue-700 dark:text-blue-300 shadow-xs"
+                    : "border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800"
+                }`}
+              >
+                IGST 18% (Inter-state)
+              </button>
             </div>
           </div>
 
@@ -314,16 +414,31 @@ export function EditInvoiceModal({
               />
             </div>
 
-            {/* Live Calculation Pill */}
+            {/* Live Calculation Pill with CGST+SGST vs IGST */}
             <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700/80 space-y-1">
               <div className="flex justify-between text-slate-600 dark:text-slate-400">
                 <span>Calculated Base Amount (118 Rule):</span>
                 <span className="font-mono font-medium">₹{baseAmount.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span>
               </div>
-              <div className="flex justify-between text-slate-600 dark:text-slate-400">
-                <span>IGST (18%):</span>
-                <span className="font-mono font-medium">₹{gstAmount.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span>
-              </div>
+
+              {gstType === "CGST_SGST" ? (
+                <>
+                  <div className="flex justify-between text-slate-600 dark:text-slate-400">
+                    <span>CGST (9%):</span>
+                    <span className="font-mono font-medium">₹{cgstAmount.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span>
+                  </div>
+                  <div className="flex justify-between text-slate-600 dark:text-slate-400">
+                    <span>SGST (9%):</span>
+                    <span className="font-mono font-medium">₹{sgstAmount.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span>
+                  </div>
+                </>
+              ) : (
+                <div className="flex justify-between text-slate-600 dark:text-slate-400">
+                  <span>IGST (18%):</span>
+                  <span className="font-mono font-medium">₹{totalGst.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span>
+                </div>
+              )}
+
               <div className="flex justify-between pt-1 border-t border-slate-200 dark:border-slate-700 font-semibold text-slate-900 dark:text-white">
                 <span>Total Paid:</span>
                 <span className="font-mono text-emerald-600 dark:text-emerald-400">
@@ -333,16 +448,17 @@ export function EditInvoiceModal({
             </div>
           </div>
 
-          {/* Reason / Notes for Edit */}
+          {/* Comment / Description (Remarks) for Edit */}
           <div className="space-y-1.5">
-            <label className="font-semibold text-slate-700 dark:text-slate-300">
-              Audit Note / Reason for Modification
+            <label className="font-semibold text-slate-700 dark:text-slate-300 flex items-center justify-between">
+              <span>Comment / Description (Remarks)</span>
+              <span className="text-[10px] text-slate-400 font-normal">Visible in Invoice Summary & Timeline</span>
             </label>
             <textarea
-              rows={2}
+              rows={3}
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
-              placeholder="e.g. Corrected service validity dates per compliance review"
+              placeholder="Record administrative or compliance notes/reason for this modification..."
               className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
             />
           </div>

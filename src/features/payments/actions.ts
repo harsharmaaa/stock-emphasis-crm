@@ -10,72 +10,13 @@ import { logActivity } from "@/src/lib/activity-logger";
 import { Prisma } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 
-export interface PaymentFormProduct {
-  id: string;
-  name: string;
-  monthlyPrice: number | null;
-  quarterlyPrice: number | null;
-  halfYearlyPrice: number | null;
-  yearlyPrice: number | null;
-  pricingWithGst: boolean;
-}
-
-export interface PaymentFormMode {
-  id: string;
-  name: string;
-  charges: number;
-}
-
-export interface PaymentItemInput {
-  productId: string;
-  productName?: string;
-  pack: "Monthly" | "Quarterly" | "Half-Yearly" | "Yearly" | string;
-  serviceRate: number;
-  discount: number;
-  adjustment: number;
-  paid: number;
-  fromDate: string;
-}
-
-export interface CreatePaymentInput {
-  leadId: string;
-  paymentModeId: string;
-  paymentDate: string;
-  transactionId?: string;
-  paymentType?: string;
-  description?: string;
-  items: PaymentItemInput[];
-}
-
-export interface LeadPaymentViewItem {
-  id: string;
-  raisedByName: string;
-  amount: number;
-  modeName: string;
-  status: string;
-  invoiceNumber: string | null;
-  description: string | null;
-  date: string;
-}
-
-export interface AdminApprovalPaymentItem {
-  id: string;
-  raisedByName: string;
-  clientName: string;
-  clientMobile: string;
-  clientEmail: string | null;
-  pan: string | null;
-  dob: string | null;
-  payment: number;
-  modeName: string;
-  transactionId: string | null;
-  invoiceNumber: string | null;
-  description: string | null;
-  comment?: string;
-  paymentDate: string;
-  status: string;
-  leadId: string;
-}
+import type {
+  PaymentFormProduct,
+  PaymentFormMode,
+  CreatePaymentInput,
+  LeadPaymentViewItem,
+  AdminApprovalPaymentItem,
+} from "./types";
 
 const MONTH_NAMES = [
   "Jan", "Feb", "Mar", "Apr", "May", "Jun",
@@ -138,6 +79,123 @@ async function generateNextInvoiceSerialNo(): Promise<string> {
   }
 
   return nextSerial;
+}
+
+/**
+ * Smart lookup for lead's previous service plan to calculate auto-next start date (previousEndDate + 1 day).
+ */
+export async function getLeadServiceRenewalAction({
+  leadId,
+  productId,
+}: {
+  leadId: string;
+  productId?: string;
+}): Promise<{
+  success: boolean;
+  hasPreviousService?: boolean;
+  previousEndDate?: string | null;
+  previousEndDisplay?: string | null;
+  recommendedStartDate?: string; // YYYY-MM-DD
+  hint?: string | null;
+  error?: string;
+}> {
+  try {
+    const today = new Date();
+    const pad = (n: number) => String(n).padStart(2, "0");
+    const todayStr = `${today.getFullYear()}-${pad(today.getMonth() + 1)}-${pad(today.getDate())}`;
+
+    if (!leadId) {
+      return {
+        success: true,
+        hasPreviousService: false,
+        recommendedStartDate: todayStr,
+      };
+    }
+
+    // 1. Find latest approved/running invoice for this lead (matching product first if given)
+    let invoice = productId
+      ? await prisma.invoice.findFirst({
+        where: {
+          leadId,
+          status: { in: ["APPROVED", "RUNNING"] },
+          endDate: { not: null },
+          productId,
+        },
+        orderBy: { endDate: "desc" },
+        select: {
+          id: true,
+          serialNo: true,
+          productName: true,
+          endDate: true,
+        },
+      })
+      : null;
+
+    if (!invoice) {
+      invoice = await prisma.invoice.findFirst({
+        where: {
+          leadId,
+          status: { in: ["APPROVED", "RUNNING"] },
+          endDate: { not: null },
+        },
+        orderBy: { endDate: "desc" },
+        select: {
+          id: true,
+          serialNo: true,
+          productName: true,
+          endDate: true,
+        },
+      });
+    }
+
+    if (!invoice || !invoice.endDate) {
+      return {
+        success: true,
+        hasPreviousService: false,
+        recommendedStartDate: todayStr,
+      };
+    }
+
+    const prevEnd = new Date(invoice.endDate);
+    const todayZero = new Date(today);
+    todayZero.setHours(0, 0, 0, 0);
+
+    const yesterdayZero = new Date(todayZero);
+    yesterdayZero.setDate(yesterdayZero.getDate() - 1);
+
+    const prevEndZero = new Date(prevEnd);
+    prevEndZero.setHours(0, 0, 0, 0);
+
+    // If prior endDate exists and is today or in future (or ended yesterday)
+    if (prevEndZero.getTime() >= yesterdayZero.getTime()) {
+      const nextStart = new Date(prevEnd);
+      nextStart.setDate(nextStart.getDate() + 1);
+
+      const recommendedStartDate = `${nextStart.getFullYear()}-${pad(nextStart.getMonth() + 1)}-${pad(nextStart.getDate())}`;
+      const displayEnd = formatDisplayDate(prevEnd);
+
+      return {
+        success: true,
+        hasPreviousService: true,
+        previousEndDate: invoice.endDate.toISOString(),
+        previousEndDisplay: displayEnd,
+        recommendedStartDate,
+        hint: `Auto-set after previous plan ending ${displayEnd}`,
+      };
+    }
+
+    // If expired earlier in the past (before yesterday)
+    return {
+      success: true,
+      hasPreviousService: true,
+      previousEndDate: invoice.endDate.toISOString(),
+      previousEndDisplay: formatDisplayDate(prevEnd),
+      recommendedStartDate: todayStr,
+      hint: null,
+    };
+  } catch (err) {
+    return handleActionError(err, "Failed to check service renewal dates.");
+  }
 }
 
 /**
@@ -361,8 +419,8 @@ export async function getLeadPaymentsAction(
         rawStatus === "APPROVED"
           ? "Approved"
           : rawStatus === "REJECTED"
-          ? "Rejected"
-          : "Pending";
+            ? "Rejected"
+            : "Pending";
 
       return {
         id: p.id,
@@ -443,8 +501,8 @@ export async function getAdminApprovalPaymentsAction(params?: {
         rawStatus === "APPROVED"
           ? "Approved"
           : rawStatus === "REJECTED"
-          ? "Rejected"
-          : "Pending";
+            ? "Rejected"
+            : "Pending";
 
       return {
         id: p.id,
@@ -539,10 +597,40 @@ export async function approvePaymentAction({
     const baseAmount = Math.round(((totalAmount * 100) / 118) * 100) / 100;
     const gstAmount = Math.round((totalAmount - baseAmount) * 100) / 100;
 
-    // Plan duration: default 30 days from paymentDate
-    const startDate = payment.paymentDate;
+    // Plan duration & start date: parse From: YYYY-MM-DD from items in description or check renewal
+    let startDate = payment.paymentDate;
+    const fromDateMatch = payment.description?.match(/From:\s*(\d{4}-\d{2}-\d{2})/);
+    if (fromDateMatch) {
+      const parsedFrom = new Date(fromDateMatch[1]);
+      if (!isNaN(parsedFrom.getTime())) {
+        startDate = parsedFrom;
+      }
+    } else {
+      // Check if previous invoice ended recently
+      const renewalCheck = await getLeadServiceRenewalAction({ leadId: payment.leadId });
+      if (renewalCheck.success && renewalCheck.hasPreviousService && renewalCheck.hint && renewalCheck.recommendedStartDate) {
+        const autoStart = new Date(renewalCheck.recommendedStartDate);
+        if (!isNaN(autoStart.getTime())) {
+          startDate = autoStart;
+        }
+      }
+    }
+
+    let durationDays = 30;
+    let durationLabel = "30 Days";
+    if (payment.description?.includes("Quarterly")) {
+      durationDays = 90;
+      durationLabel = "90 Days";
+    } else if (payment.description?.includes("Half-Yearly")) {
+      durationDays = 180;
+      durationLabel = "180 Days";
+    } else if (payment.description?.includes("Yearly")) {
+      durationDays = 365;
+      durationLabel = "365 Days";
+    }
+
     const endDate = new Date(startDate);
-    endDate.setDate(endDate.getDate() + 30);
+    endDate.setDate(endDate.getDate() + durationDays);
 
     const updatedDescription = comment?.trim()
       ? `${payment.description ? payment.description + " | " : ""}Approval Comment: ${comment.trim()}`
@@ -581,7 +669,7 @@ export async function approvePaymentAction({
           teamId: payment.teamId,
           productName: "Advisory Service Package",
           planType: payment.paymentType || "Monthly",
-          durationLabel: "30 Days",
+          durationLabel,
           startDate,
           endDate,
           invoiceDate: new Date(),

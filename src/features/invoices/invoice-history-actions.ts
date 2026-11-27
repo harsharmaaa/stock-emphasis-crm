@@ -9,73 +9,12 @@ import {
 import { prisma } from "@/src/lib/prisma";
 import { Prisma } from "@prisma/client";
 
-export interface InvoiceHistoryItem {
-  id: string;
-  serialNo: string;
-  clientName: string;
-  clientMobile: string;
-  clientEmail: string | null;
-  leadId: string;
-  pan: string | null;
-  dob: string | null;
-  productName: string;
-  productId: string | null;
-  planType: string;
-  durationLabel: string;
-  startDate: string | null;
-  endDate: string | null;
-  invoiceDate: string; // Formatted e.g. "03-Nov-26"
-  rawInvoiceDate: string; // ISO string
-  baseAmount: number;
-  gstAmount: number;
-  totalAmount: number;
-  status: string; // "Approved", "Pending", "Cancelled"
-  mailStatus: string | null; // "Mail Sent", "Mail Not Sent"
-  createdByName: string;
-  createdById: string;
-  assignedToName: string | null;
-  assignedToId: string | null;
-  teamName: string | null;
-  profile: string | null;
-  createdAt: string;
-}
-
-export interface GetInvoiceHistoryFilterOptions {
-  profiles: string[];
-  employees: { id: string; name: string }[];
-  products: { id: string; name: string }[];
-  teams: { id: string; name: string }[];
-  statuses: string[];
-}
-
-export interface GetInvoiceHistoryInput {
-  profile?: string;
-  employeeId?: string;
-  productId?: string;
-  teamId?: string;
-  status?: string;
-  fromDate?: string;
-  toDate?: string;
-  search?: string;
-  sortBy?: "invoiceDate" | "totalAmount" | "serialNo" | "clientName" | "status" | "createdAt";
-  sortOrder?: "asc" | "desc";
-  page?: number;
-  pageSize?: number;
-}
-
-export interface GetInvoiceHistoryResult {
-  success: boolean;
-  invoices?: InvoiceHistoryItem[];
-  totalCount?: number;
-  totalPages?: number;
-  currentPage?: number;
-  pageSize?: number;
-  totalAmount?: number;
-  uniqueClientCount?: number;
-  pendingCount?: number;
-  approvedCount?: number;
-  error?: string;
-}
+import type {
+  InvoiceHistoryItem,
+  GetInvoiceHistoryFilterOptions,
+  GetInvoiceHistoryInput,
+  GetInvoiceHistoryResult,
+} from "./types";
 
 const MONTH_NAMES = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
@@ -377,6 +316,8 @@ export async function getInvoiceHistoryAction(
               email: true,
               pan: true,
               dob: true,
+              state: true,
+              gstin: true,
             },
           },
           createdBy: { select: { id: true, name: true } },
@@ -394,6 +335,36 @@ export async function getInvoiceHistoryAction(
       prisma.invoice.count({ where: { ...where, status: "PENDING" } }),
       prisma.invoice.count({ where: { ...where, status: "APPROVED" } }),
     ]);
+
+    // Query approval comments / notes for the fetched invoices
+    const serials = rawInvoices.map((inv) => inv.serialNo);
+    const commentsBySerial: Record<string, string> = {};
+
+    if (serials.length > 0) {
+      const logs = await prisma.activityLog.findMany({
+        where: {
+          action: { in: ["INVOICE_APPROVED", "UPDATE_INVOICE", "APPROVE_PAYMENT", "INVOICE_CANCELLED"] },
+          OR: serials.map((s) => ({ details: { contains: s } })),
+        },
+        orderBy: { createdAt: "desc" },
+        select: { details: true },
+      });
+
+      for (const log of logs) {
+        if (!log.details) continue;
+        for (const s of serials) {
+          if (!commentsBySerial[s] && log.details.includes(s)) {
+            const match =
+              log.details.match(/Note:\s*"([^"]+)"/i) ||
+              log.details.match(/Reason:\s*"([^"]+)"/i) ||
+              log.details.match(/Approval Comment:\s*([^|.]+)/i);
+            if (match && match[1]?.trim()) {
+              commentsBySerial[s] = match[1].trim();
+            }
+          }
+        }
+      }
+    }
 
     const invoices: InvoiceHistoryItem[] = rawInvoices.map((inv) => {
       const rawStatus = (inv.status || "APPROVED").toUpperCase();
@@ -413,6 +384,8 @@ export async function getInvoiceHistoryAction(
         leadId: inv.leadId,
         pan: inv.lead?.pan || null,
         dob: formatDob(inv.lead?.dob),
+        clientState: inv.lead?.state || null,
+        clientGstin: inv.lead?.gstin || null,
         productName: inv.productName || inv.product?.name || "Advisory Service Package",
         productId: inv.productId || null,
         planType: inv.planType || "Monthly",
@@ -426,6 +399,7 @@ export async function getInvoiceHistoryAction(
         totalAmount: Number(inv.totalAmount),
         status: displayStatus,
         mailStatus: inv.mailStatus || "Mail Not Sent",
+        comment: commentsBySerial[inv.serialNo] || null,
         createdByName: inv.createdBy?.name || "System",
         createdById: inv.createdById,
         assignedToName: inv.assignedTo?.name || null,

@@ -15,10 +15,13 @@ import {
   getPaymentFormOptionsAction,
   createPaymentAction,
   getLeadPaymentsAction,
-  type PaymentFormProduct,
-  type PaymentFormMode,
-  type LeadPaymentViewItem,
+  getLeadServiceRenewalAction,
 } from "./actions";
+import type {
+  PaymentFormProduct,
+  PaymentFormMode,
+  LeadPaymentViewItem,
+} from "./types";
 
 interface AddPaymentModalProps {
   isOpen: boolean;
@@ -28,6 +31,8 @@ interface AddPaymentModalProps {
     name: string;
     mobile: string;
     status?: string;
+    state?: string | null;
+    gstin?: string | null;
   } | null;
   onSuccess?: () => void;
 }
@@ -83,6 +88,7 @@ export function AddPaymentModal({
     },
   ]);
 
+  const [renewalHint, setRenewalHint] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
@@ -93,6 +99,7 @@ export function AddPaymentModal({
       if (cancelled) return;
       setIsLoadingOptions(true);
       setOptionsError(null);
+      setRenewalHint(null);
 
       // Reset fields
       setPaymentDate(getTodayString());
@@ -110,6 +117,24 @@ export function AddPaymentModal({
           fromDate: getTodayString(),
         },
       ]);
+
+      // Smart check for previous service plan ending
+      if (lead?.id) {
+        getLeadServiceRenewalAction({ leadId: lead.id })
+          .then((renRes) => {
+            if (cancelled) return;
+            if (renRes.success && renRes.recommendedStartDate && renRes.hint) {
+              const nextDate = renRes.recommendedStartDate;
+              setRenewalHint(renRes.hint);
+              setItems((prev) =>
+                prev.map((row, i) =>
+                  i === 0 ? { ...row, fromDate: nextDate } : row
+                )
+              );
+            }
+          })
+          .catch(() => { });
+      }
 
       getPaymentFormOptionsAction()
         .then((res) => {
@@ -166,6 +191,21 @@ export function AddPaymentModal({
         };
       })
     );
+
+    // If changing the primary product on the first row, re-check previous service renewal date
+    if (lead?.id && (rowId === items[0]?.id || items.findIndex((r) => r.id === rowId) === 0)) {
+      getLeadServiceRenewalAction({ leadId: lead.id, productId: newProductId })
+        .then((renRes) => {
+          if (renRes.success && renRes.recommendedStartDate && renRes.hint) {
+            const nextDate = renRes.recommendedStartDate;
+            setRenewalHint(renRes.hint);
+            setItems((prev) =>
+              prev.map((r) => (r.id === rowId ? { ...r, fromDate: nextDate } : r))
+            );
+          }
+        })
+        .catch(() => { });
+    }
   };
 
   const handlePackChange = (rowId: string, newPack: string) => {
@@ -207,6 +247,9 @@ export function AddPaymentModal({
   };
 
   const handleFromDateChange = (rowId: string, value: string) => {
+    if (rowId === items[0]?.id) {
+      setRenewalHint(null);
+    }
     setItems((prev) =>
       prev.map((row) => (row.id === rowId ? { ...row, fromDate: value } : row))
     );
@@ -237,6 +280,14 @@ export function AddPaymentModal({
   const totalPaid = items.reduce((sum, item) => sum + (Number(item.paid) || 0), 0);
   const baseAmount = Math.round(((totalPaid * 100) / 118) * 100) / 100;
   const gstAmount = Math.round((totalPaid - baseAmount) * 100) / 100;
+
+  // Intra-state MP split (CGST 9% + SGST 9%) vs Inter-state IGST 18%
+  const isMPLead =
+    (lead?.state || "").toLowerCase().includes("madhya") ||
+    (lead?.state || "").toLowerCase() === "mp" ||
+    Boolean(lead?.gstin?.startsWith("23"));
+  const cgstAmount = isMPLead ? Math.round((gstAmount / 2) * 100) / 100 : 0;
+  const sgstAmount = isMPLead ? Math.round((gstAmount - cgstAmount) * 100) / 100 : 0;
 
   // Selected payment mode service charges
   const selectedMode = paymentModes.find((m) => m.id === paymentModeId);
@@ -544,6 +595,14 @@ export function AddPaymentModal({
                             onChange={(e) => handleFromDateChange(row.id, e.target.value)}
                             className="w-full px-2.5 py-1.5 text-xs rounded-lg border border-slate-200 dark:border-white/[0.1] bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/30 font-medium"
                           />
+                          {idx === 0 && renewalHint && (
+                            <span
+                              className="text-[10px] text-blue-600 dark:text-blue-400 font-medium block mt-0.5 truncate max-w-[140px]"
+                              title={renewalHint}
+                            >
+                              ℹ️ {renewalHint}
+                            </span>
+                          )}
                         </td>
 
                         {/* Action (+ or Trash) */}
@@ -592,12 +651,29 @@ export function AddPaymentModal({
                     </span>
                   </div>
                 )}
-                <div className="flex justify-between text-slate-600 dark:text-slate-400">
-                  <span>IGST (18%)</span>
-                  <span className="font-mono font-semibold text-slate-900 dark:text-white">
-                    ₹{gstAmount.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
-                  </span>
-                </div>
+                {isMPLead ? (
+                  <>
+                    <div className="flex justify-between text-slate-600 dark:text-slate-400">
+                      <span>CGST (9%)</span>
+                      <span className="font-mono font-semibold text-slate-900 dark:text-white">
+                        ₹{cgstAmount.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                      </span>
+                    </div>
+                    <div className="flex justify-between text-slate-600 dark:text-slate-400">
+                      <span>SGST (9%)</span>
+                      <span className="font-mono font-semibold text-slate-900 dark:text-white">
+                        ₹{sgstAmount.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                      </span>
+                    </div>
+                  </>
+                ) : (
+                  <div className="flex justify-between text-slate-600 dark:text-slate-400">
+                    <span>IGST (18%)</span>
+                    <span className="font-mono font-semibold text-slate-900 dark:text-white">
+                      ₹{gstAmount.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                    </span>
+                  </div>
+                )}
                 <div className="pt-2 border-t border-slate-200 dark:border-white/[0.1] flex justify-between font-bold text-sm">
                   <span className="text-slate-900 dark:text-white">Total Paid</span>
                   <span className="font-mono text-emerald-600 dark:text-emerald-400">
@@ -791,13 +867,12 @@ export function ViewPaymentModal({
                           </td>
                           <td className="py-3 px-3">
                             <span
-                              className={`inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-semibold tracking-wide uppercase ${
-                                p.status === "Approved"
-                                  ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30"
-                                  : p.status === "Rejected"
+                              className={`inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-semibold tracking-wide uppercase ${p.status === "Approved"
+                                ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30"
+                                : p.status === "Rejected"
                                   ? "bg-rose-500/15 text-rose-700 dark:text-rose-300 border border-rose-500/30"
                                   : "bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/30"
-                              }`}
+                                }`}
                             >
                               {p.status}
                             </span>
