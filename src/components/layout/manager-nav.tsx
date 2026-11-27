@@ -27,6 +27,7 @@ import {
   PanelLeftOpen,
   Briefcase,
 } from "lucide-react";
+import { Badge } from "@/src/components/ui/Badge";
 
 interface ManagerNavProps {
   isOpen: boolean;
@@ -36,6 +37,9 @@ interface ManagerNavProps {
   managerRole?: string;
   isCollapsed?: boolean;
   onToggleCollapse?: () => void;
+  onMouseEnter?: () => void;
+  onMouseLeave?: () => void;
+  asideRef?: React.RefObject<HTMLElement | null>;
 }
 
 interface NavItem {
@@ -51,7 +55,6 @@ interface NavItem {
 interface NavGroup {
   id: string;
   title: string;
-  icon?: React.ComponentType<{ className?: string }>;
   collapsible: boolean;
   items: NavItem[];
 }
@@ -95,7 +98,6 @@ const NAVIGATION_GROUPS: NavGroup[] = [
   {
     id: "history",
     title: "History",
-    icon: History,
     collapsible: true,
     items: [
       {
@@ -121,7 +123,6 @@ const NAVIGATION_GROUPS: NavGroup[] = [
   {
     id: "calling",
     title: "Calling",
-    icon: PhoneCall,
     collapsible: true,
     items: [
       {
@@ -159,7 +160,6 @@ const NAVIGATION_GROUPS: NavGroup[] = [
   {
     id: "reports",
     title: "Reports",
-    icon: BarChart3,
     collapsible: true,
     items: [
       {
@@ -198,9 +198,16 @@ export function ManagerNav({
   managerRole = "MANAGER",
   isCollapsed = false,
   onToggleCollapse,
+  onMouseEnter,
+  onMouseLeave,
+  asideRef,
 }: ManagerNavProps) {
   const pathname = usePathname();
-  const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({});
+  const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({
+    history: false,
+    calling: false,
+    reports: false,
+  });
   const [activeNotice, setActiveNotice] = useState<string | null>(null);
 
   // Auto-expand group if any of its active children match current pathname
@@ -214,6 +221,24 @@ export function ManagerNav({
       }
     });
   }, [pathname]);
+
+  // Close mobile drawer on Escape key
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && isOpen) {
+        onClose();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isOpen, onClose]);
+
+  // Clear notice after 3.5 seconds
+  useEffect(() => {
+    if (!activeNotice) return;
+    const timer = setTimeout(() => setActiveNotice(null), 3500);
+    return () => clearTimeout(timer);
+  }, [activeNotice]);
 
   const toggleGroupCollapse = (groupId: string) => {
     setCollapsedGroups((prev) => ({
@@ -230,22 +255,22 @@ export function ManagerNav({
     return pathname.startsWith(item.href);
   };
 
-  const navContent = (
-    <div className="flex h-full flex-col justify-between bg-white/80 dark:bg-[#080d19]/85 backdrop-blur-2xl border-r border-slate-200/70 dark:border-white/[0.08] text-slate-800 dark:text-slate-100 transition-colors duration-200">
+  const renderNavContent = (collapsed: boolean) => (
+    <div className="flex h-full flex-col justify-between bg-white/80 dark:bg-[#080d19]/85 backdrop-blur-2xl border-r border-slate-200/80 dark:border-white/[0.08] text-slate-800 dark:text-slate-100 transition-colors duration-200">
       <div className="flex-1 flex flex-col min-h-0">
         {/* Brand Header */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-slate-200/70 dark:border-white/[0.08]">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-slate-200/80 dark:border-white/[0.08]">
           <Link
             href="/manager"
-            className="flex items-center gap-3 group focus:outline-none"
+            className="flex items-center gap-3 group focus:outline-none focus-visible:ring-2 focus-visible:ring-[#4F6DF5] rounded-xl"
             onClick={onClose}
           >
-            <div className="flex items-center justify-center size-9 rounded-xl bg-gradient-to-br from-blue-600 via-indigo-600 to-cyan-500 text-white shadow-md shadow-blue-500/25 group-hover:scale-105 transition-transform shrink-0">
+            <div className="flex items-center justify-center size-9 rounded-xl bg-gradient-to-br from-[#4F6DF5] to-[#60A5FA] text-white shadow-md shadow-[#4F6DF5]/25 group-hover:scale-105 transition-transform shrink-0">
               <Boxes className="size-5" />
             </div>
-            {!isCollapsed && (
+            {!collapsed && (
               <div className="min-w-0">
-                <span className="block text-[10px] font-bold uppercase tracking-widest text-blue-600 dark:text-blue-400">
+                <span className="block text-[10px] font-bold uppercase tracking-widest text-[#4F6DF5] dark:text-[#60A5FA]">
                   Stock Emphasis
                 </span>
                 <h2 className="text-sm font-extrabold text-slate-900 dark:text-white tracking-tight truncate">
@@ -265,19 +290,19 @@ export function ManagerNav({
           </button>
         </div>
 
-        {/* Roadmap / Notice Banner */}
-        {activeNotice && !isCollapsed && (
-          <div className="mx-3 mt-3 p-2.5 rounded-xl bg-blue-500/10 dark:bg-blue-500/15 border border-blue-500/20 dark:border-blue-500/30 text-blue-900 dark:text-blue-200 text-xs flex items-start gap-2 animate-in fade-in slide-in-from-top-1 duration-200">
-            <Sparkles className="size-4 text-blue-600 dark:text-blue-400 shrink-0 mt-0.5" />
+        {/* Notice Banner for upcoming items */}
+        {activeNotice && !collapsed && (
+          <div className="mx-3 mt-3 p-2.5 rounded-xl bg-[#4F6DF5]/10 dark:bg-[#4F6DF5]/15 border border-[#4F6DF5]/25 dark:border-[#4F6DF5]/30 text-slate-900 dark:text-slate-100 text-xs flex items-start gap-2 animate-in fade-in slide-in-from-top-1 duration-200">
+            <Sparkles className="size-4 text-[#4F6DF5] dark:text-[#60A5FA] shrink-0 mt-0.5" />
             <div className="flex-1">
-              <p className="font-semibold text-[11px]">Roadmap Module</p>
-              <p className="text-[11px] text-blue-700 dark:text-blue-300/90 mt-0.5">
+              <p className="font-semibold text-[11px] text-[#4F6DF5] dark:text-[#60A5FA]">Roadmap Module</p>
+              <p className="text-[11px] text-slate-600 dark:text-slate-300 mt-0.5 leading-relaxed">
                 {activeNotice}
               </p>
             </div>
             <button
               onClick={() => setActiveNotice(null)}
-              className="text-blue-400 hover:text-blue-600 p-0.5 cursor-pointer"
+              className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-0.5 rounded transition-colors"
               aria-label="Dismiss notice"
             >
               <X className="size-3.5" />
@@ -285,105 +310,75 @@ export function ManagerNav({
           </div>
         )}
 
-        {/* Navigation Sections */}
+        {/* Primary Navigation Groups */}
         <div className="flex-1 overflow-y-auto px-3 py-4 space-y-5 scrollbar-thin">
           {NAVIGATION_GROUPS.map((group) => {
-            const isGroupCollapsed = collapsedGroups[group.id] && !isCollapsed;
+            const isGroupCollapsed = collapsedGroups[group.id] && !collapsed;
 
             return (
               <div key={group.id} className="space-y-1">
-                {/* Section Title */}
-                {!isCollapsed && (
-                  <div className="px-1 pb-1">
+                {/* Group Header */}
+                {!collapsed && (
+                  <div className="px-3 pb-1">
                     {group.collapsible ? (
-                      (() => {
-                        const isGroupActive = group.items.some(
-                          (item) => item.href && pathname.startsWith(item.href)
-                        );
-                        const GroupIcon = group.icon;
-
-                        return (
-                          <button
-                            type="button"
-                            onClick={() => toggleGroupCollapse(group.id)}
-                            className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold transition-all focus:outline-none cursor-pointer ${
-                              isGroupActive
-                                ? "bg-blue-600 text-white shadow-md shadow-blue-500/20 font-bold"
-                                : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-slate-100/70 dark:hover:bg-white/[0.04]"
-                            }`}
-                            aria-expanded={!isGroupCollapsed}
-                          >
-                            <div className="flex items-center gap-2.5 min-w-0">
-                              {GroupIcon && (
-                                <GroupIcon
-                                  className={`size-4 shrink-0 ${
-                                    isGroupActive ? "text-white" : "text-slate-400"
-                                  }`}
-                                />
-                              )}
-                              <span className="truncate">{group.title}</span>
-                            </div>
-                            {isGroupCollapsed ? (
-                              <ChevronRight
-                                className={`size-3.5 shrink-0 ${
-                                  isGroupActive ? "text-white" : "text-slate-400"
-                                }`}
-                              />
-                            ) : (
-                              <ChevronDown
-                                className={`size-3.5 shrink-0 ${
-                                  isGroupActive ? "text-white" : "text-slate-400"
-                                }`}
-                              />
-                            )}
-                          </button>
-                        );
-                      })()
+                      <button
+                        type="button"
+                        onClick={() => toggleGroupCollapse(group.id)}
+                        className="w-full flex items-center justify-between text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300 transition-colors focus:outline-none"
+                        aria-expanded={!isGroupCollapsed}
+                      >
+                        <span>{group.title}</span>
+                        {isGroupCollapsed ? (
+                          <ChevronRight className="size-3 text-slate-400" />
+                        ) : (
+                          <ChevronDown className="size-3 text-slate-400" />
+                        )}
+                      </button>
                     ) : (
-                      <div className="px-2 text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-400">
+                      <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-400">
                         {group.title}
                       </div>
                     )}
                   </div>
                 )}
 
-                {/* Section Items */}
+                {/* Group Items */}
                 {!isGroupCollapsed && (
                   <nav className="space-y-1">
                     {group.items.map((item) => {
-                      const Icon = item.icon;
+                      const IconComponent = item.icon;
 
                       if (item.status === "active" && item.href) {
                         const active = isLinkActive(item);
 
                         return (
                           <Link
-                            key={item.title}
+                            key={item.href}
                             href={item.href}
                             prefetch={true}
                             onClick={onClose}
-                            title={isCollapsed ? item.title : undefined}
+                            title={collapsed ? item.title : undefined}
                             className={`group relative flex items-center ${
-                              isCollapsed ? "justify-center px-2 py-2.5" : "justify-between px-3.5 py-2.5"
+                              collapsed ? "justify-center px-2 py-2.5" : "justify-between px-3.5 py-2.5"
                             } rounded-xl text-xs font-medium transition-all ${
                               active
-                                ? "bg-blue-500/15 dark:bg-blue-500/20 text-blue-700 dark:text-blue-200 border border-blue-500/30 dark:border-blue-400/40 shadow-xs"
+                                ? "bg-[#4F6DF5]/12 dark:bg-[#4F6DF5]/20 text-[#4F6DF5] dark:text-[#60A5FA] border border-[#4F6DF5]/30 dark:border-[#4F6DF5]/40 font-semibold shadow-2xs"
                                 : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 hover:bg-slate-100/70 dark:hover:bg-white/[0.06] border border-transparent"
                             }`}
                           >
                             <div className="flex items-center gap-3 min-w-0">
-                              <Icon
+                              <IconComponent
                                 className={`size-4.5 shrink-0 transition-colors ${
                                   active
-                                    ? "text-blue-600 dark:text-blue-400"
+                                    ? "text-[#4F6DF5] dark:text-[#60A5FA]"
                                     : "text-slate-500 dark:text-slate-400 group-hover:text-slate-800 dark:group-hover:text-slate-200"
                                 }`}
                               />
-                              {!isCollapsed && <span className="truncate">{item.title}</span>}
+                              {!collapsed && <span className="truncate">{item.title}</span>}
                             </div>
 
-                            {active && !isCollapsed && (
-                              <div className="absolute right-0 top-1/2 -translate-y-1/2 w-1 h-5 rounded-l-full bg-blue-600 dark:bg-blue-400 shadow-[0_0_8px_rgba(59,130,246,0.6)]" />
+                            {active && !collapsed && (
+                              <div className="absolute right-0 top-1/2 -translate-y-1/2 w-1 h-5 rounded-l-full bg-[#4F6DF5] dark:bg-[#60A5FA] shadow-[0_0_8px_rgba(79,109,245,0.6)]" />
                             )}
                           </Link>
                         );
@@ -394,28 +389,22 @@ export function ManagerNav({
                         <button
                           key={item.title}
                           type="button"
-                          onClick={() =>
-                            setActiveNotice(item.tooltip || `${item.title} is scheduled for Phase 2 development.`)
-                          }
-                          title={isCollapsed ? `${item.title} (Upcoming)` : item.tooltip}
+                          onClick={() => setActiveNotice(item.tooltip || `${item.title} is scheduled for Phase 2 development.`)}
+                          title={collapsed ? `${item.title} (Upcoming)` : item.tooltip}
                           className={`w-full group relative flex items-center ${
-                            isCollapsed ? "justify-center px-2 py-2.5" : "justify-between px-3.5 py-2"
+                            collapsed ? "justify-center px-2 py-2.5" : "justify-between px-3.5 py-2"
                           } rounded-xl text-xs font-medium text-slate-400 dark:text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-900/60 transition-all border border-transparent cursor-pointer`}
                           aria-disabled="true"
                         >
                           <div className="flex items-center gap-3 min-w-0">
-                            <Icon className="size-4 shrink-0 text-slate-400 dark:text-slate-400 group-hover:text-slate-500 dark:group-hover:text-slate-400 transition-colors" />
-                            {!isCollapsed && (
-                              <span className="truncate text-slate-500 dark:text-slate-400">
-                                {item.title}
-                              </span>
-                            )}
+                            <IconComponent className="size-4 shrink-0 text-slate-400 dark:text-slate-400 group-hover:text-slate-500 dark:group-hover:text-slate-400 transition-colors" />
+                            {!collapsed && <span className="truncate text-slate-500 dark:text-slate-400">{item.title}</span>}
                           </div>
 
-                          {!isCollapsed && item.badge && (
-                            <span className="px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider rounded-md bg-slate-100 dark:bg-slate-800/80 text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-700/60">
+                          {!collapsed && item.badge && (
+                            <Badge tone="info">
                               {item.badge}
-                            </span>
+                            </Badge>
                           )}
                         </button>
                       );
@@ -428,27 +417,27 @@ export function ManagerNav({
         </div>
       </div>
 
-      {/* Manager Profile & Sidebar Collapse Footer */}
-      <div className="p-3 border-t border-slate-200/70 dark:border-white/[0.08] bg-slate-50/60 dark:bg-white/[0.02] space-y-2">
+      {/* Manager Identity & Collapse Footer */}
+      <div className="p-3 border-t border-slate-200/80 dark:border-white/[0.08] bg-slate-50/60 dark:bg-white/[0.02] space-y-2">
         {/* Identity preview */}
         <div
           className={`flex items-center ${
-            isCollapsed ? "justify-center p-2" : "gap-3 p-2.5"
+            collapsed ? "justify-center p-2" : "gap-3 p-2.5"
           } rounded-xl bg-white/70 dark:bg-white/[0.04] border border-slate-200/80 dark:border-white/[0.08] shadow-2xs`}
         >
-          <div className="flex items-center justify-center size-8 rounded-lg bg-blue-500/20 text-blue-700 dark:text-blue-300 font-bold text-xs border border-blue-500/30 shrink-0">
+          <div className="flex items-center justify-center size-8 rounded-lg bg-[#4F6DF5]/15 text-[#4F6DF5] dark:text-[#60A5FA] font-bold text-xs border border-[#4F6DF5]/25 shrink-0">
             {managerName.slice(0, 2).toUpperCase()}
           </div>
-          {!isCollapsed && (
+          {!collapsed && (
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-1.5">
                 <span className="text-xs font-bold text-slate-900 dark:text-white truncate">
                   {managerName}
                 </span>
-                <span className="px-1 py-0.2 text-[9px] font-mono font-semibold rounded bg-blue-500/10 text-blue-600 dark:text-blue-300 border border-blue-500/20">
+                <Badge tone="info">
                   {managerRole}
-                </span>
-                <Briefcase className="size-3 text-blue-600 dark:text-blue-400 shrink-0" />
+                </Badge>
+                <Briefcase className="size-3 text-[#4F6DF5] dark:text-[#60A5FA] shrink-0" />
               </div>
               <p className="text-[10px] font-mono text-slate-500 dark:text-slate-400 truncate">
                 {managerEmail}
@@ -462,11 +451,11 @@ export function ManagerNav({
           <button
             type="button"
             onClick={onToggleCollapse}
-            className="hidden lg:flex w-full items-center justify-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800/80 border border-transparent transition-colors focus:outline-none cursor-pointer"
-            aria-label={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
-            title={isCollapsed ? "Expand sidebar (w-64)" : "Collapse sidebar (w-20)"}
+            className="hidden lg:flex w-full items-center justify-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800/80 border border-transparent transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#4F6DF5]"
+            aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+            title={collapsed ? "Expand sidebar (w-64)" : "Collapse sidebar (w-20)"}
           >
-            {isCollapsed ? (
+            {collapsed ? (
               <PanelLeftOpen className="size-4" />
             ) : (
               <>
@@ -484,11 +473,14 @@ export function ManagerNav({
     <>
       {/* Desktop Persistent Sidebar */}
       <aside
+        ref={asideRef}
+        onMouseEnter={onMouseEnter}
+        onMouseLeave={onMouseLeave}
         className={`hidden lg:block shrink-0 h-screen sticky top-0 z-30 transition-all duration-200 ${
           isCollapsed ? "w-20" : "w-64"
         }`}
       >
-        {navContent}
+        {renderNavContent(isCollapsed)}
       </aside>
 
       {/* Mobile Drawer Overlay */}
@@ -499,7 +491,7 @@ export function ManagerNav({
             onClick={onClose}
           />
           <div className="fixed inset-y-0 left-0 w-72 max-w-full shadow-2xl animate-in slide-in-from-left duration-200">
-            {navContent}
+            {renderNavContent(false)}
           </div>
         </div>
       )}

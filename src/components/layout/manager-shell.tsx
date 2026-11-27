@@ -13,6 +13,7 @@ import {
   Sun,
   Moon,
   LogOut,
+  Loader2,
   ChevronDown,
   UserPlus,
   Smile,
@@ -21,11 +22,14 @@ import {
   CalendarClock,
   ScrollText,
   Contact,
-  Sparkles,
   MessageSquare,
   Mail,
   Lightbulb,
+  X,
+  History,
 } from "lucide-react";
+import { Badge } from "@/src/components/ui/Badge";
+import { EmptyState } from "@/src/components/ui/EmptyState";
 
 interface ManagerShellProps {
   managerName: string;
@@ -73,8 +77,63 @@ export function ManagerShell({
   // Mobile drawer state
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
-  // Desktop sidebar collapse rail state
-  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  // Desktop sidebar explicit independent states
+  const [isPinned, setIsPinned] = useState(false);
+  const [isHovered, setIsHovered] = useState(false);
+  const hoverTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Desktop effective collapsed state: true only when neither pinned nor hovered
+  const isDesktopCollapsed = !isPinned && !isHovered;
+
+  const sidebarRef = useRef<HTMLElement | null>(null);
+  const hamburgerRef = useRef<HTMLButtonElement | null>(null);
+
+  const handleSidebarMouseEnter = () => {
+    if (typeof window !== "undefined" && window.innerWidth >= 1024) {
+      if (hoverTimeoutRef.current) {
+        clearTimeout(hoverTimeoutRef.current);
+        hoverTimeoutRef.current = null;
+      }
+      if (!isPinned) {
+        setIsHovered(true);
+      }
+    }
+  };
+
+  const handleSidebarMouseLeave = () => {
+    if (typeof window !== "undefined" && window.innerWidth >= 1024) {
+      if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current);
+      if (!isPinned) {
+        hoverTimeoutRef.current = setTimeout(() => {
+          setIsHovered(false);
+        }, 300);
+      }
+    }
+  };
+
+  const handleHamburgerClick = () => {
+    if (typeof window !== "undefined" && window.innerWidth < 1024) {
+      setSidebarOpen((prev) => !prev);
+    } else {
+      if (hoverTimeoutRef.current) {
+        clearTimeout(hoverTimeoutRef.current);
+        hoverTimeoutRef.current = null;
+      }
+      setIsPinned((prev) => {
+        const next = !prev;
+        if (!next) {
+          setIsHovered(false);
+        }
+        return next;
+      });
+    }
+  };
+
+  useEffect(() => {
+    return () => {
+      if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current);
+    };
+  }, []);
 
   // Leads mega menu hover state
   const [isLeadsMenuOpen, setIsLeadsMenuOpen] = useState(false);
@@ -88,7 +147,7 @@ export function ManagerShell({
   const handleLeadsMouseLeave = () => {
     leadsMenuTimeoutRef.current = setTimeout(() => {
       setIsLeadsMenuOpen(false);
-    }, 220);
+    }, 180);
   };
 
   // Dropdown states
@@ -142,10 +201,12 @@ export function ManagerShell({
     const trimmed = headerSearch.trim();
     if (trimmed) {
       router.push(`/manager/leads?q=${encodeURIComponent(trimmed)}`);
+    } else {
+      router.push("/manager/leads");
     }
   };
 
-  // Global Ctrl+K / Cmd+K listener for search
+  // Global Ctrl+K / Cmd+K listener for search & Escape key listener
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") {
@@ -155,14 +216,24 @@ export function ManagerShell({
       } else if (e.key === "Escape") {
         setIsNotificationsOpen(false);
         setIsProfileOpen(false);
+        setIsLeadsMenuOpen(false);
+        setSidebarOpen(false);
+        if (isPinned || isHovered) {
+          setIsPinned(false);
+          setIsHovered(false);
+          if (hoverTimeoutRef.current) {
+            clearTimeout(hoverTimeoutRef.current);
+            hoverTimeoutRef.current = null;
+          }
+        }
       }
     };
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, []);
+  }, [isPinned, isHovered]);
 
-  // Click outside listener for dropdowns
+  // Click outside listener for dropdowns and sidebar
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       const target = e.target as Node;
@@ -172,11 +243,25 @@ export function ManagerShell({
       if (profileRef.current && !profileRef.current.contains(target)) {
         setIsProfileOpen(false);
       }
+      if (typeof window !== "undefined" && window.innerWidth >= 1024) {
+        const isInsideSidebar = sidebarRef.current && sidebarRef.current.contains(target);
+        const isInsideHamburger = hamburgerRef.current && hamburgerRef.current.contains(target);
+        if (!isInsideSidebar && !isInsideHamburger) {
+          if (isPinned || isHovered) {
+            setIsPinned(false);
+            setIsHovered(false);
+            if (hoverTimeoutRef.current) {
+              clearTimeout(hoverTimeoutRef.current);
+              hoverTimeoutRef.current = null;
+            }
+          }
+        }
+      }
     };
 
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
+  }, [isPinned, isHovered]);
 
   const handleSignOut = async () => {
     setIsSigningOut(true);
@@ -188,37 +273,70 @@ export function ManagerShell({
       {/* Sidebar Navigation */}
       <Suspense fallback={null}>
         <ManagerNav
+          asideRef={sidebarRef}
           isOpen={sidebarOpen}
-          onClose={() => setSidebarOpen(false)}
+          onClose={() => {
+            setSidebarOpen(false);
+            if (isHovered) {
+              setIsHovered(false);
+            }
+          }}
           managerName={managerName}
           managerEmail={managerEmail}
           managerRole={managerRole}
-          isCollapsed={isSidebarCollapsed}
-          onToggleCollapse={() => setIsSidebarCollapsed((prev) => !prev)}
+          isCollapsed={isDesktopCollapsed}
+          onToggleCollapse={() => {
+            setIsPinned((prev) => !prev);
+            setIsHovered(false);
+          }}
+          onMouseEnter={handleSidebarMouseEnter}
+          onMouseLeave={handleSidebarMouseLeave}
         />
       </Suspense>
 
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col min-w-0">
         {/* Top Header Bar */}
-        <header className="sticky top-0 z-20 h-14 border-b border-slate-200/70 dark:border-white/[0.08] bg-white/70 dark:bg-[#090e1c]/75 backdrop-blur-xl px-3 sm:px-5 flex items-center justify-between gap-2 sm:gap-4 transition-colors duration-200 shadow-xs">
+        <header className="sticky top-0 z-20 h-14 border-b border-slate-200/80 dark:border-white/[0.08] bg-white/75 dark:bg-[#090e1c]/80 backdrop-blur-xl px-2.5 sm:px-4 md:px-5 flex items-center justify-between gap-1.5 sm:gap-3 transition-colors duration-200 shadow-xs">
           {/* Left section: Hamburger, Search capsule, Leads dropdown, Chat, Email, Tips */}
-          <div className="flex items-center gap-2 sm:gap-3 min-w-0">
-            {/* Mobile Hamburger Menu Toggle */}
+          <div className="flex items-center gap-1 sm:gap-2 min-w-0">
+            {/* Hamburger menu button (desktop & mobile) */}
             <button
-              onClick={() => setSidebarOpen(true)}
-              className="lg:hidden p-1.5 rounded-lg text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors shrink-0 cursor-pointer"
-              aria-label="Open sidebar menu"
-              title="Open sidebar navigation"
+              ref={hamburgerRef}
+              onClick={handleHamburgerClick}
+              onMouseEnter={() => {
+                if (typeof window !== "undefined" && window.innerWidth >= 1024 && !isPinned) {
+                  handleSidebarMouseEnter();
+                }
+              }}
+              onMouseLeave={() => {
+                if (typeof window !== "undefined" && window.innerWidth >= 1024 && !isPinned) {
+                  handleSidebarMouseLeave();
+                }
+              }}
+              className="p-1.5 rounded-lg text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors shrink-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#4F6DF5]"
+              aria-label={
+                sidebarOpen || !isDesktopCollapsed
+                  ? "Close sidebar navigation"
+                  : "Open sidebar navigation"
+              }
+              aria-expanded={sidebarOpen || !isDesktopCollapsed}
+              title={
+                isPinned
+                  ? "Unpin sidebar navigation"
+                  : !isDesktopCollapsed
+                  ? "Collapse sidebar navigation"
+                  : "Expand and pin sidebar navigation"
+              }
             >
               <Menu className="size-4.5" />
             </button>
 
             {/* Header Global Search Input */}
             <form onSubmit={handleHeaderSearchSubmit} className="relative shrink-0">
-              <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-100/70 dark:bg-white/[0.05] border border-slate-200/80 dark:border-white/[0.08] text-slate-500 dark:text-slate-400 focus-within:border-blue-500 focus-within:ring-1 focus-within:ring-blue-500 w-36 sm:w-52 text-xs transition-all shadow-xs">
+              <div className="flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-1.5 rounded-full bg-slate-100/70 dark:bg-white/[0.05] border border-slate-200/80 dark:border-white/[0.08] text-slate-500 dark:text-slate-400 focus-within:border-[#4F6DF5] focus-within:ring-1 focus-within:ring-[#4F6DF5] w-28 sm:w-36 md:w-40 lg:w-48 xl:w-56 focus-within:w-36 sm:focus-within:w-48 md:focus-within:w-56 lg:focus-within:w-64 text-xs transition-all duration-200 shadow-xs">
                 <button type="submit" className="focus:outline-none cursor-pointer" aria-label="Submit search">
-                  <Search className="size-3.5 text-slate-400 hover:text-blue-500 transition-colors shrink-0" />
+                  <Search className="size-3.5 text-slate-400 hover:text-[#4F6DF5] transition-colors shrink-0" />
                 </button>
                 <input
                   ref={headerSearchInputRef}
@@ -233,7 +351,7 @@ export function ManagerShell({
 
             {/* Leads Dropdown Button + Hover Mega Menu */}
             <div
-              className="relative"
+              className="relative hidden sm:block"
               onMouseEnter={handleLeadsMouseEnter}
               onMouseLeave={handleLeadsMouseLeave}
             >
@@ -244,16 +362,17 @@ export function ManagerShell({
                   if (leadsMenuTimeoutRef.current) clearTimeout(leadsMenuTimeoutRef.current);
                   setIsLeadsMenuOpen(false);
                 }}
-                className={`flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all shadow-2xs cursor-pointer ${
+                className={`flex items-center gap-1 px-2 sm:px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all shadow-2xs cursor-pointer ${
                   pathname.startsWith("/manager/leads") || isLeadsMenuOpen
-                    ? "bg-blue-500/10 text-blue-700 dark:text-blue-300 border border-blue-500/30"
+                    ? "bg-[#4F6DF5]/12 text-[#4F6DF5] dark:text-[#60A5FA] border border-[#4F6DF5]/30 font-semibold"
                     : "text-slate-700 dark:text-slate-300 hover:bg-white/70 dark:hover:bg-white/[0.06] border border-transparent"
                 }`}
                 aria-expanded={isLeadsMenuOpen}
                 aria-haspopup="true"
-                title="Click for Leads, Hover for options"
+                title="Leads — Click for Team Leads, Hover for options"
               >
-                <span>Leads</span>
+                <Smile className="size-3.5 shrink-0 text-[#4F6DF5] dark:text-[#60A5FA]" />
+                <span className="hidden md:inline">Leads</span>
                 <ChevronDown
                   className={`size-3 transition-transform duration-150 ${
                     isLeadsMenuOpen ? "rotate-180" : ""
@@ -264,274 +383,358 @@ export function ManagerShell({
               {/* Leads Hover Mega Dropdown Menu */}
               {isLeadsMenuOpen && (
                 <div
-                  className="absolute left-0 top-full pt-1.5 z-50 animate-in fade-in zoom-in-95 duration-150"
+                  className="absolute left-0 top-full mt-1.5 w-[520px] sm:w-[560px] rounded-2xl bg-white/95 dark:bg-[#0c1220]/95 backdrop-blur-2xl border border-slate-200/90 dark:border-white/[0.12] shadow-2xl p-4 z-50 animate-in fade-in zoom-in-95 duration-150"
                   onMouseEnter={handleLeadsMouseEnter}
                   onMouseLeave={handleLeadsMouseLeave}
                 >
-                  <div className="w-[520px] sm:w-[560px] rounded-2xl bg-white/95 dark:bg-[#0c1220]/95 backdrop-blur-2xl border border-slate-200/90 dark:border-white/[0.12] shadow-2xl p-4">
-                    <div className="grid grid-cols-2 gap-3">
-                      {/* Column 1 */}
-                      <div className="space-y-1">
-                        {/* Add Lead */}
-                        <Link
-                          href="/manager/leads/add"
-                          onClick={() => setIsLeadsMenuOpen(false)}
-                          className="flex items-center gap-3 p-2 rounded-xl text-slate-700 dark:text-slate-300 hover:bg-slate-100/80 dark:hover:bg-slate-800 transition-colors group cursor-pointer"
-                        >
-                          <div className="size-8 rounded-lg bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
-                            <UserPlus className="size-4" />
-                          </div>
-                          <div className="min-w-0">
-                            <span className="text-xs font-semibold block text-slate-900 dark:text-white group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
-                              Add Lead
-                            </span>
-                            <span className="text-[10px] text-slate-400 block truncate">
-                              Register new prospective lead
-                            </span>
-                          </div>
-                        </Link>
+                  <div className="grid grid-cols-2 gap-3">
+                    {/* Column 1 */}
+                    <div className="space-y-1">
+                      {/* Add Lead */}
+                      <Link
+                        href="/manager/leads/add"
+                        onClick={() => setIsLeadsMenuOpen(false)}
+                        className="flex items-center gap-3 p-2 rounded-xl text-slate-700 dark:text-slate-300 hover:bg-slate-100/80 dark:hover:bg-slate-800 transition-colors group cursor-pointer"
+                      >
+                        <div className="size-8 rounded-lg bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-600 dark:text-slate-400 group-hover:text-[#4F6DF5] dark:group-hover:text-[#60A5FA] group-hover:bg-[#4F6DF5]/10 dark:group-hover:bg-[#4F6DF5]/15 transition-colors shrink-0">
+                          <UserPlus className="size-4" />
+                        </div>
+                        <div className="min-w-0">
+                          <span className="text-xs font-semibold block text-slate-900 dark:text-white group-hover:text-[#4F6DF5] dark:group-hover:text-[#60A5FA] transition-colors">
+                            Add Lead
+                          </span>
+                          <span className="text-[10px] text-slate-400 block truncate">
+                            Register new prospective lead
+                          </span>
+                        </div>
+                      </Link>
 
-                        {/* Unread Leads */}
-                        <Link
-                          href="/manager/leads?status=UNREAD"
-                          onClick={() => setIsLeadsMenuOpen(false)}
-                          className="flex items-center gap-3 p-2 rounded-xl text-slate-700 dark:text-slate-300 hover:bg-slate-100/80 dark:hover:bg-slate-800 transition-colors group cursor-pointer"
-                        >
-                          <div className="size-8 rounded-lg bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
-                            <EyeOff className="size-4" />
-                          </div>
-                          <div className="min-w-0">
-                            <span className="text-xs font-semibold block text-slate-900 dark:text-white group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
-                              Unread Leads
-                            </span>
-                            <span className="text-[10px] text-slate-400 block truncate">
-                              Fresh unallocated inquiries
-                            </span>
-                          </div>
-                        </Link>
+                      {/* Unread Leads */}
+                      <Link
+                        href="/manager/leads?status=UNREAD"
+                        onClick={() => setIsLeadsMenuOpen(false)}
+                        className="flex items-center gap-3 p-2 rounded-xl text-slate-700 dark:text-slate-300 hover:bg-slate-100/80 dark:hover:bg-slate-800 transition-colors group cursor-pointer"
+                      >
+                        <div className="size-8 rounded-lg bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-600 dark:text-slate-400 group-hover:text-[#4F6DF5] dark:group-hover:text-[#60A5FA] group-hover:bg-[#4F6DF5]/10 dark:group-hover:bg-[#4F6DF5]/15 transition-colors shrink-0">
+                          <EyeOff className="size-4" />
+                        </div>
+                        <div className="min-w-0">
+                          <span className="text-xs font-semibold block text-slate-900 dark:text-white group-hover:text-[#4F6DF5] dark:group-hover:text-[#60A5FA] transition-colors">
+                            Unread Leads
+                          </span>
+                          <span className="text-[10px] text-slate-400 block truncate">
+                            Fresh unallocated inquiries
+                          </span>
+                        </div>
+                      </Link>
 
-                        {/* Read Leads */}
-                        <Link
-                          href="/manager/leads?status=READ"
-                          onClick={() => setIsLeadsMenuOpen(false)}
-                          className="flex items-center gap-3 p-2 rounded-xl text-slate-700 dark:text-slate-300 hover:bg-slate-100/80 dark:hover:bg-slate-800 transition-colors group cursor-pointer"
-                        >
-                          <div className="size-8 rounded-lg bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
-                            <Eye className="size-4" />
-                          </div>
-                          <div className="min-w-0">
-                            <span className="text-xs font-semibold block text-slate-900 dark:text-white group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
-                              Read Leads
-                            </span>
-                            <span className="text-[10px] text-slate-400 block truncate">
-                              Reviewed team prospect records
-                            </span>
-                          </div>
-                        </Link>
-                      </div>
+                      {/* Read Leads */}
+                      <Link
+                        href="/manager/leads?status=READ"
+                        onClick={() => setIsLeadsMenuOpen(false)}
+                        className="flex items-center gap-3 p-2 rounded-xl text-slate-700 dark:text-slate-300 hover:bg-slate-100/80 dark:hover:bg-slate-800 transition-colors group cursor-pointer"
+                      >
+                        <div className="size-8 rounded-lg bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-600 dark:text-slate-400 group-hover:text-[#4F6DF5] dark:group-hover:text-[#60A5FA] group-hover:bg-[#4F6DF5]/10 dark:group-hover:bg-[#4F6DF5]/15 transition-colors shrink-0">
+                          <Eye className="size-4" />
+                        </div>
+                        <div className="min-w-0">
+                          <span className="text-xs font-semibold block text-slate-900 dark:text-white group-hover:text-[#4F6DF5] dark:group-hover:text-[#60A5FA] transition-colors">
+                            Read Leads
+                          </span>
+                          <span className="text-[10px] text-slate-400 block truncate">
+                            Reviewed team prospect records
+                          </span>
+                        </div>
+                      </Link>
+                    </div>
 
-                      {/* Column 2 */}
-                      <div className="space-y-1">
-                        {/* Followups */}
-                        <Link
-                          href="/manager/leads?status=FOLLOW_UP"
-                          onClick={() => setIsLeadsMenuOpen(false)}
-                          className="flex items-center gap-3 p-2 rounded-xl text-slate-700 dark:text-slate-300 hover:bg-slate-100/80 dark:hover:bg-slate-800 transition-colors group cursor-pointer"
-                        >
-                          <div className="size-8 rounded-lg bg-purple-50 dark:bg-purple-950/40 text-purple-600 dark:text-purple-400 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
-                            <CalendarClock className="size-4" />
-                          </div>
-                          <div className="min-w-0">
-                            <span className="text-xs font-semibold block text-slate-900 dark:text-white group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
-                              Followups
-                            </span>
-                            <span className="text-[10px] text-slate-400 block truncate">
-                              Scheduled client callbacks
-                            </span>
-                          </div>
-                        </Link>
+                    {/* Column 2 */}
+                    <div className="space-y-1">
+                      {/* Followups */}
+                      <Link
+                        href="/manager/leads?status=FOLLOW_UP"
+                        onClick={() => setIsLeadsMenuOpen(false)}
+                        className="flex items-center gap-3 p-2 rounded-xl text-slate-700 dark:text-slate-300 hover:bg-slate-100/80 dark:hover:bg-slate-800 transition-colors group cursor-pointer"
+                      >
+                        <div className="size-8 rounded-lg bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-600 dark:text-slate-400 group-hover:text-[#4F6DF5] dark:group-hover:text-[#60A5FA] group-hover:bg-[#4F6DF5]/10 dark:group-hover:bg-[#4F6DF5]/15 transition-colors shrink-0">
+                          <CalendarClock className="size-4" />
+                        </div>
+                        <div className="min-w-0">
+                          <span className="text-xs font-semibold block text-slate-900 dark:text-white group-hover:text-[#4F6DF5] dark:group-hover:text-[#60A5FA] transition-colors">
+                            Followups
+                          </span>
+                          <span className="text-[10px] text-slate-400 block truncate">
+                            Scheduled client callbacks
+                          </span>
+                        </div>
+                      </Link>
 
-                        {/* Trial */}
-                        <Link
-                          href="/manager/leads?status=TRIAL"
-                          onClick={() => setIsLeadsMenuOpen(false)}
-                          className="flex items-center gap-3 p-2 rounded-xl text-slate-700 dark:text-slate-300 hover:bg-slate-100/80 dark:hover:bg-slate-800 transition-colors group cursor-pointer"
-                        >
-                          <div className="size-8 rounded-lg bg-cyan-50 dark:bg-cyan-950/40 text-cyan-600 dark:text-cyan-400 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
-                            <ScrollText className="size-4" />
-                          </div>
-                          <div className="min-w-0">
-                            <span className="text-xs font-semibold block text-slate-900 dark:text-white group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
-                              Trial
-                            </span>
-                            <span className="text-[10px] text-slate-400 block truncate">
-                              Active 2-day trial services
-                            </span>
-                          </div>
-                        </Link>
+                      {/* Trial */}
+                      <Link
+                        href="/manager/leads?status=TRIAL"
+                        onClick={() => setIsLeadsMenuOpen(false)}
+                        className="flex items-center gap-3 p-2 rounded-xl text-slate-700 dark:text-slate-300 hover:bg-slate-100/80 dark:hover:bg-slate-800 transition-colors group cursor-pointer"
+                      >
+                        <div className="size-8 rounded-lg bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-600 dark:text-slate-400 group-hover:text-[#4F6DF5] dark:group-hover:text-[#60A5FA] group-hover:bg-[#4F6DF5]/10 dark:group-hover:bg-[#4F6DF5]/15 transition-colors shrink-0">
+                          <ScrollText className="size-4" />
+                        </div>
+                        <div className="min-w-0">
+                          <span className="text-xs font-semibold block text-slate-900 dark:text-white group-hover:text-[#4F6DF5] dark:group-hover:text-[#60A5FA] transition-colors">
+                            Trial
+                          </span>
+                          <span className="text-[10px] text-slate-400 block truncate">
+                            Active 2-day trial services
+                          </span>
+                        </div>
+                      </Link>
 
-                        {/* Clients */}
-                        <Link
-                          href="/manager/leads?status=CLIENT"
-                          onClick={() => setIsLeadsMenuOpen(false)}
-                          className="flex items-center gap-3 p-2 rounded-xl text-slate-700 dark:text-slate-300 hover:bg-slate-100/80 dark:hover:bg-slate-800 transition-colors group cursor-pointer"
-                        >
-                          <div className="size-8 rounded-lg bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
-                            <Contact className="size-4" />
-                          </div>
-                          <div className="min-w-0">
-                            <span className="text-xs font-semibold block text-slate-900 dark:text-white group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
-                              Clients
-                            </span>
-                            <span className="text-[10px] text-slate-400 block truncate">
-                              Converted paid customers
-                            </span>
-                          </div>
-                        </Link>
-                      </div>
+                      {/* Clients */}
+                      <Link
+                        href="/manager/leads?status=CLIENT"
+                        onClick={() => setIsLeadsMenuOpen(false)}
+                        className="flex items-center gap-3 p-2 rounded-xl text-slate-700 dark:text-slate-300 hover:bg-slate-100/80 dark:hover:bg-slate-800 transition-colors group cursor-pointer"
+                      >
+                        <div className="size-8 rounded-lg bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-600 dark:text-slate-400 group-hover:text-[#4F6DF5] dark:group-hover:text-[#60A5FA] group-hover:bg-[#4F6DF5]/10 dark:group-hover:bg-[#4F6DF5]/15 transition-colors shrink-0">
+                          <Contact className="size-4" />
+                        </div>
+                        <div className="min-w-0">
+                          <span className="text-xs font-semibold block text-slate-900 dark:text-white group-hover:text-[#4F6DF5] dark:group-hover:text-[#60A5FA] transition-colors">
+                            Clients
+                          </span>
+                          <span className="text-[10px] text-slate-400 block truncate">
+                            Converted paid customers
+                          </span>
+                        </div>
+                      </Link>
                     </div>
                   </div>
                 </div>
               )}
             </div>
 
-            {/* Chat (0) */}
+            {/* Chat Placeholder */}
             <button
               type="button"
-              className="hidden md:flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
-              title="Chat channel"
+              className="hidden sm:flex items-center gap-1 sm:gap-1.5 px-2 sm:px-2.5 py-1.5 rounded-lg text-xs font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors shrink-0"
+              title="Chat channel (0 unread)"
+              aria-label="Chat channel, 0 unread messages"
             >
-              <span>Chat</span>
-              <span className="px-1.5 py-0.2 rounded-full bg-orange-500 text-white text-[10px] font-bold leading-tight">
+              <MessageSquare className="size-3.5 text-slate-500 dark:text-slate-400 shrink-0" />
+              <span className="hidden xl:inline">Chat</span>
+              <span className="px-1.5 py-0.2 rounded-full bg-[#4F6DF5]/15 text-[#4F6DF5] dark:text-[#60A5FA] border border-[#4F6DF5]/25 text-[10px] font-bold leading-tight">
                 0
               </span>
             </button>
 
-            {/* Email (0) */}
+            {/* Email Placeholder */}
             <button
               type="button"
-              className="hidden md:flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
-              title="Email updates"
+              className="hidden sm:flex items-center gap-1 sm:gap-1.5 px-2 sm:px-2.5 py-1.5 rounded-lg text-xs font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors shrink-0"
+              title="Email updates (0 unread)"
+              aria-label="Email updates, 0 unread messages"
             >
-              <span>Email</span>
-              <span className="px-1.5 py-0.2 rounded-full bg-orange-500 text-white text-[10px] font-bold leading-tight">
+              <Mail className="size-3.5 text-slate-500 dark:text-slate-400 shrink-0" />
+              <span className="hidden xl:inline">Email</span>
+              <span className="px-1.5 py-0.2 rounded-full bg-[#4F6DF5]/15 text-[#4F6DF5] dark:text-[#60A5FA] border border-[#4F6DF5]/25 text-[10px] font-bold leading-tight">
                 0
               </span>
             </button>
 
-            {/* Tips (31) */}
+            {/* Tips Placeholder */}
             <button
               type="button"
-              className="hidden sm:flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
-              title="Advisory tips"
+              className="flex items-center gap-1 sm:gap-1.5 px-2 sm:px-2.5 py-1.5 rounded-lg text-xs font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors shrink-0"
+              title="Advisory tips (31 tips)"
+              aria-label="Advisory tips, 31 tips available"
             >
-              <span>Tips</span>
-              <span className="px-1.5 py-0.2 rounded-full bg-orange-500 text-white text-[10px] font-bold leading-tight">
+              <Lightbulb className="size-3.5 text-amber-500 dark:text-amber-400 shrink-0" />
+              <span className="hidden lg:inline">Tips</span>
+              <span className="px-1.5 py-0.2 rounded-full bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/25 text-[10px] font-bold leading-tight">
                 31
               </span>
             </button>
           </div>
 
           {/* Right section: Theme toggle, Notifications, Manager profile capsule */}
-          <div className="flex items-center gap-1 sm:gap-2">
+          <div className="flex items-center gap-2 sm:gap-3 shrink-0">
             {/* Theme Toggle (Sun/Moon) */}
             <button
+              type="button"
               onClick={handleToggleTheme}
-              className="p-2 rounded-xl text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition-all cursor-pointer"
-              aria-label={`Switch to ${theme === "dark" ? "light" : "dark"} theme`}
-              title={`Switch to ${theme === "dark" ? "light" : "dark"} theme`}
+              className="p-2 rounded-xl text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#4F6DF5]"
+              aria-label={theme === "dark" ? "Switch to light theme" : "Switch to dark theme"}
+              title={theme === "dark" ? "Switch to light theme" : "Switch to dark theme"}
             >
-              {theme === "dark" ? <Sun className="size-4" /> : <Moon className="size-4" />}
+              {theme === "light" ? (
+                <Moon className="size-4.5 text-slate-600" />
+              ) : (
+                <Sun className="size-4.5 text-amber-400" />
+              )}
             </button>
 
-            {/* Notifications Bell */}
+            {/* Notifications Popover */}
             <div className="relative" ref={notificationsRef}>
               <button
+                type="button"
                 onClick={() => {
                   setIsNotificationsOpen((prev) => !prev);
                   setIsProfileOpen(false);
                 }}
-                className="relative p-2 rounded-xl text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition-all cursor-pointer"
-                aria-label="View notifications"
-                title="Notifications"
+                className={`relative p-2 rounded-xl transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-[#4F6DF5] ${
+                  isNotificationsOpen
+                    ? "bg-[#4F6DF5]/15 text-[#4F6DF5] dark:text-[#60A5FA] border border-[#4F6DF5]/30"
+                    : "text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white hover:bg-white/70 dark:hover:bg-white/[0.06] border border-transparent"
+                }`}
+                aria-label="Notifications"
+                aria-expanded={isNotificationsOpen}
+                aria-haspopup="true"
               >
-                <Bell className="size-4" />
-                <span className="absolute top-1.5 right-1.5 size-2 rounded-full bg-blue-500 ring-2 ring-white dark:ring-[#090e1c]" />
+                <Bell className="size-4.5" />
+                <span className="absolute -top-0.5 -right-0.5 size-4 rounded-full bg-[#4F6DF5] text-white text-[9px] font-bold flex items-center justify-center shadow-xs">
+                  0
+                </span>
               </button>
 
               {/* Notifications Dropdown */}
               {isNotificationsOpen && (
-                <div className="absolute right-0 top-full mt-2 w-72 sm:w-80 rounded-2xl bg-white/95 dark:bg-[#0c1220]/95 backdrop-blur-2xl border border-slate-200/90 dark:border-white/[0.12] shadow-2xl p-4 z-50 animate-in fade-in zoom-in-95 duration-150">
-                  <div className="flex items-center justify-between pb-3 border-b border-slate-200/80 dark:border-white/[0.08]">
-                    <span className="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-wider">
-                      Team Alerts
-                    </span>
-                    <span className="text-[10px] font-semibold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/60 px-2 py-0.5 rounded-full">
-                      Operational
-                    </span>
+                <div className="absolute right-0 mt-2 w-80 sm:w-96 rounded-2xl bg-white/95 dark:bg-[#0c1220]/95 backdrop-blur-2xl border border-slate-200/90 dark:border-white/[0.12] shadow-2xl p-4 z-40 animate-in fade-in zoom-in-95 duration-150">
+                  <div className="flex items-center justify-between pb-3 border-b border-slate-200/70 dark:border-white/[0.08]">
+                    <div className="flex items-center gap-2">
+                      <h3 className="text-sm font-bold text-slate-900 dark:text-white">
+                        Team Alerts
+                      </h3>
+                      <Badge tone="info">
+                        0 Unread
+                      </Badge>
+                    </div>
+                    <button
+                      onClick={() => setIsNotificationsOpen(false)}
+                      className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1 rounded-lg"
+                      aria-label="Close notifications popover"
+                    >
+                      <X className="size-4" />
+                    </button>
                   </div>
-                  <div className="py-6 text-center text-xs text-slate-500 dark:text-slate-400">
-                    <Sparkles className="size-5 text-blue-500 mx-auto mb-1.5" />
-                    <span>No unread team notifications</span>
+
+                  {/* UI Kit Empty State component */}
+                  <EmptyState
+                    title="All caught up"
+                    description="No pending system alerts or team escalations. Operational activities are logged in real-time."
+                    icon="Bell"
+                    className="py-4 border-0 shadow-none bg-transparent"
+                  />
+
+                  <div className="pt-3 border-t border-slate-200/70 dark:border-white/[0.08] flex items-center justify-between text-xs">
+                    <Link
+                      href="/manager/activity"
+                      onClick={() => setIsNotificationsOpen(false)}
+                      className="text-[11px] font-medium text-[#4F6DF5] dark:text-[#60A5FA] hover:underline"
+                    >
+                      View Activity Log →
+                    </Link>
+                    <span className="text-[10px] text-slate-400">
+                      Live Telemetry
+                    </span>
                   </div>
                 </div>
               )}
             </div>
 
-            {/* Manager Profile Capsule & Sign Out Menu */}
+            {/* Manager Profile Dropdown */}
             <div className="relative" ref={profileRef}>
               <button
+                type="button"
                 onClick={() => {
                   setIsProfileOpen((prev) => !prev);
                   setIsNotificationsOpen(false);
                 }}
-                className="flex items-center gap-2 p-1 sm:px-2.5 sm:py-1.5 rounded-xl text-slate-700 dark:text-slate-200 hover:bg-slate-100/80 dark:hover:bg-slate-800/80 transition-all focus:outline-none cursor-pointer"
+                className={`flex items-center gap-1.5 sm:gap-2 p-1 sm:px-2 sm:py-1 rounded-xl border transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-[#4F6DF5] ${
+                  isProfileOpen
+                    ? "bg-[#4F6DF5]/12 border-[#4F6DF5]/30 text-[#4F6DF5] dark:text-[#60A5FA]"
+                    : "bg-white/70 dark:bg-white/[0.05] border-slate-200/80 dark:border-white/[0.08] hover:border-slate-300 dark:hover:border-white/[0.15]"
+                }`}
+                aria-label="Manager profile menu"
                 aria-expanded={isProfileOpen}
                 aria-haspopup="true"
               >
-                <div className="flex items-center justify-center size-7 rounded-lg bg-gradient-to-br from-blue-600 to-indigo-600 text-white font-bold text-xs shadow-xs">
+                <div className="flex items-center justify-center size-7 rounded-lg bg-gradient-to-br from-[#4F6DF5] to-[#60A5FA] text-white font-bold text-xs shadow-xs shrink-0">
                   {managerName.slice(0, 2).toUpperCase()}
                 </div>
-                <div className="hidden md:flex flex-col items-start text-left">
-                  <span className="text-xs font-semibold text-slate-900 dark:text-slate-100 max-w-[120px] truncate leading-tight">
+                <div className="hidden xl:flex flex-col text-left">
+                  <span className="text-xs font-bold text-slate-800 dark:text-slate-200 max-w-[110px] truncate leading-tight">
                     {managerName}
                   </span>
-                  <span className="text-[9px] font-mono text-blue-600 dark:text-blue-400 font-bold uppercase tracking-wider">
+                  <span className="text-[10px] font-mono text-[#4F6DF5] dark:text-[#60A5FA] leading-tight">
                     {managerRole}
                   </span>
                 </div>
-                <ChevronDown className="hidden sm:block size-3 text-slate-400" />
+                <ChevronDown className="size-3.5 text-slate-400 shrink-0" />
               </button>
 
-              {/* Profile Dropdown */}
+              {/* Profile Dropdown Menu */}
               {isProfileOpen && (
-                <div className="absolute right-0 top-full mt-2 w-56 rounded-2xl bg-white/95 dark:bg-[#0c1220]/95 backdrop-blur-2xl border border-slate-200/90 dark:border-white/[0.12] shadow-2xl p-2 z-50 animate-in fade-in zoom-in-95 duration-150">
-                  <div className="px-3 py-2 border-b border-slate-200/80 dark:border-white/[0.08] mb-1">
-                    <p className="text-xs font-bold text-slate-900 dark:text-white truncate">
-                      {managerName}
-                    </p>
+                <div className="absolute right-0 mt-2 w-72 rounded-2xl bg-white/95 dark:bg-[#0c1220]/95 backdrop-blur-2xl border border-slate-200/90 dark:border-white/[0.12] shadow-2xl p-3 z-40 animate-in fade-in zoom-in-95 duration-150">
+                  {/* Authenticated Identity Details */}
+                  <div className="p-2.5 rounded-xl bg-slate-50/80 dark:bg-white/[0.04] border border-slate-200/80 dark:border-white/[0.08] space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold text-slate-900 dark:text-white truncate">
+                        {managerName}
+                      </span>
+                      <Badge tone="info">
+                        <Briefcase className="size-2.5 mr-1 inline" />
+                        {managerRole}
+                      </Badge>
+                    </div>
                     <p className="text-[11px] font-mono text-slate-500 dark:text-slate-400 truncate">
                       {managerEmail}
                     </p>
+                    <div className="pt-1 flex items-center gap-1.5 text-[10px] text-slate-400">
+                      <span className="size-1.5 rounded-full bg-emerald-500" />
+                      <span>Operational Supervision</span>
+                    </div>
                   </div>
 
-                  <Link
-                    href="/manager"
-                    onClick={() => setIsProfileOpen(false)}
-                    className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
-                  >
-                    <Briefcase className="size-4 text-blue-500" />
-                    <span>Manager Dashboard</span>
-                  </Link>
+                  {/* Navigation Links */}
+                  <div className="py-2 space-y-0.5">
+                    <Link
+                      href="/manager"
+                      onClick={() => setIsProfileOpen(false)}
+                      className="flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                    >
+                      <Briefcase className="size-4 text-slate-400" />
+                      <span>Manager Dashboard</span>
+                    </Link>
+                    <Link
+                      href="/manager/activity"
+                      onClick={() => setIsProfileOpen(false)}
+                      className="flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                    >
+                      <History className="size-4 text-slate-400" />
+                      <span>Operations Activity</span>
+                    </Link>
+                  </div>
 
-                  <button
-                    onClick={handleSignOut}
-                    disabled={isSigningOut}
-                    className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-medium text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors cursor-pointer mt-1"
-                  >
-                    <LogOut className="size-4" />
-                    <span>{isSigningOut ? "Signing out..." : "Sign Out"}</span>
-                  </button>
+                  {/* Sign Out Action */}
+                  <div className="pt-2 border-t border-slate-150 dark:border-slate-800">
+                    <button
+                      type="button"
+                      onClick={handleSignOut}
+                      disabled={isSigningOut}
+                      className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 border border-transparent hover:border-rose-200 dark:hover:border-rose-900/40 transition-colors disabled:opacity-50 cursor-pointer"
+                    >
+                      {isSigningOut ? (
+                        <>
+                          <Loader2 className="size-3.5 animate-spin" />
+                          <span>Signing out...</span>
+                        </>
+                      ) : (
+                        <>
+                          <LogOut className="size-3.5" />
+                          <span>Sign Out</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
                 </div>
               )}
             </div>
@@ -539,7 +742,7 @@ export function ManagerShell({
         </header>
 
         {/* Page Content Body */}
-        <main className="flex-1 p-4 sm:p-6 lg:p-8 max-w-7xl w-full mx-auto">
+        <main className="flex-1 p-4 sm:p-6 lg:p-8 max-w-[1440px] w-full mx-auto min-w-0">
           {children}
         </main>
       </div>
