@@ -9,7 +9,6 @@ import {
   Bell,
   Calendar,
   Layers,
-  RefreshCw,
   Clock,
   Phone,
   ShieldCheck,
@@ -29,6 +28,7 @@ import {
 import { Card } from "@/src/components/ui/Card";
 import { Badge } from "@/src/components/ui/Badge";
 import { Button } from "@/src/components/ui/Button";
+import { LeaderboardCard } from "./leaderboard-card";
 import type { AdminOverviewStep1Data } from "./actions";
 
 interface AdminOverviewClientProps {
@@ -411,82 +411,6 @@ export function AdminOverviewClient({ initialData }: AdminOverviewClientProps) {
     const max = Math.max(...horizontalBarData.map((d) => d.count), 1);
     return max <= 20 ? 30 : Math.ceil(max * 1.15 / 10) * 10;
   }, [horizontalBarData]);
-
-  // Step 5: Leaderboards Chart Series
-  const tlItems = useMemo(
-    () =>
-      leaderboards.topBestTL.map((tl) => ({
-        id: tl.id,
-        displayName: tl.name,
-        subTitle: tl.profileName || "Team Leader",
-        targetAmount: tl.targetAmount,
-        achievedAmount: tl.achievedAmount,
-        achievementPercent: tl.achievementPercent,
-        leadsCount: tl.leadsHandled,
-        metricValue: tl.metricValue,
-      })),
-    [leaderboards.topBestTL]
-  );
-
-  const sbaItems = useMemo(
-    () =>
-      leaderboards.topBestSBA.map((sba) => ({
-        id: sba.id,
-        displayName: sba.name,
-        subTitle: sba.profileName || "Senior Business Analyst",
-        targetAmount: sba.targetAmount,
-        achievedAmount: sba.achievedAmount,
-        achievementPercent: sba.achievementPercent,
-        leadsCount: sba.leadsHandled,
-        metricValue: sba.metricValue,
-      })),
-    [leaderboards.topBestSBA]
-  );
-
-  const batItems = useMemo(
-    () =>
-      leaderboards.topBestBAT.map((bat) => ({
-        id: bat.id,
-        displayName: bat.name,
-        subTitle: bat.profileName || "Business Analyst Trainee",
-        targetAmount: bat.targetAmount,
-        achievedAmount: bat.achievedAmount,
-        achievementPercent: bat.achievementPercent,
-        leadsCount: bat.leadsHandled,
-        metricValue: bat.metricValue,
-      })),
-    [leaderboards.topBestBAT]
-  );
-
-  const baItems = useMemo(
-    () =>
-      leaderboards.topBestBA.map((ba) => ({
-        id: ba.id,
-        displayName: ba.name,
-        subTitle: ba.profileName || "Business Analyst",
-        targetAmount: ba.targetAmount,
-        achievedAmount: ba.achievedAmount,
-        achievementPercent: ba.achievementPercent,
-        leadsCount: ba.leadsHandled,
-        metricValue: ba.metricValue,
-      })),
-    [leaderboards.topBestBA]
-  );
-
-  const afmItems = useMemo(
-    () =>
-      leaderboards.topTeamBestAFM.map((t) => ({
-        id: t.id,
-        displayName: t.leaderName !== "Unassigned" ? t.leaderName : t.teamName,
-        subTitle: `Team: ${t.teamName} (${t.membersCount} members)`,
-        targetAmount: t.targetAmount,
-        achievedAmount: t.achievedAmount,
-        achievementPercent: t.achievementPercent,
-        leadsCount: t.leadsCount,
-        metricValue: t.metricValue,
-      })),
-    [leaderboards.topTeamBestAFM]
-  );
 
   return (
     <div className="space-y-6 animate-in fade-in duration-300 w-full min-w-0">
@@ -2265,202 +2189,21 @@ export function AdminOverviewClient({ initialData }: AdminOverviewClientProps) {
       {/* STEP 5: Top Performers Leaderboards Grid (Dynamic from EMPLOYEE_GRAPH_CONFIGS) */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 min-w-0">
         {leaderboards.configuredCards && leaderboards.configuredCards.length > 0 ? (
-          leaderboards.configuredCards.map((card) => {
-            const chartItems: LeaderboardCardItem[] = card.items.map((it) => ({
-              id: it.id,
-              displayName: it.name,
-              subTitle: it.profileName || `${card.profile} Performer`,
-              targetAmount: it.targetAmount,
-              achievedAmount: it.achievedAmount,
-              achievementPercent: it.achievementPercent,
-              leadsCount: it.leadsHandled,
-              metricValue: it.metricValue,
-            }));
-
-            return (
-              <LeaderboardCard
-                key={card.id}
-                title={card.title}
-                items={chartItems}
-                formatINR={formatINR}
-              />
-            );
-          })
+          leaderboards.configuredCards.map((card) => (
+            <LeaderboardCard
+              key={card.id}
+              title={card.title}
+              items={card.items}
+              formatINR={formatINR}
+              configHref="/admin/settings/configuration/employee-graphs"
+            />
+          ))
         ) : (
-          <>
-            <LeaderboardCard title="Top Best TL" items={tlItems} formatINR={formatINR} />
-            <LeaderboardCard title="Top Best SBA" items={sbaItems} formatINR={formatINR} />
-            <LeaderboardCard title="Top Best BAT" items={batItems} formatINR={formatINR} />
-            <LeaderboardCard title="Top Best BA" items={baItems} formatINR={formatINR} />
-            <LeaderboardCard title="Top Team Best AFM" items={afmItems} formatINR={formatINR} />
-          </>
+          <div className="col-span-full py-12 text-center text-slate-400 bg-white/50 dark:bg-slate-900/40 rounded-2xl border border-slate-200/80 dark:border-white/[0.08]">
+            No active profile graphs configured.
+          </div>
         )}
       </div>
     </div>
-  );
-}
-
-interface LeaderboardCardItem {
-  id: string;
-  displayName: string;
-  subTitle?: string | null;
-  targetAmount: number;
-  achievedAmount: number;
-  achievementPercent: number;
-  leadsCount: number;
-  metricValue: number;
-}
-
-function LeaderboardCard({
-  title,
-  items,
-  formatINR,
-}: {
-  title: string;
-  items: LeaderboardCardItem[];
-  formatINR: (val: number) => string;
-}) {
-  const rawMax = Math.max(...items.map((i) => i.metricValue), 100000);
-  const niceMax = Math.max(100000, Math.ceil(rawMax / 50000) * 50000);
-  const yTicks = [
-    niceMax,
-    Math.round(niceMax * 0.8),
-    Math.round(niceMax * 0.6),
-    Math.round(niceMax * 0.4),
-    Math.round(niceMax * 0.2),
-    0,
-  ];
-
-  return (
-    <Card className="p-5 sm:p-6 flex flex-col justify-between min-w-0">
-      {/* Card Header matching Admin4.jpg & Admin5.jpg */}
-      <div className="flex items-center justify-between pb-3 border-b border-slate-200/80 dark:border-white/[0.06]">
-        <h3 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white truncate">
-          {title}
-        </h3>
-        <Link
-          href="/admin/settings/configuration/employee-graphs"
-          title="Configure Leaderboard Graphs"
-          className="p-1 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-white/[0.05] transition-colors cursor-pointer shrink-0"
-        >
-          <Menu className="size-4" />
-        </Link>
-      </div>
-
-      {/* Chart Body */}
-      {items.length === 0 ? (
-        <div className="h-64 sm:h-72 flex flex-col items-center justify-center text-center p-6 text-slate-400">
-          <p className="text-xs font-semibold">No performance records in this cohort yet.</p>
-          <span className="text-xs text-slate-500 mt-1">
-            Metrics will appear automatically as operators handle leads and record collections.
-          </span>
-        </div>
-      ) : (
-        <div className="pt-6 pb-2 h-64 sm:h-72 flex flex-col justify-between">
-          {/* Plot Area with Y-Axis Column and Bars */}
-          <div className="relative flex-1 min-w-0 flex">
-            {/* Y-Axis Column */}
-            <div className="w-12 sm:w-14 flex flex-col justify-between text-right pr-2 text-xs text-slate-400 font-mono select-none shrink-0">
-              {yTicks.map((val, idx) => (
-                <span key={idx} className="truncate">
-                  {val >= 1000 ? `${Math.round(val / 1000)}k` : val}
-                </span>
-              ))}
-            </div>
-
-            {/* Plot Area with Grid Lines */}
-            <div className="relative flex-1 min-w-0">
-              {/* Background Grid Lines */}
-              <div className="absolute inset-0 flex flex-col justify-between pointer-events-none">
-                {yTicks.map((val, idx) => (
-                  <div
-                    key={idx}
-                    className={`w-full border-b ${
-                      val === 0
-                        ? "border-slate-200 dark:border-white/[0.1]"
-                        : "border-slate-150 dark:border-white/[0.05]"
-                    }`}
-                  />
-                ))}
-              </div>
-
-              {/* Vertical Bars Layer */}
-              <div className="relative z-10 h-full flex items-end justify-around gap-1 sm:gap-3 px-1">
-                {items.map((item) => {
-                  const heightPercent = Math.min(
-                    95,
-                    Math.max(item.metricValue > 0 ? (item.metricValue / niceMax) * 95 : 4, 4)
-                  );
-
-                  return (
-                    <div
-                      key={item.id}
-                      className="group relative flex flex-col items-center flex-1 min-w-0 h-full justify-end cursor-pointer"
-                    >
-                      {/* Hover Tooltip */}
-                      <div className="absolute bottom-full mb-2 opacity-0 group-hover:opacity-100 transition-all duration-200 pointer-events-none z-30 min-w-[160px] p-2.5 rounded-xl bg-slate-900/95 dark:bg-[#080d19]/95 text-white border border-white/10 shadow-2xl backdrop-blur-md text-xs space-y-1">
-                        <div className="font-bold text-xs text-[#60A5FA]">{item.displayName}</div>
-                        {item.subTitle && (
-                          <div className="text-xs text-slate-400">{item.subTitle}</div>
-                        )}
-                        <div className="pt-1 border-t border-white/10 flex justify-between">
-                          <span className="text-slate-400">Achieved:</span>
-                          <span className="font-mono font-bold text-emerald-400">
-                            ₹{formatINR(item.achievedAmount)}
-                          </span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-slate-400">Target:</span>
-                          <span className="font-mono text-slate-200">
-                            ₹{formatINR(item.targetAmount)}
-                          </span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-slate-400">Achievement:</span>
-                          <span className="font-bold text-[#60A5FA]">
-                            {item.achievementPercent}%
-                          </span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-slate-400">Leads:</span>
-                          <span className="font-mono text-slate-200">{item.leadsCount}</span>
-                        </div>
-                      </div>
-
-                      {/* Vertical Bar */}
-                      <div
-                        className="w-full max-w-[44px] sm:max-w-[64px] rounded-t-md bg-gradient-to-t from-[#4F6DF5] to-[#60A5FA] hover:opacity-90 transition-all duration-300 shadow-sm"
-                        style={{ height: `${heightPercent}%` }}
-                      />
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          </div>
-
-          {/* Dedicated X-Axis Labels Row */}
-          <div className="flex pt-2 border-t border-slate-200/80 dark:border-white/[0.08]">
-            <div className="w-12 sm:w-14 shrink-0" />
-            <div className="flex-1 min-w-0 flex items-start justify-around gap-1 sm:gap-3 px-1">
-              {items.map((item) => (
-                <div
-                  key={item.id}
-                  className="flex-1 min-w-0 text-center px-0.5"
-                  title={`${item.displayName} · ${item.achievementPercent}% achieved`}
-                >
-                  <span className="text-xs font-semibold text-slate-700 dark:text-slate-300 truncate block">
-                    {item.displayName.split(" ")[0]}
-                  </span>
-                  <span className="text-[10px] sm:text-xs font-bold text-[#4F6DF5] dark:text-[#60A5FA] block">
-                    {item.achievementPercent}%
-                  </span>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
-    </Card>
   );
 }

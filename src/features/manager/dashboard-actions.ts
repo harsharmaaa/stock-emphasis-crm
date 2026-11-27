@@ -2,6 +2,7 @@
 
 import { requireManagerSession, handleActionError } from "@/src/lib/auth-guard";
 import { prisma } from "@/src/lib/prisma";
+import { getSharedLeaderboardsData } from "@/src/features/dashboard/leaderboard-service";
 import type {
   ManagerOverviewStep1Data,
   ManagerLeadReminder,
@@ -55,6 +56,7 @@ export async function getManagerDashboardStep1Action(): Promise<{
     endOfYesterday.setDate(endOfYesterday.getDate() - 1);
 
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);
+    const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
     const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
     const daysLeftInMonth = Math.max(0, daysInMonth - now.getDate());
 
@@ -165,8 +167,6 @@ export async function getManagerDashboardStep1Action(): Promise<{
       approvedPaymentsDailyRaw,
       callLogsRaw,
       scopedAllLeadsRaw,
-      // Step 4 Additions: Leaderboard Configurations from SystemSetting
-      savedGraphConfigsRaw,
     ] = await Promise.all([
       // 1. Target Sum (sum of employeeTarget for scoped subordinate users)
       prisma.user.aggregate({
@@ -526,6 +526,7 @@ export async function getManagerDashboardStep1Action(): Promise<{
         where: {
           status: "APPROVED",
           leadOwnerId: { in: allowedUserIds },
+          paymentDate: { gte: startOfMonth, lte: endOfMonth },
         },
         select: {
           id: true,
@@ -582,11 +583,6 @@ export async function getManagerDashboardStep1Action(): Promise<{
           },
         },
         orderBy: { updatedAt: "desc" },
-      }),
-
-      // 34. Step 4: Leaderboard Configurations from SystemSetting
-      prisma.systemSetting.findUnique({
-        where: { key: "EMPLOYEE_GRAPH_CONFIGS" },
       }),
     ]);
 
@@ -921,68 +917,11 @@ export async function getManagerDashboardStep1Action(): Promise<{
       .sort((a, b) => b.metricValue - a.metricValue || b.leadsHandled - a.leadsHandled)
       .slice(0, 3);
 
-    // Dynamic Leaderboard Configurations from SystemSetting
-    interface SavedConfigItem {
-      id: string;
-      title: string;
-      profile: string;
-      size: number;
-      type: "Individual" | "Team";
-      isActive: boolean;
-    }
-
-    let parsedConfigs: SavedConfigItem[] = [];
-    if (savedGraphConfigsRaw?.value) {
-      try {
-        const parsed = JSON.parse(savedGraphConfigsRaw.value);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          parsedConfigs = parsed;
-        }
-      } catch {
-        parsedConfigs = [];
-      }
-    }
-
-    const activeConfigs = parsedConfigs.filter((c) => c.isActive !== false);
-
-    const configuredCards: ManagerConfiguredLeaderboardSection[] = activeConfigs.map((cfg) => {
-      let items: ManagerPerformerBarItem[] = [];
-      const profUpper = (cfg.profile || "").trim().toUpperCase();
-
-      const candidateUsers = allPerformers.filter((p) => {
-        const emp = rawSubordinates.find((e) => e.id === p.id);
-        if (!emp) return false;
-        const uProf = (emp.employeeProfile?.name || "").toUpperCase();
-
-        if (profUpper === "SBA") {
-          return uProf.includes("SBA") || uProf.includes("STL") || uProf.includes("SENIOR");
-        }
-        if (profUpper === "BAT") {
-          return uProf.includes("BAT") || uProf.includes("TRAINEE") || uProf.includes("CA");
-        }
-        if (profUpper === "BA") {
-          return (
-            (uProf.includes("BA") && !uProf.includes("SBA") && !uProf.includes("BAT")) ||
-            !uProf
-          );
-        }
-        return uProf === profUpper || emp.name.toUpperCase().includes(profUpper);
-      });
-
-      items = (candidateUsers.length > 0 ? candidateUsers : allPerformers)
-        .slice()
-        .sort((a, b) => b.metricValue - a.metricValue || b.leadsHandled - a.leadsHandled)
-        .slice(0, cfg.size || 3);
-
-      return {
-        id: cfg.id,
-        title: cfg.title,
-        profile: cfg.profile,
-        size: cfg.size,
-        type: cfg.type,
-        items,
-      };
-    });
+    // Dynamic Leaderboard Configurations from SystemSetting (Shared Company-wide Best Performers)
+    const configuredCards: ManagerConfiguredLeaderboardSection[] = await getSharedLeaderboardsData(
+      startOfMonth,
+      endOfMonth
+    );
 
     const leaderboards: ManagerLeaderboardsData = {
       configuredCards,

@@ -2,6 +2,7 @@
 
 import { requireAdminSession, handleActionError } from "@/src/lib/auth-guard";
 import { prisma } from "@/src/lib/prisma";
+import { getSharedLeaderboardsData } from "./leaderboard-service";
 
 export interface DashboardLeadReminder {
   id: string;
@@ -250,6 +251,7 @@ export async function getAdminOverviewStep1Action(): Promise<{
     endOfDay.setHours(23, 59, 59, 999);
 
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);
+    const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
     const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
     const daysLeftInMonth = Math.max(0, daysInMonth - now.getDate());
 
@@ -292,8 +294,6 @@ export async function getAdminOverviewStep1Action(): Promise<{
       callLogsRaw,
       // Step 4 Additions: All Leads with metadata for Lead Report
       allLeadsRaw,
-      // Step 5 Additions: Saved Employee Graph Configs from SystemSetting
-      savedGraphConfigsRaw,
     ] = await Promise.all([
       // 1. Target Sum (sum of employeeTarget for active users)
       prisma.user.aggregate({
@@ -635,11 +635,6 @@ export async function getAdminOverviewStep1Action(): Promise<{
           },
         },
         orderBy: { updatedAt: "desc" },
-      }),
-
-      // 35. Step 5 Additions: Employee Graph Configurations from SystemSetting
-      prisma.systemSetting.findUnique({
-        where: { key: "EMPLOYEE_GRAPH_CONFIGS" },
       }),
     ]);
 
@@ -1026,123 +1021,10 @@ export async function getAdminOverviewStep1Action(): Promise<{
       .slice(0, 5);
 
     // Step 5 Extension: Dynamic Leaderboard Configurations from SystemSetting
-    interface SavedConfigItem {
-      id: string;
-      title: string;
-      profile: string;
-      size: number;
-      type: "Individual" | "Team";
-      isActive: boolean;
-    }
-
-    const defaultGraphConfigs: SavedConfigItem[] = [
-      { id: "graph_seed_1", title: "Best TL", profile: "TL", size: 5, type: "Individual", isActive: true },
-      { id: "graph_seed_2", title: "Best SBA", profile: "SBA", size: 5, type: "Individual", isActive: true },
-      { id: "graph_seed_3", title: "Best BAT", profile: "BAT", size: 5, type: "Individual", isActive: true },
-      { id: "graph_seed_4", title: "Best BA", profile: "BA", size: 5, type: "Individual", isActive: true },
-      { id: "graph_seed_5", title: "Best AFM", profile: "AFM", size: 5, type: "Team", isActive: true },
-    ];
-
-    let parsedConfigs: SavedConfigItem[] = defaultGraphConfigs;
-    if (savedGraphConfigsRaw?.value) {
-      try {
-        const parsed = JSON.parse(savedGraphConfigsRaw.value);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          parsedConfigs = parsed;
-        }
-      } catch {
-        parsedConfigs = defaultGraphConfigs;
-      }
-    }
-
-    const activeConfigs = parsedConfigs.filter((c) => c.isActive !== false);
-
-    const configuredCards: ConfiguredLeaderboardSection[] = activeConfigs.map((cfg) => {
-      let items: PerformerBarItem[] = [];
-
-      if (cfg.type?.toUpperCase() === "TEAM") {
-        // Team calculations
-        items = teamsList.map((t) => {
-          const memberIds = new Set(t.members.map((m) => m.id));
-          let teamAchieved = 0;
-          for (const p of approvedPaymentsDailyRaw) {
-            if (p.teamId === t.id || (p.leadOwnerId && memberIds.has(p.leadOwnerId))) {
-              teamAchieved += Number(p.amount);
-            }
-          }
-          const teamTarget = t.members.reduce((acc, m) => acc + (m.employeeTarget || 0), 0);
-          const achievementPercent =
-            teamTarget > 0
-              ? Math.round((teamAchieved / teamTarget) * 100)
-              : teamAchieved > 0
-              ? 100
-              : 0;
-          const leadsCount = t.leads.length;
-          const metricValue =
-            teamAchieved > 0 ? teamAchieved : teamTarget > 0 ? teamTarget : leadsCount * 1000;
-
-          return {
-            id: t.id,
-            name: t.leader?.name || t.name,
-            profileName: `Team ${t.name}`,
-            targetAmount: teamTarget,
-            achievedAmount: teamAchieved,
-            achievementPercent,
-            leadsHandled: leadsCount,
-            metricValue,
-          };
-        });
-      } else {
-        // Individual calculations
-        const profUpper = (cfg.profile || "").trim().toUpperCase();
-
-        const candidateUsers = allPerformers.filter((p) => {
-          const emp = employeesList.find((e) => e.id === p.id);
-          if (!emp) return false;
-          const uProf = (emp.employeeProfile?.name || "").toUpperCase();
-
-          if (profUpper === "TL") {
-            return (
-              emp.ledTeams.length > 0 ||
-              emp.role === "MANAGER" ||
-              uProf.includes("TL") ||
-              uProf.includes("LEAD") ||
-              uProf.includes("MANAGER")
-            );
-          }
-          if (profUpper === "SBA") {
-            return uProf.includes("SBA") || uProf.includes("STL") || uProf.includes("SENIOR");
-          }
-          if (profUpper === "BAT") {
-            return uProf.includes("BAT") || uProf.includes("TRAINEE") || uProf.includes("CA");
-          }
-          if (profUpper === "BA") {
-            return (
-              (uProf.includes("BA") && !uProf.includes("SBA") && !uProf.includes("BAT")) ||
-              emp.role === "EMPLOYEE"
-            );
-          }
-          return uProf === profUpper || emp.name.toUpperCase().includes(profUpper);
-        });
-
-        items = candidateUsers.length > 0 ? candidateUsers : allPerformers;
-      }
-
-      // Sort descending by performance and slice to configured Size
-      items = items
-        .slice()
-        .sort((a, b) => b.metricValue - a.metricValue || b.leadsHandled - a.leadsHandled)
-        .slice(0, Math.max(1, cfg.size || 5));
-
-      return {
-        id: cfg.id,
-        title: cfg.title,
-        profile: cfg.profile,
-        size: cfg.size,
-        type: (cfg.type?.toUpperCase() === "TEAM" ? "Team" : "Individual") as "Individual" | "Team",
-        items,
-      };
-    });
+    const configuredCards: ConfiguredLeaderboardSection[] = await getSharedLeaderboardsData(
+      startOfMonth,
+      endOfMonth
+    );
 
     return {
       success: true,
